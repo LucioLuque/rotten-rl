@@ -31,6 +31,22 @@
   `e07_rl3e-4` (lr del DQN 0.0003), `e08_batch256`, `e09_learn32`.
 - Comparar con `python scripts/summarize_runs.py --runs_dir ~/scratch/runs --filter e0`.
 
+Resultados del barrido 1 (promedio de las últimas 3 evaluaciones de 500 partidas, vs heurística):
+
+| Experimento | win | diff | acierto de canto | sesgo |
+|---|---|---|---|---|
+| `e00_base` (semilla 0) | 0.389 | −9.0 | 0.313 | +0.36 |
+| `e01_seed1` | 0.399 | −8.6 | 0.306 | +0.45 |
+| `e02_antic0.2` | 0.391 | −8.7 | 0.312 | +0.37 |
+| `e03_antic0.3` | 0.403 | −7.9 | 0.313 | +0.48 |
+| `e04_relative` | **0.428** | **−6.3** | 0.316 | +0.36 |
+
+- Ruido entre semillas: ~±0.01 de win y ±0.5 de diff.
+- `anticipatory_param` casi no cambia nada. El reward relativo parece ayudar (a confirmar con
+  otras semillas). Todas cantan de más y rondan 0.40 vs heurística a los 50k.
+- Barrido 2, agregado a la cola: `e10_relative_seed1`, `e11_relative_seed2`,
+  `e12_relative_antic0.3`, `e13_eps0.2` (ε inicial 0.2) y `e14_relative_200k` (200k episodios).
+
 ### Para retomar el lunes 26/10 (acceso desde las 22:00)
 
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
