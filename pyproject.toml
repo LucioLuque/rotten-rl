@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "open_spiel",
+    "open_spiel>=2.0",   # desde 2.0 el wheel trae pytorch/nfsp.py
     "torch",
     "absl-py",
     "dm-tree",

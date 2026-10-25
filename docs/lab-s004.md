@@ -114,12 +114,11 @@ git clone https://github.com/LucioLuque/rotten-rl.git ~/rotten-rl
 uv venv --python 3.12 ~/scratch/work/venvs/rotten-rl
 source ~/scratch/work/venvs/rotten-rl/bin/activate
 cd ~/rotten-rl && uv pip install -e ".[dev]"
-curl -sL https://raw.githubusercontent.com/google-deepmind/open_spiel/master/open_spiel/python/pytorch/nfsp.py \
-  -o "$(python -c 'import open_spiel,os;print(os.path.dirname(open_spiel.__file__))')/python/pytorch/nfsp.py"
 pytest
 ```
 
-torch se instala con CUDA (`torch.cuda.is_available()` da `True`).
+Se instala `open_spiel` 2.0.2, que ya trae `pytorch/nfsp.py`, y torch con CUDA
+(`torch.cuda.is_available()` da `True`).
 
 ## Velocidad medida (25/10/2026)
 

@@ -26,10 +26,8 @@ docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN,
 pip install -e ".[play,dev]"
 ```
 
-Los paquetes de `open_spiel` en pip no incluyen `open_spiel/python/pytorch/nfsp.py`. Para entrenar
-hace falta OpenSpiel compilado desde el código fuente, o copiar ese archivo del
-[repo de OpenSpiel](https://github.com/google-deepmind/open_spiel/blob/master/open_spiel/python/pytorch/nfsp.py)
-dentro de la instalación (la versión de `master` necesita Python 3.11 o más nuevo).
+Hace falta `open_spiel` 2.0 o más nuevo (Python 3.11+): las versiones 1.x de pip no incluyen
+`open_spiel/python/pytorch/nfsp.py`.
 
 ## Uso
 

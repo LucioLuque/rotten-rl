@@ -35,6 +35,7 @@ import pyspiel
 import rotten_rl.openspiel_game                    # registra el juego "podrida"
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent, network_opponent
 from rotten_rl.run_logger import RunLogger
+from rotten_rl.training import with_pending_reward
 
 FLAGS = flags.FLAGS
 # --- juego / evaluacion ---
@@ -58,6 +59,13 @@ flags.DEFINE_integer("batch_size", 128, "Batch de aprendizaje.")
 flags.DEFINE_integer("learn_every", 64, "Pasos entre updates.")
 flags.DEFINE_float("rl_learning_rate", 0.01, "LR del DQN interno.")
 flags.DEFINE_float("discount_factor", 1.0, "Descuento gamma.")
+# Exploracion del DQN. Los defaults de OpenSpiel 2.x (1.0 -> 0.1 en 1M pasos) dejan la
+# best-response jugando casi al azar durante cientos de miles de episodios, y la avg-policy
+# aprende a imitar eso. Estos son los valores del paper de NFSP / examples/nfsp.py.
+flags.DEFINE_float("epsilon_start", 0.06, "Epsilon inicial del DQN.")
+flags.DEFINE_float("epsilon_end", 0.001, "Epsilon final del DQN.")
+flags.DEFINE_integer("epsilon_decay_duration", int(2e6),
+                     "Pasos del DQN (no episodios) en que epsilon va de start a end.")
 # --- politica promedio (red supervisada) ---
 flags.DEFINE_integer("reservoir_buffer_capacity", int(2e6), "Reservoir buffer (avg policy).")
 flags.DEFINE_float("sl_learning_rate", 0.01, "LR de la red de politica promedio.")
@@ -123,6 +131,9 @@ def main(_):
         sl_learning_rate=FLAGS.sl_learning_rate,
         optimizer_str=FLAGS.optimizer_str,
         discount_factor=FLAGS.discount_factor,
+        epsilon_start=FLAGS.epsilon_start,
+        epsilon_end=FLAGS.epsilon_end,
+        epsilon_decay_duration=FLAGS.epsilon_decay_duration,
         device=FLAGS.device,
     )
     agents = [nfsp.NFSP(idx, info_state_size, num_actions, hidden, **kwargs) for idx in range(n)]
@@ -140,7 +151,8 @@ def main(_):
         "eval_opponents", "save_checkpoints", "hidden_layers_sizes", "replay_buffer_capacity",
         "reservoir_buffer_capacity", "min_buffer_size_to_learn", "batch_size",
         "learn_every", "rl_learning_rate", "sl_learning_rate", "anticipatory_param",
-        "discount_factor", "optimizer_str", "seed", "device"]}
+        "discount_factor", "epsilon_start", "epsilon_end", "epsilon_decay_duration",
+        "optimizer_str", "seed", "device"]}
     config.update(info_state_size=info_state_size, num_actions=num_actions)
     log = RunLogger(run_name=FLAGS.run_name, config=config)
     logging.info("Corrida: %s  (info_state=%d, acciones=%d)", log.name, info_state_size, num_actions)
@@ -187,14 +199,17 @@ def main(_):
     for ep in range(1, FLAGS.num_train_episodes + 1):
         time_step = env.reset()
         ep_reward = 0.0
+        pending = [0.0] * n        # reward acumulado por jugador desde su ultima decision
         while not time_step.last():
             pid = time_step.observations["current_player"]
-            action = agents[pid].step(time_step).action
+            action = agents[pid].step(with_pending_reward(time_step, pending, pid)).action
             time_step = env.step([action])
             if time_step.rewards is not None:
                 ep_reward += time_step.rewards[0]     # suma de rewards del asiento 0
-        for agent in agents:
-            agent.step(time_step)
+                for i in range(n):
+                    pending[i] += time_step.rewards[i]
+        for pid, agent in enumerate(agents):
+            agent.step(with_pending_reward(time_step, pending, pid))
         reward_window.append(ep_reward)               # = retorno de la partida (asiento 0)
 
         if ep % FLAGS.log_every == 0:

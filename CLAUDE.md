@@ -19,9 +19,9 @@ actualizarlo al terminar algo).
 
 ## En el laboratorio
 
-- Repo en `~/rotten-rl`, entorno en `~/scratch/work/venvs/rotten-rl`.
-- `nfsp.py` de PyTorch no viene en los wheels de `open_spiel`: está copiado a mano en el venv (ver
-  `docs/lab-s004.md`). Si se recrea el entorno, hay que volver a copiarlo.
+- Repo en `~/rotten-rl`, entorno en `~/scratch/work/venvs/rotten-rl` (`open_spiel` 2.0.2).
+- NFSP de OpenSpiel 2.x es una reescritura de enero de 2026; sus defaults de exploración del DQN
+  (ε de 1.0 a 0.1 en 1M pasos) no sirven para NFSP. El script los fija con `--epsilon_*`.
 
 ## Convenciones
 
