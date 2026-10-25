@@ -17,6 +17,7 @@ scripts/
   play.py               partida jugable contra bots
 tests/                  tests con pytest
 docs/plan.md            plan del proyecto, diseño de la observación, recompensa y métricas
+docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN, SSH, horarios, velocidad)
 ```
 
 ## Instalación
