@@ -16,9 +16,13 @@
 | `baseline2p_20260726-230529` | otra máquina | 2 jugadores, 1M episodios | Solo llegó a la evaluación del episodio 0 | — |
 | `nfsp2p_50k_20261025-175802` | lab | NFSP, 2 jugadores, 50k episodios, **con los dos bugs** | Terminada (49 min) | Plana: vs random 0.51, vs heurística 0.22, acierto de canto 0.25, igual que sin entrenar |
 | `diag_dqn2p` | lab | DQN solo vs random, 2 jugadores, 20k episodios, reward arreglado | Terminada (20 min) | vs random 0.71, vs heurística 0.44 (de 0.14), acierto de canto 0.37 (de 0.26); canta de más (sesgo +0.8 vs heurística) |
-| `nfsp2p_50k_fix_20261025-184740` | lab, `~/rotten-rl/runs/` | NFSP, 2 jugadores, 50k episodios, con los dos arreglos, lr 0.01 | En curso (tmux `nfspfix`) | A los 25k: vs random 0.57, vs heurística 0.31 (de 0.21), acierto de canto 0.27, sesgo +0.44 |
-| `nfsp2p_50k_lr1e-3_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.001 (RL y SL), loop propio | En curso (tmux `lr1e-3`) | — |
-| `nfsp2p_50k_lr3e-4_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.0003 (RL y SL), loop propio | En curso (tmux `lr3e-4`) | — |
+| `nfsp2p_50k_fix_20261025-184740` | lab, `~/rotten-rl/runs/` | NFSP, 2 jugadores, 50k episodios, con los dos arreglos, lr 0.01 | Terminada | Estancada: vs random 0.57, vs heurística 0.27 (diff −19.7), acierto de canto 0.24, sesgo +0.64 |
+| `nfsp2p_50k_lr1e-3_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.001 (RL y SL), loop propio | Terminada (~35 min) | vs random 0.70, vs heurística **0.46 (diff −4.6)**, acierto de canto 0.33, sesgo +0.24 (vs random) / +0.40 (vs heurística) |
+| `nfsp2p_50k_lr3e-4_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.0003 (RL y SL), loop propio | Terminada (~35 min) | vs random 0.69, vs heurística 0.41 (diff −7.7), acierto de canto 0.34, sesgo +0.28 / +0.47 |
+
+Conclusión del barrido de learning rate: 0.01 es demasiado alto; 0.001 y 0.0003 andan parecido (la
+diferencia está dentro del ruido de 300 partidas) y siguen mejorando de a poco a los 50k. Las dos
+cantan de más.
 
 Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log en
 `~/scratch/logs/`.
