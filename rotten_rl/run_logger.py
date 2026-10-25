@@ -39,17 +39,29 @@ class RunLogger:
         base_dir: str = "runs",
         run_name: Optional[str] = None,
         config: Optional[Dict] = None,
+        run_dir: Optional[str] = None,
+        resume_after: Optional[int] = None,
     ) -> None:
-        # Timestamp SIEMPRE presente -> dos corridas nunca comparten carpeta,
-        # aunque pases el mismo --run_name.
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        base = run_name.strip() if run_name else "podrida"
-        name = f"{base}_{ts}"
-        self.run_dir = os.path.join(base_dir, name)
+        """Crea una corrida nueva en `base_dir`, o con `run_dir` y
+        `resume_after=<episodio>` sigue una existente: los CSV se continuan y
+        se descarta lo que se habia logueado despues de ese episodio (lo que
+        corrio entre el ultimo checkpoint y el corte)."""
+        if run_dir is None:
+            # Timestamp SIEMPRE presente -> dos corridas nunca comparten carpeta,
+            # aunque pases el mismo --run_name.
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            base = run_name.strip() if run_name else "podrida"
+            run_dir = os.path.join(base_dir, f"{base}_{ts}")
+        self.run_dir = run_dir
+        self.name = os.path.basename(os.path.normpath(run_dir))
         os.makedirs(os.path.join(self.run_dir, "tb"), exist_ok=True)
-        self.name = name
 
-        self.writer = SummaryWriter(os.path.join(self.run_dir, "tb"))
+        self._resume_after = resume_after
+        if resume_after is not None:
+            self._truncate_csvs(resume_after)
+        self.writer = SummaryWriter(
+            os.path.join(self.run_dir, "tb"),
+            purge_step=None if resume_after is None else resume_after + 1)
 
         if config is not None:
             with open(os.path.join(self.run_dir, "config.json"), "w") as f:
@@ -66,12 +78,33 @@ class RunLogger:
 
     # ------------------------------------------------------------------
 
+    def _truncate_csvs(self, episode: int) -> None:
+        for fname in os.listdir(self.run_dir):
+            if not fname.endswith(".csv"):
+                continue
+            path = os.path.join(self.run_dir, fname)
+            with open(path, newline="") as f:
+                rows = list(csv.reader(f))
+            if not rows:
+                continue
+            header, body = rows[0], rows[1:]
+            col = header.index("episode")
+            keep = [r for r in body if int(r[col]) <= episode]
+            with open(path, "w", newline="") as f:
+                csv.writer(f).writerows([header] + keep)
+
     def _csv_row(self, fname: str, row: Dict) -> None:
         if fname not in self._csv_writers:
             path = os.path.join(self.run_dir, fname)
-            f = open(path, "w", newline="")
-            w = csv.DictWriter(f, fieldnames=list(row.keys()))
-            w.writeheader()
+            if self._resume_after is not None and os.path.exists(path):
+                with open(path, newline="") as f:
+                    fieldnames = next(csv.reader(f))
+                f = open(path, "a", newline="")
+                w = csv.DictWriter(f, fieldnames=fieldnames)
+            else:
+                f = open(path, "w", newline="")
+                w = csv.DictWriter(f, fieldnames=list(row.keys()))
+                w.writeheader()
             self._csv_files[fname] = f
             self._csv_writers[fname] = w
         self._csv_writers[fname].writerow(row)

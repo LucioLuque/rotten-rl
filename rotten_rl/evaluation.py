@@ -139,9 +139,11 @@ def network_opponent(networks, rng: np.random.RandomState) -> ActFn:
     asiento (como los agentes de NFSP); el asiento j usa networks[j]."""
     import torch
 
+    from .openspiel_game import info_state_tensor
+
     def act(state, legal):
         cur = state.current_player()
-        info = state.information_state_tensor(cur)
+        info = info_state_tensor(state, cur)
         with torch.no_grad():
             logits = networks[cur](torch.as_tensor(info, dtype=torch.float32)[None])[0]
         probs = torch.softmax(logits[legal], dim=0).numpy().astype(np.float64)

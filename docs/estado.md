@@ -14,13 +14,31 @@
 | Corrida | Dónde | Config | Estado | Resultado |
 |---|---|---|---|---|
 | `baseline2p_20260726-230529` | otra máquina | 2 jugadores, 1M episodios | Solo llegó a la evaluación del episodio 0 | — |
-| `nfsp2p_50k_20261025-175802` | lab, `~/rotten-rl/runs/` | 2 jugadores, 50k episodios, eval cada 5k con 300 partidas | En curso (tmux `nfsp2p`, log `~/scratch/logs/nfsp2p_50k.log`) | — |
+| `nfsp2p_50k_20261025-175802` | lab | NFSP, 2 jugadores, 50k episodios, **con los dos bugs** | Terminada (49 min) | Plana: vs random 0.51, vs heurística 0.22, acierto de canto 0.25, igual que sin entrenar |
+| `diag_dqn2p` | lab | DQN solo vs random, 2 jugadores, 20k episodios, reward arreglado | En curso (tmux `diag`) | A los 4k: vs random 0.66, vs heurística 0.40 (de 0.14), acierto de canto 0.32 |
+| `nfsp2p_50k_fix_20261025-184740` | lab | NFSP, 2 jugadores, 50k episodios, con los dos arreglos | En curso (tmux `nfspfix`) | — |
+
+Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log en
+`~/scratch/logs/`.
+
+## Bugs encontrados (25/10/2026)
+
+1. **Reward perdido entre turnos.** El juego da reward al cerrar cada ronda, pero cada agente solo
+   ve los TimeSteps de sus turnos y `rl_environment` no acumula: el reward le llegaba solo al que
+   jugaba justo después del cierre. Se perdía el 46% del reward con 2 jugadores, 69% con 4 y 74% con
+   7. Arreglado con `rotten_rl.training.with_pending_reward`; lo cubre un test.
+2. **Exploración del DQN de NFSP.** OpenSpiel 2.x usa por defecto ε de 1.0 a 0.1 en 1M pasos: la
+   best-response jugaba casi al azar y la avg-policy lo imitaba. Ahora el script usa 0.06 → 0.001
+   (valores del paper).
 
 ## Próximos pasos
 
-1. Analizar la corrida de 50k: curvas de win rate y de canto contra cada rival.
-2. Checkpoints completos y retomar el entrenamiento desde el último (las corridas largas no entran
-   en una noche por el reinicio de las 07:30).
-3. Corridas largas de 2 jugadores; después 3 y 4.
+1. Ver si NFSP aprende con los dos arreglos (`nfsp2p_50k_fix`).
+2. ~~Loop de entrenamiento propio y checkpoints~~ Hecho: `rotten_rl/training.py`
+   (`EpisodeRunner`, 1.65× más rápido) y `rotten_rl/checkpoint.py`; `train_nfsp.py` tiene
+   `--resume`, `--stop_at` y corte prolijo por señal. Cortar y retomar da resultados idénticos.
+3. Bajar la memoria de NFSP: una corrida de 50k ya usa 5.5 GB y el reservoir de 2M podría llegar a
+   ~7 GB por agente.
+4. Corridas largas de 2 jugadores; después 3 y 4.
 4. PSRO simétrico con 3 jugadores.
 5. Un modelo para n de 2 a 4; después escalar a 7.

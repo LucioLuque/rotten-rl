@@ -547,6 +547,25 @@ class PodridaObserver_OS:
 
 
 # ----------------------------------------------------------------------
+# Acceso rapido al info-state
+# ----------------------------------------------------------------------
+
+_FAST_OBSERVER: Optional[PodridaObserver_OS] = None
+
+
+def info_state_tensor(state: PodridaState_OS, player: int) -> np.ndarray:
+    """Igual que `state.information_state_tensor(player)`, pero llamando directo
+    al observer. Pedirlo por pyspiel cuesta mucho mas: copia el estado y arma
+    el tensor dos veces por pedido. Devuelve una copia (float32, 808), asi que
+    se puede guardar sin que la pise el siguiente pedido."""
+    global _FAST_OBSERVER
+    if _FAST_OBSERVER is None:
+        _FAST_OBSERVER = PodridaObserver_OS(None, None)
+    _FAST_OBSERVER.set_from(state, player)
+    return _FAST_OBSERVER.tensor.copy()
+
+
+# ----------------------------------------------------------------------
 # Registro
 # ----------------------------------------------------------------------
 

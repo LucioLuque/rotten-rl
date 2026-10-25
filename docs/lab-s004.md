@@ -120,6 +120,36 @@ pytest
 Se instala `open_spiel` 2.0.2, que ya trae `pytorch/nfsp.py`, y torch con CUDA
 (`torch.cuda.is_available()` da `True`).
 
+## Lanzar, cortar y retomar corridas
+
+Las corridas van en `tmux` (sobrevive al corte de SSH y de la VPN) y con los resultados en
+`~/scratch/runs`, porque los checkpoints con buffers pesan GB y el home tiene 2 GB:
+
+```bash
+tmux new -s nfsp2p
+cd ~/rotten-rl && source ~/scratch/work/venvs/rotten-rl/bin/activate
+OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python scripts/train_nfsp.py --players 2 \
+  --num_train_episodes 1000000 --runs_dir ~/scratch/runs --run_name nfsp2p --stop_at 06:55 \
+  2>&1 | tee ~/scratch/logs/nfsp2p.log
+# salir de tmux sin cortarlo: Ctrl+b y después d. Volver: tmux attach -t nfsp2p
+```
+
+- Cada `--checkpoint_every` partidas (10.000 por defecto) se guarda el estado completo en
+  `<corrida>/state/ckpt_ep<N>/` (redes, optimizadores, contadores, buffers y RNGs). Se conservan los
+  últimos `--keep_checkpoints` (2).
+- `--stop_at 06:55` corta solo a esa hora guardando un checkpoint, antes del corte de SSH de las
+  07:00 y del reinicio de las 07:30. También corta prolijo con `SIGTERM`, `SIGHUP` o `Ctrl+C`:
+  termina la partida en curso, guarda y sale.
+- Para seguir otra noche:
+  ```bash
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python scripts/train_nfsp.py \
+    --resume ~/scratch/runs/nfsp2p_<timestamp> --stop_at 06:55
+  ```
+  Usa la config guardada en `config.json`; solo se pueden cambiar flags que no afectan al modelo
+  (`--num_train_episodes`, `--eval_every`, `--checkpoint_every`, ...).
+- Verificado (25/10/2026): cortar y retomar, por `--stop_at` o por `SIGTERM`, da exactamente las
+  mismas métricas que entrenar de corrido.
+
 ## Velocidad medida (25/10/2026)
 
 Entrenamiento corto: 3 jugadores, 400 episodios, 3 evaluaciones de 30 partidas.
@@ -128,13 +158,16 @@ Entrenamiento corto: 3 jugadores, 400 episodios, 3 evaluaciones de 30 partidas.
 |---|---|---|
 | Laptop | 3 min 50 s | ~0.5 s |
 | Lab, torch con todos los hilos | 52 s | ~0.115 s |
-| Lab, `OMP_NUM_THREADS=1` | **37 s** | **~0.08 s** |
+| Lab, `OMP_NUM_THREADS=1` | 37 s | ~0.08 s |
+| Lab, loop propio sin `rl_environment` | **24 s** | **~0.053 s** |
 
 - Con redes tan chicas, torch multihilo es **más lento**: correr siempre con
   `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`.
 - Así cada corrida usa un solo núcleo, y se pueden correr varias en paralelo (semillas,
   configuraciones, cantidad de jugadores). Por ser máquinas compartidas, no ocupar todos los hilos:
   mirar `btop` antes de lanzar.
-- Estimación: 1M de episodios con 3 jugadores ≈ 23 h. Entra en un fin de semana; en una noche de
-  semana entran ~350k.
+- Estimación con el loop propio: 1M de episodios con 3 jugadores ≈ 15 h. En una noche de semana
+  entran ~550k.
+- Memoria: una corrida NFSP de 2 jugadores con 50k episodios usa ~5.5 GB, y crece con el reservoir
+  (hasta ~7 GB por agente con la capacidad de 2M). Es lo que limita cuántas corren a la vez.
 - La GPU por ahora no aporta: el cuello de botella es simular el juego en Python.
