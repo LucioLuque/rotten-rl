@@ -20,6 +20,17 @@
 | `nfsp2p_50k_lr1e-3_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.001 (RL y SL), loop propio | Terminada (~35 min) | vs random 0.70, vs heurística **0.46 (diff −4.6)**, acierto de canto 0.33, sesgo +0.24 (vs random) / +0.40 (vs heurística) |
 | `nfsp2p_50k_lr3e-4_20261025-191935` | lab, `~/scratch/runs/` | Igual, con lr 0.0003 (RL y SL), loop propio | Terminada (~35 min) | vs random 0.69, vs heurística 0.41 (diff −7.7), acierto de canto 0.34, sesgo +0.28 / +0.47 |
 
+### En curso desde el 25/10/2026 20:00 (cortan solas a las 06:55)
+
+- `nfsp2p_1M_lr1e-3` (tmux `long`): NFSP 2 jugadores, 1M episodios, lr 0.001, eval cada 25k con
+  500 partidas, checkpoint cada 25k. No termina en una noche: seguir con `--resume`.
+- Cola de experimentos (tmux `queue`, `scripts/run_queue.py`, cola en `~/scratch/queue.txt`, 5 a la
+  vez): barrido 1, todos 50k episodios con lr 0.001 y eval de 500 partidas, cambiando una cosa por
+  vez: `e00_base`, `e01_seed1`, `e06_seed2` (para medir el ruido entre semillas),
+  `e02_antic0.2`, `e03_antic0.3`, `e04_relative` (reward relativo), `e05_h512` (capas de 512),
+  `e07_rl3e-4` (lr del DQN 0.0003), `e08_batch256`, `e09_learn32`.
+- Comparar con `python scripts/summarize_runs.py --runs_dir ~/scratch/runs --filter e0`.
+
 Conclusión del barrido de learning rate: 0.01 es demasiado alto; 0.001 y 0.0003 andan parecido (la
 diferencia está dentro del ruido de 300 partidas) y siguen mejorando de a poco a los 50k. Las dos
 cantan de más.
