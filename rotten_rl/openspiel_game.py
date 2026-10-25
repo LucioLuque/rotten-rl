@@ -1,7 +1,7 @@
 """
-podrida_openspiel.py
+rotten_rl/openspiel_game.py
 
-Wrapper de OpenSpiel (pyspiel) para el motor `podrida.PodridaGame`.
+Wrapper de OpenSpiel (pyspiel) para el motor `rotten_rl.engine.PodridaGame`.
 
 Idea general
 ------------
@@ -26,7 +26,7 @@ están marcados con `# AJUSTE:`.
 Uso
 ---
     import pyspiel
-    import podrida_openspiel                      # registra el juego
+    import rotten_rl.openspiel_game                # registra el juego
     game = pyspiel.load_game("podrida", {"players": 4})
     state = game.new_initial_state()
     # ... loop estándar de OpenSpiel (ver __main__ abajo)
@@ -39,7 +39,7 @@ from typing import List, Optional
 import numpy as np
 import pyspiel
 
-from podrida import (
+from .engine import (
     RANKS,
     SUITS,
     BID_OFFSET,

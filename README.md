@@ -3,25 +3,38 @@
 Agentes de aprendizaje por refuerzo para **La Podrida** (*Oh Hell*), el juego de bazas con canto,
 sobre [OpenSpiel](https://github.com/google-deepmind/open_spiel).
 
-## Estructura (`podrida/`)
+## Estructura
 
-| Archivo | Qué hace |
-|---|---|
-| `podrida.py` | Motor del juego en Python puro: reglas, cantos, bazas y puntaje |
-| `podrida_openspiel.py` | Wrapper `pyspiel.Game`/`State` y observer (información de 2 a 7 jugadores con padding) |
-| `evaluation.py` | Oponentes de referencia (random, heurística) y métricas de evaluación |
-| `train_nfsp_podrida.py` | Entrenamiento NFSP con self-play |
-| `run_logger.py` | Logging a TensorBoard, CSV y `config.json` en `runs/` |
-| `demo_visual.py`, `visual_renderer.py` | Partida jugable con Pygame |
-| `test_reglas.py` | Chequeo de la regla de seguir el palo |
-| `RL podrida.pdf` | Plan del proyecto y diseño de la observación |
+```
+rotten_rl/              paquete
+  engine.py             motor del juego en Python puro: reglas, cantos, bazas y puntaje
+  openspiel_game.py     wrapper pyspiel.Game/State y observer (2 a 7 jugadores, con padding)
+  evaluation.py         rivales de referencia (random, heurística, redes) y métricas
+  run_logger.py         logging a TensorBoard, CSV y config.json en runs/
+  renderer.py           render con Pygame
+scripts/
+  train_nfsp.py         entrenamiento NFSP con self-play
+  play.py               partida jugable contra bots
+tests/                  tests con pytest
+docs/plan.md            plan del proyecto, diseño de la observación, recompensa y métricas
+```
+
+## Instalación
+
+```bash
+pip install -e ".[play,dev]"
+```
+
+Los paquetes de `open_spiel` en pip no incluyen `open_spiel/python/pytorch/nfsp.py`. Para entrenar
+hace falta OpenSpiel compilado desde el código fuente, o copiar ese archivo del
+[repo de OpenSpiel](https://github.com/google-deepmind/open_spiel/blob/master/open_spiel/python/pytorch/nfsp.py)
+dentro de la instalación (la versión de `master` necesita Python 3.11 o más nuevo).
 
 ## Uso
 
 ```bash
-pip install open_spiel torch dm-tree tensorboard pygame
-cd podrida
-python train_nfsp_podrida.py --players 2 --run_name baseline2p
+python scripts/train_nfsp.py --players 2 --run_name baseline2p
 tensorboard --logdir runs
-python demo_visual.py      # jugar contra bots
+python scripts/play.py      # jugar contra bots
+pytest
 ```

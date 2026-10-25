@@ -1,5 +1,5 @@
 """
-train_nfsp_podrida.py  —  Fase 2: sanity check con NFSP + logging completo.
+scripts/train_nfsp.py  —  Fase 2: sanity check con NFSP + logging completo.
 
 Entrena agentes NFSP (self-play) sobre `podrida` y evalua contra random, la
 heuristica y la version anterior de si mismo (rotando el asiento evaluado),
@@ -9,14 +9,13 @@ ronda h y por asiento, con:
   - evaluacion cada --eval_every episodios (incluye un baseline en el ep 0),
   - persistencia a TensorBoard + CSV + config.json, en runs/<nombre_unico>/.
 
-El evaluador (evaluation.py) y el logger (run_logger.py) son modulos aparte.
+El evaluador (rotten_rl/evaluation.py) y el logger (rotten_rl/run_logger.py) son modulos aparte.
 
 Requisitos:
-    pip install open_spiel torch dm-tree tensorboard
-    # con podrida.py, podrida_openspiel.py, evaluation.py, run_logger.py al lado
+    pip install -e .        # desde la raiz del repo
 
 Ejemplos:
-    python train_nfsp_podrida.py --players 2 --num_train_episodes 1000000 \
+    python scripts/train_nfsp.py --players 2 --num_train_episodes 1000000 \
         --eval_every 50000 --log_every 2000 --run_name baseline2p
     tensorboard --logdir runs
 """
@@ -33,9 +32,9 @@ from open_spiel.python import rl_environment
 from open_spiel.python.pytorch import nfsp
 
 import pyspiel
-import podrida_openspiel                      # registra el juego "podrida"
-from evaluation import evaluate, random_opponent, heuristic_opponent, network_opponent
-from run_logger import RunLogger
+import rotten_rl.openspiel_game                    # registra el juego "podrida"
+from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent, network_opponent
+from rotten_rl.run_logger import RunLogger
 
 FLAGS = flags.FLAGS
 # --- juego / evaluacion ---

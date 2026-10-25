@@ -1,5 +1,5 @@
 """
-run_logger.py
+rotten_rl/run_logger.py
 
 Manejo de una corrida de entrenamiento:
   - Nombre unico de experimento (para que NUNCA se pisen los resultados).

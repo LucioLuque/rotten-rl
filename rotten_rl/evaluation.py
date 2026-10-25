@@ -1,5 +1,5 @@
 """
-evaluation.py
+rotten_rl/evaluation.py
 
 Evaluador reusable para agentes de La Podrida sobre el wrapper de OpenSpiel.
 
@@ -33,7 +33,7 @@ from typing import Callable, Dict, Optional
 
 import numpy as np
 
-from podrida import RANKS, SUITS, Card
+from .engine import RANKS, SUITS, Card
 
 
 ActFn = Callable[[object, list], int]

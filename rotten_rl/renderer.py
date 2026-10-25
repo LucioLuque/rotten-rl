@@ -1,7 +1,7 @@
 """
-visual_renderer.py
+rotten_rl/renderer.py
 
-Render visual con Pygame para el motor de La Podrida definido en `podrida.py`.
+Render visual con Pygame para el motor de La Podrida definido en `engine.py`.
 
 Todo el layout se calcula a partir del tamaño de la ventana: no hay posiciones
 en píxeles fijos. La ventana es redimensionable y soporta pantalla completa, y
@@ -12,8 +12,8 @@ Instalación:
     pip install pygame
 
 Uso mínimo:
-    from podrida import PodridaGame
-    from visual_renderer import PodridaPygameRenderer
+    from rotten_rl.engine import PodridaGame
+    from rotten_rl.renderer import PodridaPygameRenderer
 
     game = PodridaGame(num_players=4, seed=42)
     game.start_round(num_cards=5)
@@ -28,7 +28,7 @@ from dataclasses import dataclass
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from podrida import BID_OFFSET, CARD_ACTIONS, Card, PlayerRef, PodridaGame, RANKS, SUITS
+from .engine import BID_OFFSET, CARD_ACTIONS, Card, PlayerRef, PodridaGame, RANKS, SUITS
 
 
 Color = Tuple[int, int, int]

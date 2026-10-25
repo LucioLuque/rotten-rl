@@ -1,5 +1,5 @@
 """
-podrida.py
+rotten_rl/engine.py
 
 Motor simple y testeable para el juego de cartas "La Podrida" / Oh Hell.
 No depende de Gymnasium ni de PettingZoo: la idea es que este archivo sea el

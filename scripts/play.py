@@ -1,15 +1,15 @@
 """
-demo_visual.py
+scripts/play.py
 
 Partida jugable de La Podrida con Pygame.
 
 Sos el jugador de abajo. Los demás son bots con una heurística simple.
 
 Instalación:
-    pip install pygame
+    pip install -e ".[play]"   # desde la raiz del repo
 
 Ejecución:
-    python demo_visual.py
+    python scripts/play.py
 
 Controles:
     CLICK en un botón de canto  -> cantás esa cantidad
@@ -32,8 +32,8 @@ import random
 import time
 from typing import List, Optional
 
-from podrida import MAX_HAND_SIZE, Card, InvalidMoveError, PodridaGame, build_round_ladder
-from visual_renderer import PodridaPygameRenderer, RoundRecord
+from rotten_rl.engine import MAX_HAND_SIZE, Card, InvalidMoveError, PodridaGame, build_round_ladder
+from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord
 
 
 # ----------------------------------------------------------------------

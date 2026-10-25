@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rotten-rl"
+version = "0.1.0"
+description = "Agentes de aprendizaje por refuerzo para La Podrida (Oh Hell) sobre OpenSpiel"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "open_spiel",
+    "torch",
+    "absl-py",
+    "dm-tree",
+    "tensorboard",
+]
+
+[project.optional-dependencies]
+play = ["pygame"]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["rotten_rl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
