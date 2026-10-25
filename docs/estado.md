@@ -31,6 +31,35 @@
   `e07_rl3e-4` (lr del DQN 0.0003), `e08_batch256`, `e09_learn32`.
 - Comparar con `python scripts/summarize_runs.py --runs_dir ~/scratch/runs --filter e0`.
 
+### Para retomar el lunes 26/10 (acceso desde las 22:00)
+
+1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
+   hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
+2. Retomar la corrida larga:
+   `python scripts/train_nfsp.py --resume ~/scratch/runs/nfsp2p_1M_lr1e-3_20261025-200043 --stop_at 06:55`.
+3. Retomar con `--resume` los experimentos de la cola que hayan quedado cortados a las 06:55
+   (`grep -l Cortado ~/scratch/logs/e*.log`) y volver a lanzar `run_queue.py` para los pendientes
+   (los ya lanzados están en `~/scratch/queue.txt.started` y no se repiten).
+
+**Si no aparecen los checkpoints** (otra máquina asignada, máquina reinstalada o `~/scratch`
+borrado): se pierden las corridas en curso. Las de 50k se relanzan desde cero (~40 min cada una);
+la larga también, desde cero. Para que no vuelva a pasar, antes de relanzar implementar:
+
+- `--backup_dir` en `train_nfsp.py`: después de cada checkpoint, copiar solo `meta.pt` (redes,
+  optimizadores, contadores y RNGs: ~20 MB con 2 jugadores, ~40 MB con 4) a una carpeta del home
+  (NFS: compartido por las 22 máquinas, persistente, cuota de 2 GB) y borrar la copia anterior. Sin
+  los buffers (pesan GB y no entran en la cuota): al retomar desde esa copia se vuelven a llenar.
+- Que `--resume` use esa copia si no encuentra checkpoints en `~/scratch`.
+- Un comando para traer a la laptop, al conectarse, las métricas y las redes de cada evaluación
+  (`rsync` sin `state/`), para tener los resultados a salvo y graficarlos.
+
+Descartado: copiar cada checkpoint completo a la laptop. El lab no puede conectarse a la laptop,
+así que la laptop tendría que quedar prendida toda la noche con la VPN, bajando ~2.3 GB cada ~20
+minutos; si se corta algo, deja de copiar sin avisar.
+
+El home tiene 51 MB usados de 1.9 GB (las dos primeras corridas, en `~/rotten-rl/runs`); las
+corridas nuevas van a `~/scratch/runs`, que no tiene cuota (605 GB libres).
+
 Conclusión del barrido de learning rate: 0.01 es demasiado alto; 0.001 y 0.0003 andan parecido (la
 diferencia está dentro del ruido de 300 partidas) y siguen mejorando de a poco a los 50k. Las dos
 cantan de más.
