@@ -32,17 +32,28 @@ Cada agente NFSP tiene sus propios buffers, guardados en `float32`:
 | Reservoir (avg-policy) | 2M | info-state 808×4 B + probs 60×4 B + máscara 60 B ≈ 3.5 KB | ~7 GB |
 | Replay (DQN) | 200k | 2 info-states + resto ≈ 6.6 KB | ~1.3 GB |
 
-En una corrida larga los dos se llenan: **~8.3 GB por agente**. Con 2 jugadores son ~17 GB (entra
-una corrida larga, no dos a la vez); con 3, ~25 GB (justo); con 4, ~33 GB: **no entra** en los
-31 GB de las máquinas del lab. Una corrida de 50k episodios con 2 jugadores usa ~5.5 GB.
+En una corrida larga los dos se llenan: **~8.3 GB por agente** sin comprimir. Con 2 jugadores son
+~17 GB (entra una corrida larga, no dos a la vez); con 3, ~25 GB (justo); con 4, ~33 GB: **no
+entra** en los 31 GB de las máquinas del lab. Por eso los buffers van comprimidos (opción 1): ~1.2
+GB por agente.
 
 ## Opciones
 
-1. **Buffers más chicos en memoria.** El info-state es casi todo 0/1: guardarlo en `float16` (o
-   `uint8` para las partes one-hot) reduce los buffers 2× a 4×. Poco trabajo.
-   **Obligatorio antes de las corridas largas con 3 o más jugadores** (con 4 no entran), y útil
-   para correr varias corridas largas de 2 jugadores en paralelo. Mientras tanto, se puede bajar
-   `--reservoir_buffer_capacity`.
+1. **Buffers comprimidos. Hecho** (`rotten_rl/buffers.py`, `--compact_buffers`, activo por
+   defecto). De los 808 valores del info-state, 776 son siempre 0/1 y se guardan como bits; los 32
+   continuos (`cards_remaining`, `tricks_won`, `scores`, `bid_minus_tricks`, `suits_played`)
+   quedan en float32. 225 bytes por info-state en vez de 3232, **sin pérdida**. Validado en el lab
+   (25/10/2026, NFSP 2 jugadores, 8k episodios, comprimido vs. no):
+
+   | | Sin comprimir | Comprimido |
+   |---|---|---|
+   | Resultados (todos los CSV) | | idénticos byte a byte |
+   | RAM máxima del proceso | 3.75 GB | 1.10 GB |
+   | Checkpoint | 2.8 GB | 270 MB |
+   | Tiempo | 333 s | 353 s (+6%) |
+
+   Con los buffers llenos, un agente pasa de ~8.3 GB a ~1.2 GB: una corrida larga de 4 jugadores
+   entra holgada (~5 GB).
 2. **Arreglos chicos en el camino caliente**: forward en `torch.inference_mode`, buffer propio sin
    dm-tree, observación más eficiente. 5–10% cada uno, quizás 20–30% en total; implica tocar o
    reemplazar partes del NFSP de OpenSpiel. No por ahora.

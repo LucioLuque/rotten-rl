@@ -53,13 +53,26 @@ def _save_buffer(buf, path_prefix: str) -> Optional[Dict]:
 
 
 def _load_buffer(buffer_class, transition_class, info: Optional[Dict], path_prefix: str):
+    """Restaura con `buffer_class` (la que usa el agente: comun o la comprimida
+    de rotten_rl.buffers). Un checkpoint sin comprimir se puede cargar en un
+    buffer comprimido, no al reves."""
     if info is None:
         return None
     arrays = {name: np.load(f"{path_prefix}.{name}.npy") for name in info["fields"]}
+    if arrays["info_state"].dtype == np.uint8 and not hasattr(buffer_class, "_encode"):
+        raise ValueError(f"El checkpoint tiene buffers comprimidos y {buffer_class.__name__} "
+                         "no los sabe leer: crear los agentes con --compact_buffers.")
     sample = transition_class(**{name: arr[0] for name, arr in arrays.items()})
     buf = buffer_class.init(info["capacity"], sample)
     for name, arr in arrays.items():
-        getattr(buf.experience, name)[:info["size"]] = arr
+        target = getattr(buf.experience, name)
+        if target.dtype != arr.dtype:
+            if not hasattr(buffer_class, "_encode") or target.dtype != np.uint8:
+                raise ValueError(f"El checkpoint guarda {name} como {arr.dtype} y el buffer "
+                                 f"({buffer_class.__name__}) lo espera como {target.dtype}")
+            from .buffers import encode_info_states
+            arr = encode_info_states(arr)
+        target[:info["size"]] = arr
     setattr(buf, info["counter"], np.array(info["counter_value"]))
     return buf
 
@@ -159,9 +172,10 @@ def load_checkpoint(path: str, agents: List, rng: np.random.RandomState) -> Dict
         if b:
             pre = os.path.join(path, "buffers", f"agent{i}")
             agent._reservoir_buffer = _load_buffer(
-                nfsp.ReservoirBuffer, nfsp.Transition, b["reservoir"], pre + ".reservoir")
+                agent._replay_buffer_class, nfsp.Transition, b["reservoir"], pre + ".reservoir")
             agent._rl_agent._replay_buffer = _load_buffer(
-                dqn.ReplayBuffer, dqn.Transition, b["replay"], pre + ".replay")
+                agent._rl_agent._replay_buffer_class, dqn.Transition, b["replay"],
+                pre + ".replay")
 
     r = meta["rng"]
     np.random.set_state(r["numpy_global"])

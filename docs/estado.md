@@ -41,8 +41,8 @@ Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log 
    `--resume`, `--stop_at` y corte prolijo por señal. Cortar y retomar da resultados idénticos.
 3. Ajustar hiperparámetros de NFSP (learning rate en curso) hasta que aprenda bien con 2 jugadores.
 4. Corridas largas de 2 jugadores.
-5. **Antes de corridas largas con 3 o más jugadores:** bajar la memoria de los buffers (con 4
-   jugadores no entran en 31 GB). Ver `docs/optimizacion.md`.
+5. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
+   idénticos, ~7 veces menos RAM por agente). Ver `docs/optimizacion.md`.
 6. Corridas de 3 y 4 jugadores.
 7. PSRO simétrico con 3 jugadores.
 8. Un modelo para n de 2 a 4; después escalar a 7.

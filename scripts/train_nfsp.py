@@ -43,6 +43,7 @@ from open_spiel.python.pytorch import nfsp
 
 import pyspiel
 import rotten_rl.openspiel_game as og             # registra el juego "podrida"
+from rotten_rl.buffers import CompactReservoirBuffer, use_compact_buffers
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent, network_opponent
 from rotten_rl.run_logger import RunLogger
@@ -69,6 +70,9 @@ flags.DEFINE_integer("checkpoint_every", 10000, "Cada cuantas partidas guardar u
 flags.DEFINE_bool("checkpoint_buffers", True,
                   "Guardar tambien los buffers (pesan GB; sin ellos, al retomar se vuelven a llenar).")
 flags.DEFINE_integer("keep_checkpoints", 2, "Cuantos checkpoints completos conservar.")
+flags.DEFINE_bool("compact_buffers", True,
+                  "Guardar el info-state comprimido en los buffers (sin perdida, ~7 veces menos "
+                  "RAM por agente; ver rotten_rl/buffers.py).")
 flags.DEFINE_string("stop_at", None, "Hora local HH:MM a la que cortar guardando un checkpoint "
                     "(p.ej. 06:55, antes del reinicio de las 07:30 del lab).")
 # --- red ---
@@ -102,7 +106,8 @@ flags.DEFINE_string("device", "cpu", "cpu | cuda (para chico casi no ayuda; ver 
 _CONFIG_KEYS = [
     "players", "reward_scheme", "num_train_episodes", "eval_every", "eval_games",
     "eval_opponents", "save_eval_snapshots", "log_every", "checkpoint_every",
-    "checkpoint_buffers", "keep_checkpoints", "hidden_layers_sizes", "replay_buffer_capacity",
+    "checkpoint_buffers", "keep_checkpoints", "compact_buffers", "hidden_layers_sizes",
+    "replay_buffer_capacity",
     "reservoir_buffer_capacity", "min_buffer_size_to_learn", "batch_size", "learn_every",
     "rl_learning_rate", "sl_learning_rate", "anticipatory_param", "discount_factor",
     "epsilon_start", "epsilon_end", "epsilon_decay_duration", "optimizer_str", "seed", "device"]
@@ -201,7 +206,12 @@ def main(_):
         epsilon_decay_duration=FLAGS.epsilon_decay_duration,
         device=FLAGS.device,
     )
+    if FLAGS.compact_buffers:
+        kwargs["replay_buffer_class"] = CompactReservoirBuffer   # el reservoir de NFSP
     agents = [nfsp.NFSP(idx, info_state_size, num_actions, hidden, **kwargs) for idx in range(n)]
+    if FLAGS.compact_buffers:
+        for agent in agents:
+            use_compact_buffers(agent)                           # el replay del DQN interno
 
     fixed_opponents = {"random": random_opponent(rng), "heuristic": heuristic_opponent(rng)}
     unknown = set(FLAGS.eval_opponents) - set(fixed_opponents) - {"past"}

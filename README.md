@@ -12,6 +12,7 @@ rotten_rl/              paquete
   evaluation.py         rivales de referencia (random, heurística, redes) y métricas
   training.py           loop de partidas para agentes de OpenSpiel (sin rl_environment)
   checkpoint.py         checkpoints completos de NFSP para cortar y retomar
+  buffers.py            buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
   run_logger.py         logging a TensorBoard, CSV y config.json en runs/
   renderer.py           render con Pygame
 scripts/
