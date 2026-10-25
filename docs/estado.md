@@ -15,7 +15,7 @@
 |---|---|---|---|---|
 | `baseline2p_20260726-230529` | otra máquina | 2 jugadores, 1M episodios | Solo llegó a la evaluación del episodio 0 | — |
 | `nfsp2p_50k_20261025-175802` | lab | NFSP, 2 jugadores, 50k episodios, **con los dos bugs** | Terminada (49 min) | Plana: vs random 0.51, vs heurística 0.22, acierto de canto 0.25, igual que sin entrenar |
-| `diag_dqn2p` | lab | DQN solo vs random, 2 jugadores, 20k episodios, reward arreglado | En curso (tmux `diag`) | A los 4k: vs random 0.66, vs heurística 0.40 (de 0.14), acierto de canto 0.32 |
+| `diag_dqn2p` | lab | DQN solo vs random, 2 jugadores, 20k episodios, reward arreglado | Terminada (20 min) | vs random 0.71, vs heurística 0.44 (de 0.14), acierto de canto 0.37 (de 0.26); canta de más (sesgo +0.8 vs heurística) |
 | `nfsp2p_50k_fix_20261025-184740` | lab | NFSP, 2 jugadores, 50k episodios, con los dos arreglos | En curso (tmux `nfspfix`) | — |
 
 Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log en

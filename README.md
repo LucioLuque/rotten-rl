@@ -22,6 +22,7 @@ tests/                  tests con pytest
 docs/plan.md            plan del proyecto, diseño de la observación, recompensa y métricas
 docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN, SSH, horarios, velocidad)
 docs/estado.md          estado actual: corridas, resultados y próximos pasos
+docs/openspiel-upstream.md  bugs de OpenSpiel que encontramos y qué contribuir
 ```
 
 ## Instalación
