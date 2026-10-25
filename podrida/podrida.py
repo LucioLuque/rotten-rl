@@ -21,7 +21,7 @@ Reglas implementadas, por defecto:
   baza, gana la carta más alta del palo de salida.
 - La partida estándar es una escalera de 13 rondas: 1,2,3,4,5,6,7,6,5,4,3,2,1
   (ver build_round_ladder).
-- Puntaje: si el jugador cumple su canto, suma 10 + bazas_ganadas; si no,
+- Puntaje: si el jugador cumple su canto, suma 10 + 2*bazas_ganadas; si no,
   suma bazas_ganadas.
 """
 

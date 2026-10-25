@@ -1,9 +1,10 @@
 """
 train_nfsp_podrida.py  —  Fase 2: sanity check con NFSP + logging completo.
 
-Entrena agentes NFSP (self-play) sobre `podrida` y evalua contra random (o
-heuristica), registrando TODAS las metricas del documento, desglosadas por
-tamanio de ronda h, con:
+Entrena agentes NFSP (self-play) sobre `podrida` y evalua contra random, la
+heuristica y la version anterior de si mismo (rotando el asiento evaluado),
+registrando TODAS las metricas del documento, desglosadas por tamanio de
+ronda h y por asiento, con:
   - progreso continuo cada --log_every episodios (reward movil + loss/agente),
   - evaluacion cada --eval_every episodios (incluye un baseline en el ep 0),
   - persistencia a TensorBoard + CSV + config.json, en runs/<nombre_unico>/.
@@ -21,8 +22,11 @@ Ejemplos:
 """
 
 import collections
+import copy
+import os
 
 import numpy as np
+import torch
 from absl import app, flags, logging
 
 from open_spiel.python import rl_environment
@@ -30,7 +34,7 @@ from open_spiel.python.pytorch import nfsp
 
 import pyspiel
 import podrida_openspiel                      # registra el juego "podrida"
-from evaluation import evaluate, random_opponent, heuristic_opponent
+from evaluation import evaluate, random_opponent, heuristic_opponent, network_opponent
 from run_logger import RunLogger
 
 FLAGS = flags.FLAGS
@@ -40,7 +44,11 @@ flags.DEFINE_string("reward_scheme", "raw", "raw | relative.")
 flags.DEFINE_integer("num_train_episodes", 1000000, "Partidas de entrenamiento.")
 flags.DEFINE_integer("eval_every", 25000, "Cada cuantas partidas evaluar.")
 flags.DEFINE_integer("eval_games", 500, "Partidas por evaluacion.")
-flags.DEFINE_string("eval_opponent", "random", "random | heuristic.")
+flags.DEFINE_list("eval_opponents", ["random", "heuristic", "past"],
+                  "Rivales de cada evaluacion: random | heuristic | past (las "
+                  "avg-nets de la evaluacion anterior).")
+flags.DEFINE_bool("save_checkpoints", True,
+                  "Guardar las avg-nets en runs/<corrida>/checkpoints/ en cada evaluacion.")
 flags.DEFINE_integer("log_every", 2000, "Cada cuantas partidas loguear progreso de train.")
 # --- red ---
 flags.DEFINE_list("hidden_layers_sizes", [256, 256], "Capas ocultas (avg-net y Q-net).")
@@ -74,14 +82,25 @@ def _timestep_for(info_state, legal_actions, player):
     return rl_environment.TimeStep(observations=obs, rewards=None, discounts=None, step_type=None)
 
 
-def make_nfsp_act_fn(agents, seat):
-    """act_fn(state, legal) usando la POLITICA PROMEDIO del agente `seat`."""
+def make_nfsp_act_fn(agents):
+    """act_fn(state, legal) usando la POLITICA PROMEDIO del agente del asiento
+    que juega: cada agente se entreno en su asiento, y la evaluacion rota el
+    asiento evaluado."""
     def act(state, legal):
+        seat = state.current_player()
         info = state.information_state_tensor(seat)
         ts = _timestep_for(info, legal, seat)
         with agents[seat].temp_mode_as(nfsp.MODE.AVERAGE_POLICY):
             return agents[seat].step(ts, is_evaluation=True).action
     return act
+
+
+def snapshot_avg_nets(agents):
+    """Copia congelada de las avg-nets (una por asiento) para usar de rival."""
+    nets = [copy.deepcopy(agent._avg_network) for agent in agents]
+    for net in nets:
+        net.eval()
+    return nets
 
 
 def main(_):
@@ -110,13 +129,16 @@ def main(_):
     agents = [nfsp.NFSP(idx, info_state_size, num_actions, hidden, **kwargs) for idx in range(n)]
 
     eval_game = pyspiel.load_game("podrida", {"players": n, "reward_scheme": FLAGS.reward_scheme})
-    opponent = (heuristic_opponent(rng) if FLAGS.eval_opponent == "heuristic"
-                else random_opponent(rng))
-    nfsp_act = make_nfsp_act_fn(agents, seat=0)
+    fixed_opponents = {"random": random_opponent(rng), "heuristic": heuristic_opponent(rng)}
+    unknown = set(FLAGS.eval_opponents) - set(fixed_opponents) - {"past"}
+    if unknown:
+        raise ValueError(f"Rivales de evaluacion desconocidos: {sorted(unknown)}")
+    nfsp_act = make_nfsp_act_fn(agents)
+    past_nets = None          # avg-nets de la evaluacion anterior (rival "past")
 
     config = {f: getattr(FLAGS, f) for f in [
         "players", "reward_scheme", "num_train_episodes", "eval_every", "eval_games",
-        "eval_opponent", "hidden_layers_sizes", "replay_buffer_capacity",
+        "eval_opponents", "save_checkpoints", "hidden_layers_sizes", "replay_buffer_capacity",
         "reservoir_buffer_capacity", "min_buffer_size_to_learn", "batch_size",
         "learn_every", "rl_learning_rate", "sl_learning_rate", "anticipatory_param",
         "discount_factor", "optimizer_str", "seed", "device"]}
@@ -125,14 +147,38 @@ def main(_):
     logging.info("Corrida: %s  (info_state=%d, acciones=%d)", log.name, info_state_size, num_actions)
 
     def run_eval(ep):
-        m = evaluate(eval_game, nfsp_act, opponent, n, FLAGS.eval_games, rng, seat=0)
-        log.log_eval(ep, m)
-        o = m["overall"]
-        logging.info(
-            "[ep %d] EVAL vs %s | win=%.3f diff=%+.2f exact_bid=%.3f MAE=%.3f sesgo=%+.3f normS=%.3f",
-            ep, FLAGS.eval_opponent, o["win_rate"], o["mean_score_diff"],
-            o["exact_bid_rate"], o["mae_bid"], o["bid_bias"], o["norm_round_score"])
-        return m
+        """Evalua contra cada rival de --eval_opponents (rotando asiento) y
+        devuelve las metricas del rival mas exigente que se haya corrido."""
+        nonlocal past_nets
+        results = {}
+        for name in FLAGS.eval_opponents:
+            if name == "past":
+                if past_nets is None:          # en la primera evaluacion no hay pasado
+                    continue
+                opponent = network_opponent(past_nets, rng)
+            else:
+                opponent = fixed_opponents[name]
+            m = evaluate(eval_game, nfsp_act, opponent, n, FLAGS.eval_games, rng)
+            log.log_eval(ep, m, opponent=name)
+            results[name] = m
+            o = m["overall"]
+            logging.info(
+                "[ep %d] EVAL vs %-9s | win=%.3f (empate=%.3f) diff=%+.2f exact_bid=%.3f "
+                "MAE=%.3f sesgo=%+.3f normS=%.3f",
+                ep, name, o["win_rate"], 1.0 / n, o["mean_score_diff"],
+                o["exact_bid_rate"], o["mae_bid"], o["bid_bias"], o["norm_round_score"])
+
+        past_nets = snapshot_avg_nets(agents)
+        if FLAGS.save_checkpoints:
+            ckpt_dir = os.path.join(log.run_dir, "checkpoints")
+            os.makedirs(ckpt_dir, exist_ok=True)
+            torch.save([net.state_dict() for net in past_nets],
+                       os.path.join(ckpt_dir, f"avg_nets_ep{ep}.pt"))
+
+        for name in ("heuristic", "random", "past"):
+            if name in results:
+                return results[name]
+        return None
 
     # Baseline en el episodio 0 (redes sin entrenar ~ jugador aleatorio).
     run_eval(0)

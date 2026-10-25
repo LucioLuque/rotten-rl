@@ -12,8 +12,11 @@ Estructura en disco:
         tb/                 event files de TensorBoard
         config.json         hiperparametros de la corrida
         train.csv           progreso de entrenamiento (reward movil, loss)
-        eval_overall.csv    una fila por evaluacion (metricas globales)
-        eval_by_h.csv       una fila por (evaluacion, h)
+        eval_<opp>_overall.csv  una fila por evaluacion (metricas globales)
+        eval_<opp>_by_h.csv     una fila por (evaluacion, h)
+        eval_<opp>_by_seat.csv  win_rate por asiento, una fila por evaluacion
+        checkpoints/            snapshots de las avg-nets (los escribe el script)
+    con <opp> = random | heuristic | past (un juego de archivos por oponente).
 
 Para ver las curvas:
     tensorboard --logdir runs
@@ -93,22 +96,32 @@ class RunLogger:
                 row[f"loss_agent_{i}_{tag}"] = v
         self._csv_row("train.csv", row)
 
-    def log_eval(self, episode: int, metrics: Dict) -> None:
-        """Metricas de evaluacion: overall, por-h y calibracion."""
+    def log_eval(self, episode: int, metrics: Dict, opponent: str = "random") -> None:
+        """Metricas de evaluacion contra `opponent`: overall, por-h, por
+        asiento y calibracion. Cada oponente tiene sus propias curvas
+        (eval_<opp>/...) y sus propios CSV (eval_<opp>_overall.csv, ...)."""
         o = metrics["overall"]
         for k, v in o.items():
-            self.writer.add_scalar(f"eval/{k}", v, episode)
-        self._csv_row("eval_overall.csv", {"episode": episode, **o})
+            self.writer.add_scalar(f"eval_{opponent}/{k}", v, episode)
+        self._csv_row(f"eval_{opponent}_overall.csv", {"episode": episode, **o})
 
         # por tamanio de ronda h
         for h, m in metrics["by_h"].items():
             for k, v in m.items():
-                self.writer.add_scalar(f"eval_by_h/{k}/h{h}", v, episode)
-            self._csv_row("eval_by_h.csv", {"episode": episode, "h": h, **m})
+                self.writer.add_scalar(f"eval_{opponent}_by_h/{k}/h{h}", v, episode)
+            self._csv_row(f"eval_{opponent}_by_h.csv", {"episode": episode, "h": h, **m})
+
+        # por asiento
+        by_seat = metrics.get("win_rate_by_seat", {})
+        for s, v in by_seat.items():
+            self.writer.add_scalar(f"eval_{opponent}_by_seat/win_rate/seat{s}", v, episode)
+        if by_seat:
+            self._csv_row(f"eval_{opponent}_by_seat.csv",
+                          {"episode": episode, **{f"seat{s}": v for s, v in by_seat.items()}})
 
         # calibracion E[tricks | bid=b]
         for b, v in metrics["calibration"].items():
-            self.writer.add_scalar(f"calibration/bid_{b}", v, episode)
+            self.writer.add_scalar(f"calibration_{opponent}/bid_{b}", v, episode)
 
         self.writer.flush()
 
