@@ -65,6 +65,39 @@ episodio.
 a 0.71 vs random en 1.500. Si se confirma con el barrido 6, **PPO sería el más rápido en los dos
 sentidos**. Falta confirmarlo con 3 semillas y 50k episodios.
 
+### NFSP: barridos 2 y 3 (terminados ~23:50)
+
+Vs heurística, promedio de las últimas 3 evaluaciones de 500 partidas (la base con 3 semillas daba
+0.39–0.42 y diff −8.6 a −9.0; reward relativo con 3 semillas, diff −6.1 a −6.8):
+
+| Corrida | Qué cambia | win | diff |
+|---|---|---|---|
+| `e12_relative_antic0.3` | relativo + anticipatory 0.3 | **0.461** | **−4.6** |
+| `e15_relative_lr3e-4` | relativo + lr 0.0003 en las dos redes | 0.441 | −5.3 |
+| `e22`–`e24` (a los 35k) | combinación: relativo + lr DQN 0.0003 + capas 512 + batch 256 | 0.437–0.440 | −4.5 a −5.0 |
+| `e21_relative_h512` (a los 40k) | relativo + capas 512 | 0.424 | −6.3 |
+| `e16_sl1e-4` | lr de la red promedio 0.0001 | 0.424 | −6.8 |
+| `e17_antic0.05` | anticipatory 0.05 | 0.422 | −7.4 |
+| `e13_eps0.2`, `e18_relative_eps0.2` | ε inicial 0.2 | 0.35 / 0.38 | −13.1 / −11.0 |
+
+- **La combinación funciona y es consistente**: las 3 semillas de `e22`–`e24` dan casi lo mismo
+  (diff −4.5 a −5.0), ~1.5 puntos mejor que solo reward relativo.
+- **Más exploración (ε 0.2) empeora**, confirmado con y sin reward relativo.
+- `e12` (anticipatory 0.3 con reward relativo) fue la mejor corrida individual de NFSP; sin reward
+  relativo, anticipatory 0.3 casi no cambiaba nada. Es una sola semilla.
+
+### 3 jugadores (terminados)
+
+| Corrida | vs random (empate 0.33) | vs heurística (empate 0.33) | diff vs heurística |
+|---|---|---|---|
+| `e19_3p_base` | 0.67 | 0.17 | −12.7 |
+| `e20_3p_relative` | 0.73 | 0.16 | −13.4 |
+
+Con 3 jugadores NFSP le gana bien a random pero **pierde claramente contra la heurística** (gana
+la mitad de lo que daría empatar), y el reward relativo no ayuda. Canta un poco de menos (sesgo
+−0.1 a −0.2), al revés que con 2 jugadores. Es el caso donde más se espera que ayuden las ideas de
+la bibliografía (red compartida: 3 veces más datos por red).
+
 (El resto de los resultados se completa a medida que terminan las corridas.)
 
 ## Para decidir el lunes a la noche
