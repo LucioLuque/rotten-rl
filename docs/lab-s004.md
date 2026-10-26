@@ -91,6 +91,15 @@ Host labs004
 
 (`mkdir -p ~/.ssh/cm && chmod 700 ~/.ssh/cm`). Después alcanza con `ssh labs004`.
 
+Si `ssh labs004` empieza a fallar con `Cannot find current user: user: unknown userid <número>`
+(pasó el 25/10/2026 con la conexión compartida abierta varias horas), la conexión compartida quedó
+rota del lado del lab. Se arregla cerrándola y reconectando:
+
+```bash
+ssh -O exit labs004
+ssh labs004 hostname
+```
+
 ## Almacenamiento
 
 | Dónde | Tamaño | Persistencia | Para qué |
@@ -163,6 +172,9 @@ Entrenamiento corto: 3 jugadores, 400 episodios, 3 evaluaciones de 30 partidas.
 
 - Con redes tan chicas, torch multihilo es **más lento**: correr siempre con
   `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`.
+- Las corridas son de CPU, pero si la GPU está visible torch crea un contexto CUDA igual: ~386 MB de
+  VRAM y ~90 MB de RAM por corrida, sin ningún uso. Con `CUDA_VISIBLE_DEVICES=` no lo crea y los
+  resultados son idénticos (medido el 25/10/2026). `run_queue.py` ya lo pone.
 - Así cada corrida usa un solo núcleo, y se pueden correr varias en paralelo (semillas,
   configuraciones, cantidad de jugadores). Por ser máquinas compartidas, no ocupar todos los hilos:
   mirar `btop` antes de lanzar.

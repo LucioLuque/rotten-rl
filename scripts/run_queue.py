@@ -9,7 +9,7 @@ un experimento:
 p.ej.  e01_seed1 --players 2 --num_train_episodes 50000 --seed 1
 
 Se lanza como
-    OMP_NUM_THREADS=1 python scripts/train_nfsp.py --runs_dir <runs_dir> \
+    OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train_nfsp.py --runs_dir <runs_dir> \
         --run_name <nombre> --stop_at <stop_at> <flags> > <logs_dir>/<nombre>.log
 
 La cola se relee en cada vuelta: se pueden agregar lineas mientras corre. Los
@@ -118,7 +118,9 @@ def main():
     os.makedirs(a.runs_dir, exist_ok=True)
     os.makedirs(a.logs_dir, exist_ok=True)
     stop_at, no_launch_after = _next_time(a.stop_at), _next_time(a.no_launch_after)
-    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    # Las corridas son de CPU: sin GPU visible, torch no crea el contexto CUDA
+    # (~386 MB de VRAM y ~90 MB de RAM por corrida; resultados identicos).
+    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", CUDA_VISIBLE_DEVICES="")
     running = {}
 
     def log(msg):

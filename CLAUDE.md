@@ -12,11 +12,16 @@ actualizarlo al terminar algo).
   `ssh labs004` entra sin contraseña (alias en `~/.ssh/config` de la laptop).
 - Comandos remotos siempre como `ssh labs004 'bash -lc "..."'`: sin shell de login no se cargan
   los cachés en `~/scratch` y se llena la cuota de 2 GB del home.
-- Entrenar con `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1` (más rápido con estas redes) y dentro de
+- Entrenar con `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=` (más rápido con estas
+  redes; sin GPU visible torch no reserva VRAM ni ~90 MB de RAM por corrida) y dentro de
   `tmux`, con `--runs_dir ~/scratch/runs`, `--stop_at 06:55` y el log en
   `~/scratch/logs/<corrida>.log`. Las corridas largas se retoman con `--resume <corrida>`.
-- Al matar procesos, nunca `pkill -f` con un patrón que también aparezca en el comando de la
-  propia sesión SSH (se mata a sí misma). Usar el PID.
+- Nunca buscar procesos por patrón de texto (`pkill -f`, `pgrep -f`) desde un `ssh labs004 '...'`:
+  el patrón aparece también en el comando de la propia sesión y coincide con ella (pasó dos veces:
+  un `pkill` mató la sesión y un `pgrep` dejó una espera infinita). Usar el PID, o
+  `run_queue.count_training_processes("train_nfsp.py")` para contar entrenamientos.
+- Si `ssh labs004` empieza a devolver `Cannot find current user: user: unknown userid`, la conexión
+  compartida (ControlMaster) quedó rota del lado del lab: `ssh -O exit labs004` y reconectar.
 - Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);
   fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas.
 
