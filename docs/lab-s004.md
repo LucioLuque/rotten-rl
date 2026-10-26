@@ -58,6 +58,10 @@ sudo openfortivpn gateway.udesa.edu.ar:443 -u <usuario> --saml-login \
     | openssl x509 -noout -fingerprint -sha256
   ```
 - Listo cuando la terminal dice `Tunnel is up and running`.
+- **La sesión de VPN dura como mucho 8 horas** (el 26/10/2026 se cortó sola después de 480.1
+  minutos, a la 01:33). Las corridas del lab no dependen de la VPN y siguen; lo que se corta es el
+  acceso para mirarlas o lanzar cosas. Si se quiere seguir de noche, conectarse más tarde o
+  reconectar antes de que se cumplan las 8 horas.
 
 ### 2. SSH
 

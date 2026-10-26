@@ -6,7 +6,19 @@ la versión final se escribe antes del corte de las 07:00. El detalle de cada co
 
 ## Resumen
 
-(Se completa al final de la noche.)
+- **Código**: varios algoritmos con una interfaz común (`scripts/train.py --algo nfsp|dqn|ppo`),
+  DQN y PPO con red compartida por todos los asientos, y rondas como episodios. Validado con 29
+  tests y en el lab (NFSP da resultados idénticos byte a byte al código anterior).
+- **Mejor NFSP**: la combinación (reward relativo + lr del DQN 0.0003 + capas 512 + batch 256), 3
+  semillas a los 50k: **0.448 de win rate vs heurística, diff −4.3**. Con rondas como episodios
+  (`r00`–`r02`) da prácticamente lo mismo.
+- **Primer agente que le gana a la heurística: DQN compartido** (`r10`), a los 20k episodios: 0.503
+  y diff +1.1. Una sola semilla, a mitad de la corrida (último dato antes del corte).
+- **PPO** fue el más rápido por episodio y en la prueba corta llegó a lo de NFSP en 2.000
+  episodios; su barrido (`p10`–`p20`) se lanzaba después del corte.
+- **3 jugadores**: NFSP pierde claramente contra la heurística (0.16–0.17, empate 0.33).
+- **La VPN se cortó a la 01:33** (límite de 8 h de la sesión): desde ahí no hubo más seguimiento.
+  Las corridas siguieron solas en el lab; los resultados del resto de la noche se ven el lunes.
 
 ## Qué se hizo
 
@@ -126,4 +138,29 @@ la bibliografía (red compartida: 3 veces más datos por red).
 
 ## Problemas de la noche
 
-(Ninguno por ahora.)
+- **La VPN se cortó a la 01:33**, después de exactamente 480 minutos conectada: la VPN de la
+  facultad parece cortar las sesiones a las **8 horas**. Reconectar necesita `sudo` y el login en
+  el navegador, así que desde ahí no pude ver el lab. Las corridas no dependen de la VPN y
+  siguieron solas: la cola lanza hasta las 06:00 y todo corta a las 06:55 guardando checkpoint.
+- `e14_relative_200k` lo corté a las 23:10 (a los 52.5k, con checkpoint), antes de que Lucio pidiera
+  no cortar nada. Era redundante con `e25_combo_200k` y la corrida larga.
+- Un `pgrep` mal armado dejó una espera infinita (no rompió nada) y la conexión SSH compartida se
+  rompió una vez del lado del lab (`unknown userid`); los dos quedaron anotados en `CLAUDE.md` y
+  `docs/lab-s004.md`.
+
+## Qué mirar el lunes
+
+Lo que estaba en la cola a la 01:33 (en orden): `r10`–`r12`, `r20` (DQN compartido), `p10`–`p12`,
+`p20` (PPO compartido), `q10`, `q20` (3 jugadores con PPO y DQN compartidos). Con 6 a la vez y dos
+lugares ocupados por la corrida larga y `e25`, probablemente no llegaron a lanzarse todas antes de
+las 06:00; las que quedaron a medias cortaron a las 06:55 con checkpoint y se retoman con
+`--resume`.
+
+```bash
+ssh labs004 'bash -lc "cd ~/rotten-rl && . ~/scratch/work/venvs/rotten-rl/bin/activate && \
+  python scripts/summarize_runs.py --filter _round --last 3; \
+  python scripts/summarize_runs.py --filter _game --last 3; \
+  python scripts/summarize_runs.py --filter _3p --last 3; \
+  grep -l Cortado ~/scratch/logs/*.log; grep -v ^# ~/scratch/queue2.txt | awk \"{print \$1}\" | \
+  grep -vxF -f ~/scratch/queue2.txt.started"'
+```
