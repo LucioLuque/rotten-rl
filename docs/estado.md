@@ -46,6 +46,12 @@ Resultados del barrido 1 (promedio de las últimas 3 evaluaciones de 500 partida
   otras semillas). Todas cantan de más y rondan 0.40 vs heurística a los 50k.
 - Barrido 2, agregado a la cola: `e10_relative_seed1`, `e11_relative_seed2`,
   `e12_relative_antic0.3`, `e13_eps0.2` (ε inicial 0.2) y `e14_relative_200k` (200k episodios).
+- Desde las 21:36 hay una segunda cola (tmux `queue2`, `~/scratch/queue2.txt`) con
+  `--max_total 11`: cuenta todos los entrenamientos de la máquina y solo lanza si hay menos de 11
+  (el límite se cambia en caliente en `~/scratch/queue2.txt.max_total`). La primera cola sigue con
+  sus 5 hasta terminar su lista. Barrido 3 en `queue2`: `e15_relative_lr3e-4`, `e16_sl1e-4`,
+  `e17_antic0.05`, `e18_relative_eps0.2`, `e19_3p_base` y `e20_3p_relative` (primeras pruebas con
+  3 jugadores), `e21_relative_h512`.
 
 ### Para retomar el lunes 26/10 (acceso desde las 22:00)
 
