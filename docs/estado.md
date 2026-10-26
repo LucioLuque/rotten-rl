@@ -53,6 +53,28 @@ Resultados del barrido 1 (promedio de las últimas 3 evaluaciones de 500 partida
   `e17_antic0.05`, `e18_relative_eps0.2`, `e19_3p_base` y `e20_3p_relative` (primeras pruebas con
   3 jugadores), `e21_relative_h512`.
 
+Resultados del barrido 1 completo y parte del 2 y 3 (vs heurística, promedio de las últimas 3
+evaluaciones):
+
+| Configuración | Corridas | win | diff |
+|---|---|---|---|
+| Base | `e00`, `e01`, `e06` | 0.39 / 0.40 / 0.42 | −9.0 / −8.6 / −8.7 |
+| Reward relativo | `e04`, `e10`, `e11` | 0.43 / 0.42 / 0.42 | −6.3 / −6.8 / −6.1 |
+| Capas de 512 | `e05` | 0.42 | −6.6 |
+| lr del DQN 0.0003 | `e07` | 0.43 | −6.3 |
+| Batch 256 | `e08` | 0.43 | −7.1 |
+| Aprender cada 32 pasos | `e09` | 0.41 | −7.7 |
+| Corrida larga a los 100k | `nfsp2p_1M_lr1e-3` | 0.43 | −6.1 |
+
+- **Reward relativo confirmado** con 3 semillas: ~2.4 puntos mejor (el ruido entre semillas de la
+  base es de ±0.2 puntos de diff).
+- Capas de 512, lr del DQN 0.0003 y batch 256 mejoran 1.5–2.5 puntos (una semilla cada uno).
+- La corrida larga sigue mejorando con más episodios.
+- 3 jugadores (`e19`, a los 20k): vs random 0.64 (empate 0.33), vs heurística solo 0.12, y canta de
+  menos (sesgo −0.15 a −0.24).
+- Barrido 4, agregado a `queue2`: combinar reward relativo + lr del DQN 0.0003 + capas de 512 +
+  batch 256, con 3 semillas (`e22`–`e24`, 50k) y una de 200k (`e25_combo_200k`).
+
 ### Para retomar el lunes 26/10 (acceso desde las 22:00)
 
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
