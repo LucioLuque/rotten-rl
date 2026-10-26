@@ -42,7 +42,8 @@ Conectar (dejar esa terminal abierta mientras se use el lab):
 
 ```bash
 sudo openfortivpn gateway.udesa.edu.ar:443 -u <usuario> --saml-login \
-  --trusted-cert a30a4a249dc9e6bb3eb1b1b187160187fb77a9f87023ba78d53b3b4bc24d7b2e
+  --trusted-cert a30a4a249dc9e6bb3eb1b1b187160187fb77a9f87023ba78d53b3b4bc24d7b2e \
+  --set-dns=0 --pppd-use-peerdns=0
 ```
 
 - Se abre el navegador: Chrome muestra **"Your connection is not private"**
@@ -50,6 +51,14 @@ sudo openfortivpn gateway.udesa.edu.ar:443 -u <usuario> --saml-login \
   GoDaddy, vence el 27/12/2026), pero el gateway termina la cadena en la raíz nueva
   "GoDaddy TLS Root CA - R1", que Chrome y Ubuntu todavía no reconocen. Hay que ir a
   *Advanced → Proceed* y loguearse con la cuenta de la facultad.
+- `--set-dns=0 --pppd-use-peerdns=0` evitan que la VPN ponga su DNS (`172.16.0.1`) primero en
+  `/etc/resolv.conf`. Ese servidor no responde: cada consulta espera 5 s antes de pasar al
+  siguiente, y las sesiones de Claude Code que se abren así arrancan sin los conectores de
+  claude.ai (Gmail, Drive, etc.), que tienen 5 s para cargar. Sin ese DNS se siguen alcanzando las
+  máquinas de UdeSA (`labs004.udesa.edu.ar` resuelve en el DNS público). Si la VPN ya se conectó
+  sin esas opciones: `time getent ahosts api.anthropic.com` tarda unos 5 s, y se arregla con
+  `sudo sed -i '/^nameserver 172.16.0.1$/d' /run/systemd/resolve/stub-resolv.conf` (repetirlo
+  en cada reconexión) y abriendo una sesión nueva.
 - Sin `--trusted-cert`, `openfortivpn` falla con `Failed to retrieve SAML cookie from HTTP`.
 - Cuando el certificado se renueve (después del 27/12/2026) la huella cambia. La nueva se obtiene
   con:
