@@ -104,3 +104,47 @@ def test_dqn_retomar_es_igual_que_de_corrido(tmp_path):
     assert ret_retomado == ret_corrido
     assert torch.equal(_pesos(corrido), _pesos(retomado))
     assert retomado.steps == corrido.steps
+
+
+def _ppo(game, **kw):
+    torch.manual_seed(0)
+    from rotten_rl.algorithms import SharedPPO
+    args = dict(hidden_layers_sizes=[32], learning_rate=1e-3, discount_factor=1.0,
+                rollout_episodes=3, epochs=2, minibatch=64)
+    args.update(kw)
+    return SharedPPO(game, **args)
+
+
+def test_ppo_aprende_con_politica_compartida():
+    game = pyspiel.load_game("podrida", {"players": 3})
+    np.random.seed(0)
+    algo = _ppo(game)
+    antes = torch.cat([p.detach().flatten() for p in algo.policy.parameters()]).clone()
+    _entrenar(game, algo, np.random.RandomState(0), 7)
+    assert algo.updates == 2                       # cada 3 partidas
+    assert np.isfinite(algo.last_stats["loss_policy"])
+    assert not torch.equal(antes, torch.cat([p.detach().flatten()
+                                             for p in algo.policy.parameters()]))
+
+
+def test_ppo_retomar_es_igual_que_de_corrido(tmp_path):
+    game = pyspiel.load_game("podrida", {"players": 2})
+    np.random.seed(1)
+    torch.manual_seed(1)
+    rng = np.random.RandomState(1)
+    corrido = _ppo(game)
+    _entrenar(game, corrido, rng, 4)               # corta con un lote a medio juntar
+    save_checkpoint(str(tmp_path), 4, corrido, rng)
+    ret_corrido = _entrenar(game, corrido, rng, 5, start=4)
+
+    np.random.seed(99)
+    torch.manual_seed(99)
+    rng2 = np.random.RandomState(99)
+    retomado = _ppo(game)
+    info = load_checkpoint(latest_checkpoint(str(tmp_path)), retomado, rng2)
+    ret_retomado = _entrenar(game, retomado, rng2, 5, start=info["episode"])
+
+    assert ret_retomado == ret_corrido
+    assert retomado.updates == corrido.updates
+    for a, b in zip(corrido.policy.parameters(), retomado.policy.parameters()):
+        assert torch.equal(a, b)

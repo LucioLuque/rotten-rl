@@ -1,6 +1,6 @@
 """
 scripts/train.py  —  Entrenamiento con self-play, para cualquier algoritmo de
-rotten_rl/algorithms (--algo nfsp | dqn), con logging, evaluacion y checkpoints.
+rotten_rl/algorithms (--algo nfsp | dqn | ppo), con logging, evaluacion y checkpoints.
 
 Evalua contra random, la heuristica y la version anterior de si mismo (rotando
 el asiento evaluado), registrando TODAS las metricas del documento,
@@ -13,6 +13,7 @@ desglosadas por tamanio de ronda h y por asiento, con:
 Algoritmos:
   - nfsp: NFSP de OpenSpiel, un agente por asiento (lo de scripts/train_nfsp.py).
   - dqn:  DQN con una red compartida por todos los asientos (como en Wizard).
+  - ppo:  PPO con politica y critico compartidos, self-play contra la politica actual.
 --round_episodes hace que para los agentes cada ronda sea un episodio.
 
 Cortar y retomar: con --stop_at HH:MM (o si llega SIGTERM/SIGHUP/SIGINT, como
@@ -99,6 +100,15 @@ flags.DEFINE_float("dqn_epsilon_decay_fraction", 0.5,
 flags.DEFINE_integer("dqn_target_update_every", 1000,
                      "DQN: cada cuantos pasos se copia la red online a la target.")
 flags.DEFINE_enum("dqn_loss", "mse", ["mse", "huber"], "DQN: funcion de perdida.")
+# --- solo PPO compartido ---
+flags.DEFINE_integer("ppo_rollout_episodes", 32, "PPO: partidas por lote antes de actualizar.")
+flags.DEFINE_integer("ppo_epochs", 5, "PPO: pasadas sobre cada lote.")
+flags.DEFINE_integer("ppo_minibatch", 512, "PPO: tamanio de minibatch.")
+flags.DEFINE_float("ppo_clip", 0.2, "PPO: clipping del ratio.")
+flags.DEFINE_float("ppo_ent_coef", 0.01, "PPO: peso de la entropia.")
+flags.DEFINE_float("ppo_vf_coef", 0.5, "PPO: peso de la perdida del critico.")
+flags.DEFINE_float("ppo_gae_lambda", 0.95, "PPO: lambda de GAE.")
+flags.DEFINE_float("ppo_max_grad_norm", 0.5, "PPO: clipping de la norma del gradiente.")
 # --- solo NFSP: politica promedio ---
 flags.DEFINE_integer("reservoir_buffer_capacity", int(2e6), "NFSP: reservoir (avg policy).")
 flags.DEFINE_float("sl_learning_rate", 0.01, "NFSP: LR de la red de politica promedio.")
