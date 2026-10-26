@@ -25,6 +25,7 @@ docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN,
 docs/estado.md          estado actual: corridas, resultados y próximos pasos
 docs/openspiel-upstream.md  bugs de OpenSpiel que encontramos y qué contribuir
 docs/optimizacion.md    dónde se va el tiempo y la memoria, y qué conviene optimizar
+docs/bibliografia.md    trabajos sobre juegos parecidos y qué tomar de cada uno
 ```
 
 ## Instalación
