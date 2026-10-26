@@ -75,8 +75,39 @@ evaluaciones):
 - Barrido 4, agregado a `queue2`: combinar reward relativo + lr del DQN 0.0003 + capas de 512 +
   batch 256, con 3 semillas (`e22`–`e24`, 50k) y una de 200k (`e25_combo_200k`).
 
+### Cuántas corridas en paralelo (25/10/2026 ~23:00)
+
+Con 11 entrenamientos a la vez, cada uno va a ~106 ms/episodio; con 6, a ~50. **11 es peor incluso
+en total** (11/106 = 0.104 episodios/ms contra 6/50 = 0.120). Fijar la corrida larga a un núcleo
+exclusivo no la aceleró (~96 → ~109 ms/ep), así que el freno no es compartir núcleo sino recursos
+comunes (caché, memoria, frecuencia). Se bajó `~/scratch/queue2.txt.max_total` a 6 (las que ya
+corren terminan; no se lanzan reemplazos hasta bajar de 6).
+
+**Primero el lunes, con la máquina libre:**
+`python scripts/bench_parallel.py --ns 1,2,4,6,8,12 --episodes 2000` (~15 min) y fijar el número.
+
+### Plan a partir de la bibliografía (ver `docs/bibliografia.md`)
+
+Probar, en orden y con 3 semillas cada uno:
+1. Cada ronda como episodio (Wizard; Suphx).
+2. Una red compartida por todos los asientos (Wizard).
+3. DQN compartido y PPO en self-play contra la política actual, como alternativas a NFSP (Wizard,
+   Big 2 2026, DouZero; NFSP no tiene garantías con más de 2 jugadores).
+4. Canto y juego separados (Wizard, Judgement, AlphaDou; el canto es la decisión que más pesa).
+5. Evaluación con repartos espejo (menos varianza).
+
+Antes, reestructurar para varios algoritmos: `rotten_rl/algos/{base,nfsp,dqn,ppo}.py` con una
+interfaz común (crear agentes, jugar/aprender, política para evaluar, guardar/cargar) y un solo
+`scripts/train.py --algo ...` con evaluación, logging, checkpoints, `--resume`, `--stop_at` y la
+cola compartidos. `train_nfsp.py` queda como alias para retomar las corridas existentes.
+
+PSRO no se descarta, pero baja de prioridad: con más de 2 jugadores no tiene garantías, y en Big 2
+el self-play contra la política actual le ganó a entrenar contra un conjunto de versiones
+anteriores. Entra después, para medir y mejorar la robustez de un agente ya fuerte.
+
 ### Para retomar el lunes 26/10 (acceso desde las 22:00)
 
+0. Correr `scripts/bench_parallel.py` (arriba) antes de lanzar nada.
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
    hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
 2. Retomar la corrida larga:
