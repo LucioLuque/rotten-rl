@@ -80,8 +80,11 @@ Vs heurística, promedio de las últimas 3 evaluaciones de 500 partidas (la base
 | `e17_antic0.05` | anticipatory 0.05 | 0.422 | −7.4 |
 | `e13_eps0.2`, `e18_relative_eps0.2` | ε inicial 0.2 | 0.35 / 0.38 | −13.1 / −11.0 |
 
-- **La combinación funciona y es consistente**: las 3 semillas de `e22`–`e24` dan casi lo mismo
-  (diff −4.5 a −5.0), ~1.5 puntos mejor que solo reward relativo.
+- **La combinación funciona y es consistente.** Finales a los 50k (00:17): `e22` 0.435 / −4.8,
+  `e23` 0.440 / −4.8, `e24` 0.468 / −3.2; promedio **0.448 / −4.3**, ~2 puntos mejor que solo reward
+  relativo y ~4.5 mejor que la base. Es la mejor configuración de NFSP hasta ahora: es la base de
+  `r00`–`r02` (lo mismo + rondas como episodios). `e25` (la misma combinación, 200k) a los 50k: 0.423
+  / −5.9, dentro de lo esperable entre semillas.
 - **Más exploración (ε 0.2) empeora**, confirmado con y sin reward relativo.
 - `e12` (anticipatory 0.3 con reward relativo) fue la mejor corrida individual de NFSP; sin reward
   relativo, anticipatory 0.3 casi no cambiaba nada. Es una sola semilla.
