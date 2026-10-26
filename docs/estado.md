@@ -132,7 +132,9 @@ viejo (alias `train_nfsp.py`, lectura del formato viejo de checkpoints, `past_ne
 reentrenar con la estructura nueva solo la mejor configuración de NFSP. La corrida larga
 `nfsp2p_1M_lr1e-3` sirve como baseline de NFSP con muchos episodios: no cortarla hasta decidirlo.
 
-0. Correr `scripts/bench_parallel.py` (arriba) antes de lanzar nada.
+0. Ver los resultados del resto de la noche (la VPN se cortó a la 01:33; comandos en
+   `docs/reporte.md`, sección "Qué mirar el lunes") y correr `scripts/bench_parallel.py`
+   (arriba) antes de lanzar nada.
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
    hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
 2. Retomar la corrida larga:
