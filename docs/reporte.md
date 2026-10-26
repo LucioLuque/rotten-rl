@@ -101,6 +101,20 @@ la mitad de lo que daría empatar), y el reward relativo no ayuda. Canta un poco
 −0.1 a −0.2), al revés que con 2 jugadores. Es el caso donde más se espera que ayuden las ideas de
 la bibliografía (red compartida: 3 veces más datos por red).
 
+### Barrido 5, resultados parciales (01:20)
+
+| Corrida | Episodio | vs heurística | diff | acierto de canto |
+|---|---|---|---|---|
+| **`r10` DQN compartido + rondas** | 20.000 | **0.503** | **+1.1** | **0.359** |
+| `r00`–`r02` NFSP (combinación) + rondas | 30–40k | 0.44–0.45 | −3.9 a −5.0 | 0.33 |
+| referencia: `e22`–`e24` NFSP (combinación) sin rondas | 35k | 0.44 | −4.5 a −5.0 | 0.33 |
+
+- **Primer agente que le gana a la heurística**: el DQN compartido supera 0.5 de win rate y tiene
+  diferencia de puntos positiva, con menos de la mitad de episodios que NFSP. Una sola semilla y a
+  mitad de la corrida: falta `r11`, `r12`.
+- Para NFSP, rondas como episodios casi no cambia nada a igual cantidad de episodios. La mejora del
+  DQN viene de la red compartida o del algoritmo; `r20` (DQN sin rondas) separa los dos efectos.
+
 (El resto de los resultados se completa a medida que terminan las corridas.)
 
 ## Para decidir el lunes a la noche
