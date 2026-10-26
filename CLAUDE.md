@@ -19,7 +19,7 @@ actualizarlo al terminar algo).
 - Nunca buscar procesos por patrón de texto (`pkill -f`, `pgrep -f`) desde un `ssh labs004 '...'`:
   el patrón aparece también en el comando de la propia sesión y coincide con ella (pasó dos veces:
   un `pkill` mató la sesión y un `pgrep` dejó una espera infinita). Usar el PID, o
-  `run_queue.count_training_processes("train_nfsp.py")` para contar entrenamientos.
+  `run_queue.count_training_processes()` para contar entrenamientos.
 - Si `ssh labs004` empieza a devolver `Cannot find current user: user: unknown userid`, la conexión
   compartida (ControlMaster) quedó rota del lado del lab: `ssh -O exit labs004` y reconectar.
 - Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);

@@ -8,6 +8,7 @@ torch = pytest.importorskip("torch")
 from open_spiel.python.pytorch import nfsp  # noqa: E402
 
 import rotten_rl.openspiel_game  # noqa: E402,F401
+from rotten_rl.algorithms import NFSPAlgorithm  # noqa: E402
 from rotten_rl.checkpoint import latest_checkpoint, list_checkpoints, load_checkpoint, save_checkpoint  # noqa: E402
 from rotten_rl.training import EpisodeRunner  # noqa: E402
 
@@ -41,14 +42,14 @@ def test_retomar_es_igual_que_de_corrido(tmp_path):
     rng = np.random.RandomState(1)
     corrido = _agentes(game)
     _seguir(game, corrido, rng, 6)
-    save_checkpoint(str(tmp_path), 6, corrido, rng, extra={"hola": 1})
+    save_checkpoint(str(tmp_path), 6, NFSPAlgorithm(corrido), rng, extra={"hola": 1})
     ret_corrido = _seguir(game, corrido, rng, 6)
 
     # Cortado: agentes nuevos (otra semilla, otro estado del RNG) + restaurar + 6 partidas.
     np.random.seed(99)
     rng2 = np.random.RandomState(99)
     retomado = _agentes(game)
-    info = load_checkpoint(latest_checkpoint(str(tmp_path)), retomado, rng2)
+    info = load_checkpoint(latest_checkpoint(str(tmp_path)), NFSPAlgorithm(retomado), rng2)
     ret_retomado = _seguir(game, retomado, rng2, 6)
 
     assert info == {"episode": 6, "extra": {"hola": 1}}
@@ -65,5 +66,5 @@ def test_guarda_solo_los_ultimos(tmp_path):
     agentes = _agentes(game)
     rng = np.random.RandomState(0)
     for ep in (1, 2, 3):
-        save_checkpoint(str(tmp_path), ep, agentes, rng, with_buffers=False, keep_last=2)
+        save_checkpoint(str(tmp_path), ep, NFSPAlgorithm(agentes), rng, with_buffers=False, keep_last=2)
     assert [p.rsplit("_ep", 1)[1] for p in list_checkpoints(str(tmp_path))] == ["2", "3"]

@@ -11,6 +11,7 @@ import rotten_rl.openspiel_game as og  # noqa: E402
 from rotten_rl.buffers import (CompactReplayBuffer, CompactReservoirBuffer,  # noqa: E402
                                ENCODED_SIZE, INFO_SIZE, decode_info_states, encode_info_states,
                                use_compact_buffers)
+from rotten_rl.algorithms import NFSPAlgorithm  # noqa: E402
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint  # noqa: E402
 from rotten_rl.training import EpisodeRunner  # noqa: E402
 
@@ -95,17 +96,17 @@ def test_entrenar_comprimido_da_lo_mismo():
 
 def test_checkpoint_con_buffers_comprimidos(tmp_path):
     game, agentes, rng, _ = _entrenar(True, episodios=6)
-    save_checkpoint(str(tmp_path), 6, agentes, rng)
+    save_checkpoint(str(tmp_path), 6, NFSPAlgorithm(agentes), rng)
     sigue = [EpisodeRunner(game, rng).play(agentes) for _ in range(4)]
 
     np.random.seed(7)
     rng2 = np.random.RandomState(7)
     retomados = _agentes(game, True)
-    load_checkpoint(latest_checkpoint(str(tmp_path)), retomados, rng2)
+    load_checkpoint(latest_checkpoint(str(tmp_path)), NFSPAlgorithm(retomados), rng2)
     assert [EpisodeRunner(game, rng2).play(retomados) for _ in range(4)] == sigue
     for a, b in zip(_pesos(agentes), _pesos(retomados)):
         assert torch.equal(a, b)
 
     # Un checkpoint comprimido no se puede cargar en agentes con buffers comunes.
     with pytest.raises(ValueError, match="comprimidos"):
-        load_checkpoint(latest_checkpoint(str(tmp_path)), _agentes(game, False), rng2)
+        load_checkpoint(latest_checkpoint(str(tmp_path)), NFSPAlgorithm(_agentes(game, False)), rng2)

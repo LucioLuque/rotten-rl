@@ -1,17 +1,19 @@
 """
 rotten_rl/checkpoint.py
 
-Checkpoints completos de un entrenamiento con agentes NFSP de OpenSpiel, para
-poder cortarlo (p.ej. por el reinicio diario del laboratorio) y retomarlo
-exactamente donde quedo.
-
-El save/restore de NFSP de OpenSpiel 2.0.2 no sirve: guarda con unas claves
-("model", "optimiser") y lee con otras ("model_state_dict", ...), y no guarda
-los buffers ni los contadores del DQN interno. Aca se guarda todo a mano:
+Checkpoints completos de un entrenamiento, para poder cortarlo (p.ej. por el
+reinicio diario del laboratorio) y retomarlo exactamente donde quedo. Que se
+guarda lo decide cada algoritmo (rotten_rl.algorithms.Algorithm:
+checkpoint_state / checkpoint_buffers / load_checkpoint_state); aca se maneja el
+formato en disco:
 
   ckpt_ep<episodio>/
-    meta.pt            redes, optimizadores, contadores, RNGs y `extra`
-    buffers/           un .npy por campo de cada buffer (solo la parte llena)
+    meta.pt            estado del algoritmo (redes, optimizadores, contadores),
+                       RNGs y `extra`
+    buffers/           <nombre>.<campo>.npy por cada buffer (solo la parte llena)
+
+(El save/restore de NFSP de OpenSpiel 2.0.2 no sirve: ver
+docs/openspiel-upstream.md.)
 
 Se escribe primero en ckpt_ep<N>.tmp y despues se renombra, asi un corte en
 medio del guardado nunca deja un checkpoint a medias.
@@ -78,70 +80,28 @@ def _load_buffer(buffer_class, transition_class, info: Optional[Dict], path_pref
 
 
 # ----------------------------------------------------------------------
-# Estado de un agente NFSP
-# ----------------------------------------------------------------------
-
-def _nfsp_state(agent) -> Dict:
-    rl = agent._rl_agent
-    return {
-        "avg_network": agent._avg_network.state_dict(),
-        "avg_optimizer": agent._optimizer.state_dict(),
-        "iteration": agent._iteration,
-        "mode": agent._mode.value,
-        "last_sl_loss": agent._last_sl_loss_value,
-        "q_network": rl._q_network.state_dict(),
-        "target_q_network": rl._target_q_network.state_dict(),
-        "rl_optimizer": rl._optimizer.state_dict(),
-        "rl_iteration": rl._iteration,
-        "last_rl_loss": rl._last_loss_value,
-    }
-
-
-def _load_nfsp_state(agent, s: Dict) -> None:
-    from open_spiel.python.pytorch import nfsp
-
-    rl = agent._rl_agent
-    agent._avg_network.load_state_dict(s["avg_network"])
-    agent._optimizer.load_state_dict(s["avg_optimizer"])
-    agent._iteration = s["iteration"]
-    agent._mode = nfsp.MODE(s["mode"])
-    agent._last_sl_loss_value = s["last_sl_loss"]
-    rl._q_network.load_state_dict(s["q_network"])
-    rl._target_q_network.load_state_dict(s["target_q_network"])
-    rl._optimizer.load_state_dict(s["rl_optimizer"])
-    rl._iteration = s["rl_iteration"]
-    rl._last_loss_value = s["last_rl_loss"]
-    # Los checkpoints se toman entre partidas: no hay transicion a medias.
-    agent._prev_timestep = agent._prev_action = None
-    rl._prev_timestep = rl._prev_action = None
-
-
-# ----------------------------------------------------------------------
 # API
 # ----------------------------------------------------------------------
 
-def save_checkpoint(ckpt_root: str, episode: int, agents: List, rng: np.random.RandomState,
+def save_checkpoint(ckpt_root: str, episode: int, algorithm, rng: np.random.RandomState,
                     extra: Optional[Dict] = None, with_buffers: bool = True,
                     keep_last: int = 2) -> str:
-    """Guarda el estado completo despues de `episode` partidas y borra los
-    checkpoints viejos (deja los `keep_last` mas nuevos). Devuelve la ruta."""
+    """Guarda el estado completo de `algorithm` (un rotten_rl.algorithms.Algorithm)
+    despues de `episode` partidas y borra los checkpoints viejos (deja los
+    `keep_last` mas nuevos). Devuelve la ruta."""
     final = os.path.join(ckpt_root, f"ckpt_ep{episode}")
     tmp = final + ".tmp"
     shutil.rmtree(tmp, ignore_errors=True)
     os.makedirs(os.path.join(tmp, "buffers"))
 
-    buffers = []
-    for i, agent in enumerate(agents):
-        b = {}
-        if with_buffers:
-            pre = os.path.join(tmp, "buffers", f"agent{i}")
-            b["reservoir"] = _save_buffer(agent._reservoir_buffer, pre + ".reservoir")
-            b["replay"] = _save_buffer(agent._rl_agent._replay_buffer, pre + ".replay")
-        buffers.append(b)
+    buffers = {}
+    if with_buffers:
+        for name, buf in algorithm.checkpoint_buffers().items():
+            buffers[name] = _save_buffer(buf, os.path.join(tmp, "buffers", name))
 
     meta = {
         "episode": episode,
-        "agents": [_nfsp_state(a) for a in agents],
+        **algorithm.checkpoint_state(),
         "buffers": buffers,
         "rng": {
             "numpy_global": np.random.get_state(),
@@ -160,22 +120,27 @@ def save_checkpoint(ckpt_root: str, episode: int, agents: List, rng: np.random.R
     return final
 
 
-def load_checkpoint(path: str, agents: List, rng: np.random.RandomState) -> Dict:
-    """Restaura en `agents` (ya construidos con la misma config) y en `rng` el
-    estado guardado en `path`. Devuelve {"episode": ..., "extra": ...}."""
-    from open_spiel.python.pytorch import dqn, nfsp
+def _buffer_infos(meta: Dict) -> Dict:
+    """{nombre: info} de los buffers guardados. Los checkpoints de antes de
+    rotten_rl.algorithms (solo NFSP) los guardaban como una lista por agente:
+    [{"reservoir": info, "replay": info}, ...] -> agent<i>.<tipo>."""
+    b = meta.get("buffers") or {}
+    if isinstance(b, list):
+        b = {f"agent{i}.{kind}": info for i, per in enumerate(b) for kind, info in per.items()}
+    return b
 
+
+def load_checkpoint(path: str, algorithm, rng: np.random.RandomState) -> Dict:
+    """Restaura en `algorithm` (ya construido con la misma config) y en `rng` el
+    estado guardado en `path`. Devuelve {"episode": ..., "extra": ...}."""
     meta = torch.load(os.path.join(path, "meta.pt"), weights_only=False)
-    for i, (agent, s) in enumerate(zip(agents, meta["agents"])):
-        _load_nfsp_state(agent, s)
-        b = meta["buffers"][i]
-        if b:
-            pre = os.path.join(path, "buffers", f"agent{i}")
-            agent._reservoir_buffer = _load_buffer(
-                agent._replay_buffer_class, nfsp.Transition, b["reservoir"], pre + ".reservoir")
-            agent._rl_agent._replay_buffer = _load_buffer(
-                agent._rl_agent._replay_buffer_class, dqn.Transition, b["replay"],
-                pre + ".replay")
+    infos = _buffer_infos(meta)
+
+    def load_buffer(name, buffer_class, transition_class):
+        return _load_buffer(buffer_class, transition_class, infos.get(name),
+                            os.path.join(path, "buffers", name))
+
+    algorithm.load_checkpoint_state(meta, load_buffer)
 
     r = meta["rng"]
     np.random.set_state(r["numpy_global"])

@@ -4,12 +4,12 @@ scripts/run_queue.py  —  Cola de experimentos: corre hasta --parallel a la vez
 Cada linea no vacia del archivo --queue (las que empiezan con # se ignoran) es
 un experimento:
 
-    <nombre> <flags de train_nfsp.py>
+    <nombre> <flags de train.py>
 
 p.ej.  e01_seed1 --players 2 --num_train_episodes 50000 --seed 1
 
 Se lanza como
-    OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train_nfsp.py --runs_dir <runs_dir> \
+    OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.py --runs_dir <runs_dir> \
         --run_name <nombre> --stop_at <stop_at> <flags> > <logs_dir>/<nombre>.log
 
 La cola se relee en cada vuelta: se pueden agregar lineas mientras corre. Los
@@ -47,12 +47,17 @@ def _next_time(hhmm):
     return when if when > now else when + datetime.timedelta(days=1)
 
 
-def count_training_processes(script_name):
-    """Procesos de Python del usuario que estan corriendo `script_name` (p.ej.
-    train_nfsp.py), lanzados por cualquier cola o a mano. Mira argv en /proc:
+TRAINING_SCRIPTS = ("train.py", "train_nfsp.py")
+
+
+def count_training_processes(script_name=TRAINING_SCRIPTS):
+    """Procesos de Python del usuario que estan corriendo `script_name` (un
+    nombre o una tupla de nombres; por defecto los dos scripts de entrenamiento,
+    train.py y su alias train_nfsp.py), lanzados por cualquier cola o a mano. Mira argv en /proc:
     cuenta solo si el ejecutable es python y el script es el primer argumento,
     asi no cuenta los `bash -lc "... python scripts/train_nfsp.py ..."` que los
     envuelven."""
+    names = (script_name,) if isinstance(script_name, str) else tuple(script_name)
     uid, n = os.getuid(), 0
     for pid in os.listdir("/proc"):
         if not pid.isdigit():
@@ -65,7 +70,7 @@ def count_training_processes(script_name):
         except OSError:
             continue
         if (len(argv) > 1 and b"python" in os.path.basename(argv[0])
-                and os.path.basename(argv[1]).decode(errors="replace") == script_name):
+                and os.path.basename(argv[1]).decode(errors="replace") in names):
             n += 1
     return n
 
@@ -99,7 +104,7 @@ def main():
                    help="si se da: no lanzar si en la maquina ya corren esta cantidad de "
                         "entrenamientos (cuenta todos los del usuario, de cualquier cola o a mano). "
                         "Se puede cambiar en caliente escribiendo un numero en <queue>.max_total")
-    p.add_argument("--script", default="scripts/train_nfsp.py",
+    p.add_argument("--script", default="scripts/train.py",
                    help="script de entrenamiento, relativo al repo")
     p.add_argument("--runs_dir", default=os.path.expanduser("~/scratch/runs"))
     p.add_argument("--logs_dir", default=os.path.expanduser("~/scratch/logs"))
@@ -109,7 +114,7 @@ def main():
     a = p.parse_args()
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    script = os.path.basename(a.script)
+    script = tuple(set(TRAINING_SCRIPTS) | {os.path.basename(a.script)})
     started_path = a.queue + ".started"
     started = set()
     if os.path.exists(started_path):

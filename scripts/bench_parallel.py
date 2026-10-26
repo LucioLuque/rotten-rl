@@ -42,7 +42,7 @@ def main():
                    help="medir desde este episodio (los primeros llenan buffers)")
     p.add_argument("--players", type=int, default=2)
     p.add_argument("--extra", default="--rl_learning_rate 0.001 --sl_learning_rate 0.001",
-                   help="flags extra para train_nfsp.py")
+                   help="flags extra para train.py")
     a = p.parse_args()
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,7 +53,7 @@ def main():
         procs, logs = [], []
         for i in range(n):
             log = os.path.join(tmp, f"run{i}.log")
-            cmd = [sys.executable, os.path.join(repo, "scripts", "train_nfsp.py"),
+            cmd = [sys.executable, os.path.join(repo, "scripts", "train.py"),
                    "--players", str(a.players), "--num_train_episodes", str(a.episodes),
                    "--eval_every", str(10 * a.episodes), "--eval_games", "10",
                    "--eval_opponents", "random", "--log_every", str(a.from_episode),

@@ -65,16 +65,33 @@ class EpisodeRunner:
         outcomes, probs = zip(*state.chance_outcomes())
         return int(self._rng.choice(outcomes, p=probs))
 
+    def _last_step(self, pending: List[float]) -> TimeStep:
+        n = self._n
+        return TimeStep(
+            observations={"info_state": [self._terminal_info] * n,
+                          "legal_actions": [[] for _ in range(n)],
+                          "current_player": -4},
+            rewards=list(pending), discounts=[0.0] * n, step_type=StepType.LAST)
+
     def play(self, seats: Sequence, is_evaluation: bool = False,
-             on_round_reward: Optional[Callable[[List[float]], None]] = None) -> List[float]:
+             on_round_reward: Optional[Callable[[List[float]], None]] = None,
+             round_episodes: bool = False) -> List[float]:
         """Juega una partida y devuelve los retornos de cada asiento.
         `on_round_reward(rewards)` se llama con los rewards de cada paso que los
-        tenga (para loguear, p.ej. el retorno del asiento 0)."""
+        tenga (para loguear, p.ej. el retorno del asiento 0).
+
+        Con `round_episodes`, para los agentes cada RONDA es un episodio: al
+        cerrarse una ronda reciben un TimeStep LAST con su reward, y la ronda
+        siguiente empieza de cero (FIRST). Asi el valor de una decision solo
+        incluye los puntos de su ronda y no los de las rondas siguientes, que
+        no dependen de ella (como en el paper de Wizard; ver docs/bibliografia.md).
+        La partida completa se juega igual."""
         n = self._n
         is_agent = [hasattr(s, "step") for s in seats]
         state = self._game.new_initial_state()
         pending = [0.0] * n
         first = True
+        round_ptr = state._round_ptr
 
         while not state.is_terminal():
             if state.is_chance_node():
@@ -108,11 +125,16 @@ class EpisodeRunner:
                 if on_round_reward is not None:
                     on_round_reward(step_rewards)
 
-        last = TimeStep(
-            observations={"info_state": [self._terminal_info] * n,
-                          "legal_actions": [[] for _ in range(n)],
-                          "current_player": -4},
-            rewards=list(pending), discounts=[0.0] * n, step_type=StepType.LAST)
+            if round_episodes and state._round_ptr != round_ptr and not state.is_terminal():
+                round_ptr = state._round_ptr
+                last = self._last_step(pending)
+                for pid in range(n):
+                    if is_agent[pid]:
+                        seats[pid].step(last, is_evaluation=is_evaluation)
+                pending = [0.0] * n
+                first = True
+
+        last = self._last_step(pending)
         for pid in range(n):
             if is_agent[pid]:
                 seats[pid].step(last, is_evaluation=is_evaluation)

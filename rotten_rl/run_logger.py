@@ -112,21 +112,15 @@ class RunLogger:
 
     # ------------------------------------------------------------------
 
-    def log_train(self, episode: int, reward_ma: float, losses) -> None:
-        """Progreso continuo de entrenamiento (estilo SB3).
-        `losses` es una lista con un elemento por agente; cada elemento es la
-        tupla (sl_loss, rl_loss) que devuelve NFSP.loss."""
+    def log_train(self, episode: int, reward_ma: float, losses: Dict[str, float]) -> None:
+        """Progreso continuo de entrenamiento (estilo SB3). `losses` es
+        {nombre: valor}, lo que devuelve Algorithm.losses() (p.ej. para NFSP,
+        loss_agent_<i>_sl y loss_agent_<i>_rl)."""
         self.writer.add_scalar("train/reward_moving_avg", reward_ma, episode)
         row = {"episode": episode, "reward_ma": reward_ma}
-        for i, comp in enumerate(losses):
-            if isinstance(comp, (tuple, list)):
-                sl, rl = (list(comp) + [None, None])[:2]
-            else:
-                sl, rl = None, comp
-            for tag, val in (("sl", sl), ("rl", rl)):
-                v = float(val) if val is not None else float("nan")
-                self.writer.add_scalar(f"train/loss_agent_{i}_{tag}", v, episode)
-                row[f"loss_agent_{i}_{tag}"] = v
+        for name, v in losses.items():
+            self.writer.add_scalar(f"train/{name}", v, episode)
+            row[name] = v
         self._csv_row("train.csv", row)
 
     def log_eval(self, episode: int, metrics: Dict, opponent: str = "random") -> None:

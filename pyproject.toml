@@ -21,8 +21,8 @@ dependencies = [
 play = ["pygame"]
 dev = ["pytest"]
 
-[tool.setuptools]
-packages = ["rotten_rl"]
+[tool.setuptools.packages.find]
+include = ["rotten_rl*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
