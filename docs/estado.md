@@ -119,6 +119,12 @@ anteriores. Entra después, para medir y mejorar la robustez de un agente ya fue
 
 ### Para retomar el lunes 26/10 (acceso desde las 22:00)
 
+**Decisión pendiente para charlar con Lucio** (no hacer nada antes): con los resultados de esta
+noche (barrido 5, `e20`–`e25` y la corrida larga), evaluar si sacar la compatibilidad con el código
+viejo (alias `train_nfsp.py`, lectura del formato viejo de checkpoints, `past_nets` en `extra`) y
+reentrenar con la estructura nueva solo la mejor configuración de NFSP. La corrida larga
+`nfsp2p_1M_lr1e-3` sirve como baseline de NFSP con muchos episodios: no cortarla hasta decidirlo.
+
 0. Correr `scripts/bench_parallel.py` (arriba) antes de lanzar nada.
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
    hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
