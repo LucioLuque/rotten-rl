@@ -43,7 +43,29 @@ las 06:55), `e20`–`e24` y `e25_combo_200k`.
 
 ## Resultados
 
-(Se completan a medida que terminan las corridas.)
+### ¿Qué algoritmo es más rápido? (pregunta de Lucio, ~23:50)
+
+Hay dos velocidades distintas:
+
+**Tiempo por episodio** (medido en el lab con las tres corriendo a la vez, más ~7 corridas de la
+noche; 2 jugadores, capas de 512, reward relativo, rondas como episodios):
+
+| Algoritmo | ms por episodio | Por qué |
+|---|---|---|
+| PPO compartido | **113–130** | Aprende en lotes cada 32 partidas; entre medio solo juega |
+| NFSP (un agente por asiento) | 138 | Dos redes por agente, aprende cada 64 pasos |
+| DQN compartido | 176 | Aprende cada 16 pasos con batch 256 (como en Wizard): más cuentas por episodio |
+
+Los números absolutos están inflados por la carga de la máquina; lo que vale es la comparación. DQN
+se puede acelerar aprendiendo menos seguido (`--learn_every`), a costa de aprender menos por
+episodio.
+
+**Episodios necesarios para aprender** (lo que más importa): en las pruebas cortas, PPO llegó en
+2.000 episodios a 0.42 vs heurística (diff −6.5), lo mismo que NFSP a los 50.000; DQN pasó de 0.49
+a 0.71 vs random en 1.500. Si se confirma con el barrido 6, **PPO sería el más rápido en los dos
+sentidos**. Falta confirmarlo con 3 semillas y 50k episodios.
+
+(El resto de los resultados se completa a medida que terminan las corridas.)
 
 ## Para decidir el lunes a la noche
 
