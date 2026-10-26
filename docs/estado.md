@@ -96,7 +96,7 @@ Probar, en orden y con 3 semillas cada uno:
 4. Canto y juego separados (Wizard, Judgement, AlphaDou; el canto es la decisión que más pesa).
 5. Evaluación con repartos espejo (menos varianza).
 
-Antes, reestructurar para varios algoritmos: `rotten_rl/algos/{base,nfsp,dqn,ppo}.py` con una
+Antes, reestructurar para varios algoritmos: `rotten_rl/algorithms/{base,nfsp,dqn,ppo}.py` con una
 interfaz común (crear agentes, jugar/aprender, política para evaluar, guardar/cargar) y un solo
 `scripts/train.py --algo ...` con evaluación, logging, checkpoints, `--resume`, `--stop_at` y la
 cola compartidos. `train_nfsp.py` queda como alias para retomar las corridas existentes.

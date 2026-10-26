@@ -105,6 +105,23 @@ basado en modelo. Antecedente del paper de 2022.
   Q-learning**; una regularización de entropía moderada ayuda; y **self-play contra la política
   actual** es mejor currículum que contra checkpoints o rivales fijos.
 
+### MAPPO e IPPO — Yu, Velu, Vinitsky et al., NeurIPS 2022 · relevancia media · abstract y resúmenes
+
+[arXiv 2103.01955](https://arxiv.org/abs/2103.01955) ·
+[post de BAIR](https://bair.berkeley.edu/blog/2021/07/14/mappo)
+
+- **IPPO**: PPO donde la política y el crítico usan solo la observación propia. **MAPPO**: el
+  **crítico es centralizado** y ve información global (el estado completo), mientras que la política
+  usa solo la observación propia (*centralized training, decentralized execution*). El crítico solo
+  sirve para bajar la varianza durante el entrenamiento, así que puede ver lo que el jugador no ve.
+- Pensado para juegos **cooperativos** con reward compartido (Hanabi, StarCraft). Con poco ajuste
+  rinde como los mejores métodos. Recomiendan pocas épocas por lote (5–15) y un clipping chico.
+- Para nosotros (competitivo, suma general) no se usa tal cual, pero **la idea del crítico con
+  información privilegiada sí aplica**: un crítico que vea todas las manos durante el entrenamiento
+  baja la varianza sin que la política haga trampa al jugar. Es la misma idea que el crítico
+  centralizado de VRPO (abajo), el oracle de Suphx y el entrenamiento con información perfecta de
+  ScrofaZero.
+
 ### GAE en self-play con información imperfecta — Fan y Farina, 2026 · relevancia media · abstract
 
 [arXiv 2605.19235](https://arxiv.org/abs/2605.19235). En PPO con self-play, el estimador de ventaja
