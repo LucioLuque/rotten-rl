@@ -18,8 +18,14 @@ repite experimentos. No lanza nada nuevo despues de --no_launch_after; hasta
 esa hora, si la cola se vacia, espera lineas nuevas. Termina cuando no queda
 nada corriendo y ya no se puede (o no hay que) lanzar mas.
 
+Con --max_total, antes de lanzar cuenta TODOS los entrenamientos que corren en
+la maquina (de otras colas, la corrida larga, lanzados a mano) y solo lanza si
+hay menos que ese limite; el limite se puede cambiar en caliente escribiendo un
+numero en <queue>.max_total. Las corridas se lanzan en su propia sesion: si la
+cola o su tmux mueren, siguen corriendo (y Ctrl+C en la cola no las corta).
+
 Ejemplo (en el lab, dentro de tmux):
-    python scripts/run_queue.py --queue ~/scratch/queue.txt --parallel 5 \
+    python scripts/run_queue.py --queue ~/scratch/queue.txt --parallel 10 --max_total 11 \
         --stop_at 06:55 --no_launch_after 06:00
 """
 
@@ -41,6 +47,38 @@ def _next_time(hhmm):
     return when if when > now else when + datetime.timedelta(days=1)
 
 
+def count_training_processes(script_name):
+    """Procesos de Python del usuario que estan corriendo `script_name` (p.ej.
+    train_nfsp.py), lanzados por cualquier cola o a mano. Mira argv en /proc:
+    cuenta solo si el ejecutable es python y el script es el primer argumento,
+    asi no cuenta los `bash -lc "... python scripts/train_nfsp.py ..."` que los
+    envuelven."""
+    uid, n = os.getuid(), 0
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            if os.stat(f"/proc/{pid}").st_uid != uid:
+                continue
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                argv = f.read().split(b"\0")
+        except OSError:
+            continue
+        if (len(argv) > 1 and b"python" in os.path.basename(argv[0])
+                and os.path.basename(argv[1]).decode(errors="replace") == script_name):
+            n += 1
+    return n
+
+
+def _read_max_total(queue_path, default):
+    """El limite total, de <queue>.max_total si existe (se puede editar en caliente)."""
+    try:
+        with open(queue_path + ".max_total") as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return default
+
+
 def _read_queue(path):
     jobs = []
     with open(path) as f:
@@ -55,7 +93,14 @@ def _read_queue(path):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--queue", required=True)
-    p.add_argument("--parallel", type=int, default=4)
+    p.add_argument("--parallel", type=int, default=4,
+                   help="maximo de corridas lanzadas por ESTA cola a la vez")
+    p.add_argument("--max_total", type=int, default=None,
+                   help="si se da: no lanzar si en la maquina ya corren esta cantidad de "
+                        "entrenamientos (cuenta todos los del usuario, de cualquier cola o a mano). "
+                        "Se puede cambiar en caliente escribiendo un numero en <queue>.max_total")
+    p.add_argument("--script", default="scripts/train_nfsp.py",
+                   help="script de entrenamiento, relativo al repo")
     p.add_argument("--runs_dir", default=os.path.expanduser("~/scratch/runs"))
     p.add_argument("--logs_dir", default=os.path.expanduser("~/scratch/logs"))
     p.add_argument("--stop_at", default=None, help="HH:MM, se le pasa a cada corrida")
@@ -64,6 +109,7 @@ def main():
     a = p.parse_args()
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    script = os.path.basename(a.script)
     started_path = a.queue + ".started"
     started = set()
     if os.path.exists(started_path):
@@ -87,16 +133,25 @@ def main():
         now = datetime.datetime.now()
         can_launch = no_launch_after is None or now < no_launch_after
         pending = [(n, args) for n, args in _read_queue(a.queue) if n not in started]
-        while can_launch and pending and len(running) < a.parallel:
+        max_total = _read_max_total(a.queue, a.max_total)
+
+        def room():
+            if len(running) >= a.parallel:
+                return False
+            return max_total is None or count_training_processes(script) < max_total
+
+        while can_launch and pending and room():
             name, args = pending.pop(0)
-            cmd = [sys.executable, os.path.join(repo, "scripts", "train_nfsp.py"),
+            cmd = [sys.executable, os.path.join(repo, a.script),
                    "--runs_dir", a.runs_dir, "--run_name", name]
             if a.stop_at:
                 cmd += ["--stop_at", a.stop_at]
             cmd += args
             with open(os.path.join(a.logs_dir, f"{name}.log"), "w") as out:
+                # Sesion propia: si la cola (o su tmux) muere, las corridas siguen.
                 running[name] = subprocess.Popen(cmd, cwd=repo, env=env, stdout=out,
-                                                 stderr=subprocess.STDOUT)
+                                                 stderr=subprocess.STDOUT,
+                                                 start_new_session=True)
             started.add(name)
             with open(started_path, "a") as f:
                 f.write(name + "\n")
