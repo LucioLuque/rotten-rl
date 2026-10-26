@@ -2,7 +2,12 @@
 
 RL para La Podrida (Oh Hell) sobre OpenSpiel. Estructura y uso en `README.md`; plan y métricas en
 `docs/plan.md`; estado actual, corridas y próximos pasos en `docs/estado.md` (leerlo al empezar y
-actualizarlo al terminar algo).
+actualizarlo al terminar algo); bibliografía y qué aplicar en `docs/bibliografia.md`; reporte de
+la última noche en `docs/reporte.md`. Mantener actualizados todos los `.md` que cambien con el
+trabajo.
+
+Entrenamiento: `scripts/train.py --algo nfsp|dqn|ppo`; cada algoritmo en `rotten_rl/algorithms/`
+implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola son comunes).
 
 ## Dónde se corre
 

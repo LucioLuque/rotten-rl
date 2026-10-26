@@ -1,8 +1,35 @@
 # Plan del proyecto
 
-## Camino concreto
+## Plan revisado (26/10/2026)
 
-### Fase 1 — Construir y validar el juego (sin RL todavía)
+Después de la primera noche de experimentos y de la revisión bibliográfica
+(`docs/bibliografia.md`), el camino cambia en tres cosas:
+
+- **NFSP deja de ser el algoritmo principal.** Con más de 2 jugadores no tiene garantías de
+  convergencia, y en juegos de cartas de varios jugadores lo que anduvo es self-play más simple: DQN
+  en Wizard (de la misma familia que la Podrida), PPO en Big 2, Deep Monte Carlo en Dou Dizhu. Se
+  comparan NFSP, DQN compartido y PPO compartido con la misma evaluación (`scripts/train.py --algo`).
+- **Diseño tomado de la literatura**: cada ronda como episodio, una red compartida por todos los
+  asientos, y (próximo) canto y juego separados, crítico que vea todas las manos durante el
+  entrenamiento y evaluación con repartos espejo.
+- **PSRO pasa a una etapa posterior**: no para entrenar, sino para medir y mejorar la robustez de un
+  agente que ya sea fuerte (buscar rivales que lo exploten). En Big 2, el self-play contra la
+  política actual le ganó a entrenar contra un conjunto de versiones anteriores.
+
+Las fases quedan así:
+
+1. ~~Juego y validación~~ (hecho).
+2. Elegir algoritmo y diseño con 2 jugadores, comparando con varias semillas (en curso: ver
+   `docs/estado.md`).
+3. Escalar a 3 y 4 jugadores con lo que mejor ande.
+4. Robustez: liga de versiones anteriores o PSRO, rival PIMC más fuerte que la heurística.
+5. Un modelo para n variable (2 a 7).
+
+## Plan original
+
+### Camino concreto
+
+#### Fase 1 — Construir y validar el juego (sin RL todavía)
 
 1. Programar la lógica pura de la podrida (reglas, fases de apuesta, reparto de cartas, cálculo de
    puntaje) como funciones de Python separadas de cualquier interfaz.
@@ -12,7 +39,7 @@
    (`state.legal_actions()`, `state.apply_action()`, etc.): chequear que los puntajes, las fases de
    apuesta y el fin de partida se comporten como se espera.
 
-### Fase 2 — Sanity check con NFSP
+#### Fase 2 — Sanity check con NFSP
 
 4. Conectar el `Game` al ejemplo de `examples/nfsp.py`, ajustando lo mínimo indispensable.
 5. Correr primero con 2-3 jugadores fijos (el caso más simple), para reducir variables y confirmar
@@ -20,7 +47,7 @@
 6. Medir algo objetivo: puntaje promedio contra agentes random o heurísticos simples (por ejemplo,
    "apostá según cuántas cartas altas tenés").
 
-### Fase 3 — Escalar a PSRO
+#### Fase 3 — Escalar a PSRO
 
 7. Una vez que el pipeline de evaluación funcione (cómo se mide "qué tan bien juega" el agente),
    migrar a `psro_v2`, usando como oráculo interno algo simple al principio (DQN) para no sumar
@@ -29,7 +56,7 @@
    crece con la cantidad de jugadores.
 9. Comparar los resultados de PSRO contra los de NFSP con la misma métrica de la Fase 2.
 
-### Fase 4 — Generalizar a n variable
+#### Fase 4 — Generalizar a n variable
 
 10. Una vez que el pipeline ande bien con un número fijo de jugadores, extender el entrenamiento a
     que varíe entre 2 y 7 (se puede entrenar un modelo por cada n, o intentar arquitecturas que

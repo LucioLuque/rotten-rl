@@ -15,12 +15,13 @@ rotten_rl/              paquete
   algorithms/           algoritmos con una interfaz común (base.py):
     nfsp.py             NFSP de OpenSpiel, un agente por asiento
     dqn.py              DQN con una red compartida por todos los asientos
-  checkpoint.py         checkpoints completos de NFSP para cortar y retomar
+    ppo.py              PPO con política y crítico compartidos (self-play)
+  checkpoint.py         checkpoints completos (cualquier algoritmo) para cortar y retomar
   buffers.py            buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
   run_logger.py         logging a TensorBoard, CSV y config.json en runs/
   renderer.py           render con Pygame
 scripts/
-  train.py              entrenamiento con self-play: --algo nfsp|dqn, --round_episodes,
+  train.py              entrenamiento con self-play: --algo nfsp|dqn|ppo, --round_episodes,
                         --resume, --stop_at
   train_nfsp.py         alias de train.py (para retomar corridas viejas)
   run_queue.py          cola de experimentos para el laboratorio
@@ -35,6 +36,7 @@ docs/estado.md          estado actual: corridas, resultados y próximos pasos
 docs/openspiel-upstream.md  bugs de OpenSpiel que encontramos y qué contribuir
 docs/optimizacion.md    dónde se va el tiempo y la memoria, y qué conviene optimizar
 docs/bibliografia.md    trabajos sobre juegos parecidos y qué tomar de cada uno
+docs/reporte.md         reporte de la última noche de corridas
 ```
 
 ## Instalación
@@ -49,7 +51,7 @@ Hace falta `open_spiel` 2.0 o más nuevo (Python 3.11+): las versiones 1.x de pi
 ## Uso
 
 ```bash
-python scripts/train.py --algo dqn --round_episodes --players 2 --run_name dqn2p
+python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 2 --run_name ppo2p
 tensorboard --logdir runs
 python scripts/play.py      # jugar contra bots
 pytest

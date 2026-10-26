@@ -101,7 +101,14 @@ movido ahí (`nfsp.py`) y DQN con red compartida por todos los asientos (`dqn.py
 propia), y un solo `scripts/train.py --algo nfsp|dqn` con `--round_episodes` (1 y 2 del plan).
 `train_nfsp.py` quedó como alias. Validado en el lab: `train.py --algo nfsp` da CSVs idénticos byte
 a byte al código anterior; retoma checkpoints del formato viejo; DQN compartido con rondas como
-episodios pasa de 0.49 a 0.71 vs random en 1.500 episodios. 27 tests. Falta PPO (`ppo.py`).
+episodios pasa de 0.49 a 0.71 vs random en 1.500 episodios.
+
+**PPO (~23:40):** `rotten_rl/algorithms/ppo.py`, política y crítico compartidos, self-play contra
+la política actual, entropía 0.01, 5 épocas por lote de 32 partidas (Big 2 2026; MAPPO). Se
+retoma idéntico desde un checkpoint aunque corte con un lote a medio juntar. 29 tests. Prueba
+corta en el lab (2 jugadores, relativo, rondas como episodios): a los 2.000 episodios, 0.69 vs
+random y 0.42 vs heurística (diff −6.5), lo mismo que NFSP a los 50k. Barrido 6 en `queue2`:
+`p10`–`p12` (PPO + rondas como episodios, 3 semillas) y `p20_ppo_game_s0` (sin rondas).
 
 Barrido 5 en `queue2` (arranca a medida que se liberan lugares, límite 6), todo 2 jugadores, 50k,
 reward relativo:
