@@ -96,10 +96,22 @@ Probar, en orden y con 3 semillas cada uno:
 4. Canto y juego separados (Wizard, Judgement, AlphaDou; el canto es la decisión que más pesa).
 5. Evaluación con repartos espejo (menos varianza).
 
-Antes, reestructurar para varios algoritmos: `rotten_rl/algorithms/{base,nfsp,dqn,ppo}.py` con una
-interfaz común (crear agentes, jugar/aprender, política para evaluar, guardar/cargar) y un solo
-`scripts/train.py --algo ...` con evaluación, logging, checkpoints, `--resume`, `--stop_at` y la
-cola compartidos. `train_nfsp.py` queda como alias para retomar las corridas existentes.
+**Hecho (25/10/2026 ~23:30):** `rotten_rl/algorithms/` con una interfaz común (`base.py`), NFSP
+movido ahí (`nfsp.py`) y DQN con red compartida por todos los asientos (`dqn.py`, implementación
+propia), y un solo `scripts/train.py --algo nfsp|dqn` con `--round_episodes` (1 y 2 del plan).
+`train_nfsp.py` quedó como alias. Validado en el lab: `train.py --algo nfsp` da CSVs idénticos byte
+a byte al código anterior; retoma checkpoints del formato viejo; DQN compartido con rondas como
+episodios pasa de 0.49 a 0.71 vs random en 1.500 episodios. 27 tests. Falta PPO (`ppo.py`).
+
+Barrido 5 en `queue2` (arranca a medida que se liberan lugares, límite 6), todo 2 jugadores, 50k,
+reward relativo:
+- `r00`–`r02`: NFSP con la combinación (lr DQN 0.0003, capas 512, batch 256) + `--round_episodes`.
+  Comparar con `e22`–`e24` (lo mismo sin rondas como episodios).
+- `r10`–`r12`: DQN compartido + `--round_episodes` (lr 0.0005, capas 512, batch 256, replay 300k).
+- `r20_dqn_game_s0`: DQN compartido sin rondas como episodios (para separar los dos efectos).
+
+`e14_relative_200k` se cortó a los 52.5k (redundante con `e25_combo_200k` y la corrida larga;
+tiene checkpoint si hiciera falta).
 
 PSRO no se descarta, pero baja de prioridad: con más de 2 jugadores no tiene garantías, y en Big 2
 el self-play contra la política actual le ganó a entrenar contra un conjunto de versiones
@@ -111,16 +123,16 @@ anteriores. Entra después, para medir y mejorar la robustez de un agente ya fue
 1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
    hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
 2. Retomar la corrida larga:
-   `python scripts/train_nfsp.py --resume ~/scratch/runs/nfsp2p_1M_lr1e-3_20261025-200043 --stop_at 06:55`.
+   `python scripts/train.py --resume ~/scratch/runs/nfsp2p_1M_lr1e-3_20261025-200043 --stop_at 06:55`.
 3. Retomar con `--resume` los experimentos de la cola que hayan quedado cortados a las 06:55
-   (`grep -l Cortado ~/scratch/logs/e*.log`) y volver a lanzar `run_queue.py` para los pendientes
+   (`grep -l Cortado ~/scratch/logs/*.log`) y volver a lanzar `run_queue.py` para los pendientes
    (los ya lanzados están en `~/scratch/queue.txt.started` y no se repiten).
 
 **Si no aparecen los checkpoints** (otra máquina asignada, máquina reinstalada o `~/scratch`
 borrado): se pierden las corridas en curso. Las de 50k se relanzan desde cero (~40 min cada una);
 la larga también, desde cero. Para que no vuelva a pasar, antes de relanzar implementar:
 
-- `--backup_dir` en `train_nfsp.py`: después de cada checkpoint, copiar solo `meta.pt` (redes,
+- `--backup_dir` en `train.py`: después de cada checkpoint, copiar solo `meta.pt` (redes,
   optimizadores, contadores y RNGs: ~20 MB con 2 jugadores, ~40 MB con 4) a una carpeta del home
   (NFS: compartido por las 22 máquinas, persistente, cuota de 2 GB) y borrar la copia anterior. Sin
   los buffers (pesan GB y no entran en la cuota): al retomar desde esa copia se vuelven a llenar.

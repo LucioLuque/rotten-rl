@@ -137,7 +137,7 @@ Las corridas van en `tmux` (sobrevive al corte de SSH y de la VPN) y con los res
 ```bash
 tmux new -s nfsp2p
 cd ~/rotten-rl && source ~/scratch/work/venvs/rotten-rl/bin/activate
-OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python scripts/train_nfsp.py --players 2 \
+OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.py --algo dqn --players 2 \
   --num_train_episodes 1000000 --runs_dir ~/scratch/runs --run_name nfsp2p --stop_at 06:55 \
   2>&1 | tee ~/scratch/logs/nfsp2p.log
 # salir de tmux sin cortarlo: Ctrl+b y después d. Volver: tmux attach -t nfsp2p
@@ -151,7 +151,7 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python scripts/train_nfsp.py --players 2 \
   termina la partida en curso, guarda y sale.
 - Para seguir otra noche:
   ```bash
-  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python scripts/train_nfsp.py \
+  OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.py \
     --resume ~/scratch/runs/nfsp2p_<timestamp> --stop_at 06:55
   ```
   Usa la config guardada en `config.json`; solo se pueden cambiar flags que no afectan al modelo
