@@ -2,7 +2,8 @@
 
 Qué queda por optimizar en velocidad y memoria del entrenamiento, y cuándo conviene. Lo ya hecho
 (loop propio, buffers comprimidos, partidas en lote con la red en la GPU, evaluación en paralelo,
-replay buffer de DQN en la GPU) está en `docs/estado.md` y en los reportes de cada noche.
+replay buffer de DQN en la GPU, observación más rápida) está en `docs/estado.md` y en los
+reportes de cada noche.
 
 ## Dónde se va el tiempo hoy (26/10/2026)
 
@@ -21,15 +22,23 @@ más (~238). Perfil de PPO (cProfile, 1.280 partidas):
 El juego en Python (observación más simulación) pasó de ~7% a ~40%. Con 7 jugadores pesa más
 (más decisiones por partida).
 
+El 27/10 se aceleró el armado de la observación (medido en la laptop, sin la red): de 36.6 a
+25.4 µs con 3 jugadores y de 61.2 a 32.5 µs con 7, con el mismo resultado bit a bit. La partida
+completa (simulación más observación) bajó ~8–10%: ahora la simulación pesa más que la
+observación (~50–60 µs contra ~25–33 por decisión en la laptop).
+
 ## Pendiente
 
-1. **Armar la observación más rápido.** Hoy se arma de cero en Python en cada decisión. Se puede
-   armar de forma incremental (casi todo cambia poco entre una decisión y la siguiente), con numpy
-   vectorizado o con Numba. Podría bajar ese 22% a la mitad o menos. Medio día. Hacerlo antes de
-   pasar a 5–7 jugadores.
-2. **Simular el juego más rápido.** Conversiones de cartas (`_card_id`, `card_to_id`, millones de
-   llamadas), `legal_action_ids` calculado dos veces por paso, `public_state` en cada jugada. Unos
-   arreglos chicos en `engine.py` y `openspiel_game.py`, quizás 30–50% de ese 18%.
+1. **Simular el juego más rápido.** Es lo que más pesa ahora en el juego. `legal_action_ids` se
+   calcula dos veces por paso (para validar en `apply_action` y para pyspiel), `public_state` se
+   arma en cada jugada aunque nadie lo use, `card_to_id` usa `tuple.index` y cada llamada de
+   pyspiel a Python tiene un costo fijo. Arreglos chicos en `engine.py` y `openspiel_game.py`,
+   quizás 30–50% de la simulación.
+2. **Observación: lo que queda.** Ya no hay un punto caro: el tiempo está repartido en muchas
+   líneas cortas (unas 60 operaciones de Python por decisión) más ~10 µs de escrituras en numpy.
+   Para bajar mucho más habría que armar las observaciones de todas las partidas del lote juntas
+   en numpy, o pasar el motor a arrays con Numba (ver el punto 7). Solo si el juego vuelve a ser
+   el límite.
 3. **Usar varias máquinas del laboratorio.** La palanca más grande: hay 22 máquinas; si las otras
    tienen la misma GPU, casi ×22. Hay que ver si se puede saltar de una a otra desde adentro del
    lab (el home es NFS compartido) y si está bien usar varias a la vez (son compartidas): lo

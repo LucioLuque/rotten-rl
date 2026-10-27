@@ -116,8 +116,25 @@ _INFO_SIZE = sum(size for _, size in _INFO_PIECES)   # == 808
 assert _INFO_SIZE == 808, f"El layout suma {_INFO_SIZE}, deberia ser 808"
 
 
+# Donde empieza cada pieza en el tensor plano.
+_OFF = {}
+_idx = 0
+for _name, _size in _INFO_PIECES:
+    _OFF[_name] = _idx
+    _idx += _size
+del _idx, _name, _size
+
+_SUIT_ID = {s: i for i, s in enumerate(SUITS)}
+_SUIT_BASE = {s: i * len(RANKS) for i, s in enumerate(SUITS)}
+_RANK_ID = {r: i for i, r in enumerate(RANKS)}
+# _REL[n][pl][j]: posicion de j relativa a pl (0 = uno mismo) en una mesa de n.
+_REL = [None] + [[tuple((j - pl) % n for j in range(n)) for pl in range(n)]
+                 for n in range(1, _MAX_PLAYERS + 1)]
+_CARD_INFO_BASE = [_OFF["card_info"] + cid * 10 for cid in range(52)]
+
+
 def _card_id(card: Card) -> int:
-    return SUITS.index(card.suit) * len(RANKS) + RANKS.index(card.rank)
+    return _SUIT_BASE[card.suit] + _RANK_ID[card.rank]
 
 
 # ----------------------------------------------------------------------
@@ -209,6 +226,14 @@ class PodridaState_OS(pyspiel.State):
         # cota teorica de puntaje de toda la partida (para normalizar 'scores')
         self._score_ceiling = float(sum(10 + 2 * h for h in self._ladder)) or 1.0
 
+        # Historial de la ronda que usa el observer, al dia jugada a jugada (asi
+        # no recorre todas las bazas en cada decision): quien jugo cada carta,
+        # (jugador, palo) que no siguio y cuantas se jugaron por palo.
+        self._played_by = {}
+        self._voids = set()
+        self._played_per_suit = [0] * 4
+        self._trick_winner = None           # (jugador, carta) que va ganando la baza en curso
+
         self._begin_dealing(self._ladder[self._round_ptr])
 
     # ---------------- reparto por azar ----------------
@@ -252,6 +277,10 @@ class PodridaState_OS(pyspiel.State):
         eng.current_player_index = eng.first_player_index
         eng.phase = "bidding"
         self._macro = "engine"
+        self._played_by = {}
+        self._voids = set()
+        self._played_per_suit = [0] * 4
+        self._trick_winner = None
 
     # ---------------- API pyspiel ----------------
 
@@ -293,7 +322,17 @@ class PodridaState_OS(pyspiel.State):
     def _apply_move(self, action: int) -> None:
         eng = self._engine
         idx = eng.current_player_index
+        playing = eng.phase == "playing"
+        trick = eng.current_trick
+        lead = trick[0][1].suit if trick else None
         eng.apply_action(action, idx)
+        if playing:                         # la accion es el id de la carta
+            self._played_by[action] = idx
+            suit = action // len(RANKS)
+            self._played_per_suit[suit] += 1
+            if lead is not None and SUITS[suit] != lead:
+                self._voids.add((idx, _SUIT_ID[lead]))
+            self._update_trick_winner(idx, action, lead)
 
         if eng.phase == "done":
             self._last_closed_bid = [p.bid or 0 for p in eng.players]
@@ -307,6 +346,23 @@ class PodridaState_OS(pyspiel.State):
                 self._begin_dealing(self._ladder[self._round_ptr])
         else:
             self._last_rewards = [0.0] * self._n
+
+    def _update_trick_winner(self, player: int, card_id: int, lead) -> None:
+        """Quien va ganando la baza en curso, lo mismo que eng.resolve_trick:
+        gana el triunfo mas alto o, si no hay, la mas alta del palo de salida."""
+        if lead is None or not self._engine.current_trick:   # abre baza, o la cerro
+            self._trick_winner = (player, card_id) if lead is None else None
+            return
+        best = self._trick_winner[1]
+        suit, best_suit = card_id // len(RANKS), best // len(RANKS)
+        trump = self._engine.trump_suit
+        # Dentro de un palo, el id crece con el valor (RANKS va de menor a mayor).
+        if suit == best_suit:
+            beats = card_id > best
+        else:
+            beats = trump is not None and SUITS[suit] == trump
+        if beats:
+            self._trick_winner = (player, card_id)
 
     def _score_round_reward(self) -> None:
         eng = self._engine
@@ -377,14 +433,13 @@ class PodridaObserver_OS:
             self.dict[name] = self.tensor[idx:idx + size]
             idx += size
 
-    # -- helpers de perspectiva --
-    @staticmethod
-    def _rel(j: int, pl: int, n: int) -> int:
-        """Posicion de j relativa a pl (0 = uno mismo)."""
-        return (j - pl) % n
-
     def set_from(self, state: PodridaState_OS, player: int):
-        self.tensor.fill(0.0)
+        """Arma el tensor. Junta en listas las posiciones que valen 1 (`ones`) y
+        las que llevan una fraccion (`idx`, `val`) y las escribe en el tensor en
+        dos operaciones de numpy: escribir elemento por elemento era la mayor
+        parte del costo."""
+        t = self.tensor
+        t.fill(0.0)
         # El info-state solo esta bien definido en fase de juego del motor.
         if state._macro != "engine":
             return
@@ -392,147 +447,99 @@ class PodridaObserver_OS:
         eng = state._engine
         n = state._n
         h = eng.cards_per_player or 1
-        d = self.dict
+        rel = _REL[n][player]
+        players = eng.players
+        trick = eng.current_trick
+        ones = []
+        idx = []
+        val = []
 
         # 1) hand_size (one-hot de h)
         if 1 <= h <= _MAX_PLAYERS:
-            d["hand_size"][h - 1] = 1.0
+            ones.append(_OFF["hand_size"] + h - 1)
 
         # 2) round_index (one-hot en la escalera)
         if 0 <= state._round_ptr < 13:
-            d["round_index"][state._round_ptr] = 1.0
+            ones.append(_OFF["round_index"] + state._round_ptr)
 
-        # 3) cards_remaining (por jugador relativo, /h)
-        for j in range(n):
-            d["cards_remaining"][self._rel(j, player, n)] = len(eng.players[j].hand) / h
-
-        # 4) phase
-        d["phase"][0 if eng.phase == "bidding" else 1] = 1.0
-
-        # 5) trump (4 palos + sin triunfo)
-        if eng.trump_suit is not None:
-            d["trump"][SUITS.index(eng.trump_suit)] = 1.0
-        else:
-            d["trump"][4] = 1.0
-
-        # 6) lead_suit (palo de salida de la baza en curso)
-        lead = eng.lead_suit
-        if lead is not None:
-            d["lead_suit"][SUITS.index(lead)] = 1.0
-        else:
-            d["lead_suit"][4] = 1.0
+        # 4) phase, 5) trump (4 palos + sin triunfo), 6) lead_suit (palo de
+        # salida de la baza en curso), 8) dealer_relative
+        ones.append(_OFF["phase"] + (0 if eng.phase == "bidding" else 1))
+        ones.append(_OFF["trump"] + (4 if eng.trump_suit is None else _SUIT_ID[eng.trump_suit]))
+        ones.append(_OFF["lead_suit"] + (_SUIT_ID[trick[0][1].suit] if trick else 4))
+        ones.append(_OFF["dealer_relative"] + rel[eng.dealer_index])
 
         # 7) active_players (mascara: posiciones relativas reales)
-        for j in range(n):
-            d["active_players"][self._rel(j, player, n)] = 1.0
-
-        # 8) dealer_relative
-        d["dealer_relative"][self._rel(eng.dealer_index, player, n)] = 1.0
+        ones.extend(range(_OFF["active_players"], _OFF["active_players"] + n))
 
         # 9) is_last_bidder (el agente es el ultimo en cantar esta ronda)
         if eng.phase == "bidding":
-            bids_made = sum(p.bid is not None for p in eng.players)
+            bids_made = sum(p.bid is not None for p in players)
             if eng.current_player_index == player and bids_made == n - 1:
-                d["is_last_bidder"][0] = 1.0
+                ones.append(_OFF["is_last_bidder"])
 
-        # 10) bids (por jugador relativo: one-hot NOT_BID(0), 0..7 -> idx 1..8)
+        # Por jugador relativo: 3) cards_remaining (/h), 10) bids (one-hot
+        # NOT_BID(0), 0..7 -> idx 1..8), 11) tricks_won (/h), 13) scores (/ techo
+        # teorico de la partida), 14) bid_minus_tricks ((bid - tricks)/h con signo)
+        ceiling = state._score_ceiling
         for j in range(n):
-            r = self._rel(j, player, n)
-            b = eng.players[j].bid
+            r = rel[j]
+            pj = players[j]
+            b = pj.bid
             slot = 0 if b is None else (b + 1)
             if 0 <= slot < 9:
-                d["bids"][r * 9 + slot] = 1.0
+                ones.append(_OFF["bids"] + r * 9 + slot)
+            idx += (_OFF["cards_remaining"] + r, _OFF["tricks_won"] + r,
+                    _OFF["scores"] + r, _OFF["bid_minus_tricks"] + r)
+            val += (len(pj.hand) / h, pj.tricks_won / h, pj.score / ceiling,
+                    ((b or 0) - pj.tricks_won) / h)
 
-        # 11) tricks_won (/h)
-        for j in range(n):
-            d["tricks_won"][self._rel(j, player, n)] = eng.players[j].tricks_won / h
+        # 12) void_suits (si en una baza se salio con palo L y j no lo siguio, j
+        #     es void en L). El historial de la ronda lo lleva el estado.
+        ones += [_OFF["void_suits"] + rel[j] * 4 + s for j, s in state._voids]
+        played_by = state._played_by    # card_id -> jugador que la jugo
 
-        # 12) void_suits (inferido del historial: si en una baza se salio con
-        #     palo L y j no lo siguio, j es void en L)
-        voids = self._infer_voids(eng, n)
-        for j in range(n):
-            r = self._rel(j, player, n)
-            for s in range(4):
-                if voids[j][s]:
-                    d["void_suits"][r * 4 + s] = 1.0
+        # 15) card_info (52 x 10): no vista / en mi mano / es triunfo / la jugo
+        #     Pj(rel 0..6), en ese orden de prioridad inverso al de escritura
+        loc = [0] * 52                       # 0: no la vi (incluye manos rivales)
+        for cid, j in played_by.items():
+            loc[cid] = 3 + rel[j]
+        trump_card = eng.trump_card
+        trump_id = -1 if trump_card is None else _card_id(trump_card)
+        if trump_id >= 0:
+            loc[trump_id] = 2
+        my_hand_ids = [_SUIT_BASE[c.suit] + _RANK_ID[c.rank] for c in players[player].hand]
+        for cid in my_hand_ids:
+            loc[cid] = 1
+        ones += map(int.__add__, _CARD_INFO_BASE, loc)
 
-        # 13) scores (/ techo teorico de la partida)
-        for j in range(n):
-            d["scores"][self._rel(j, player, n)] = eng.players[j].score / state._score_ceiling
-
-        # 14) bid_minus_tricks ((bid - tricks)/h con signo)
-        for j in range(n):
-            b = eng.players[j].bid or 0
-            d["bid_minus_tricks"][self._rel(j, player, n)] = (b - eng.players[j].tricks_won) / h
-
-        # 15) card_info (52 x 10): no vista / en mi mano / es triunfo / la jugo Pj(rel 0..6)
-        played_by = {}  # card_id -> jugador que la jugo (esta ronda)
-        for trick in eng.completed_tricks:
-            for j, c in trick:
-                played_by[_card_id(c)] = j
-        for j, c in eng.current_trick:
-            played_by[_card_id(c)] = j
-        my_hand_ids = {_card_id(c) for c in eng.players[player].hand}
-        trump_id = _card_id(eng.trump_card) if eng.trump_card is not None else -1
-        for cid in range(52):
-            base = cid * 10
-            if cid in my_hand_ids:
-                d["card_info"][base + 1] = 1.0
-            elif cid == trump_id:
-                d["card_info"][base + 2] = 1.0
-            elif cid in played_by:
-                d["card_info"][base + 3 + self._rel(played_by[cid], player, n)] = 1.0
-            else:
-                d["card_info"][base + 0] = 1.0   # no la vi (incluye manos rivales)
-
-        # 16) trick_cards (flag: carta pertenece a la baza en curso)
-        for _, c in eng.current_trick:
-            d["trick_cards"][_card_id(c)] = 1.0
-
+        # 16) trick_cards (flag: carta pertenece a la baza en curso) y
         # 17) winning_relative (quien va ganando la baza en curso)
-        if eng.current_trick:
-            winner = eng.resolve_trick(list(eng.current_trick))
-            d["winning_relative"][self._rel(winner, player, n)] = 1.0
+        if trick:
+            ones += [_OFF["trick_cards"] + _SUIT_BASE[c.suit] + _RANK_ID[c.rank] for _, c in trick]
+            ones.append(_OFF["winning_relative"] + rel[state._trick_winner[0]])
 
         # 18) suits_played (jugadas por palo / 13) y 19) seen_per_suit
-        played_per_suit = [0] * 4
-        for cid in played_by:
-            played_per_suit[cid // len(RANKS)] += 1
-        for s in range(4):
-            d["suits_played"][s] = played_per_suit[s] / 13.0
+        played_per_suit = list(state._played_per_suit)
+        idx += range(_OFF["suits_played"], _OFF["suits_played"] + 4)
+        val += [k / 13.0 for k in played_per_suit]
 
         # seen = jugadas + en mi mano + triunfo (cartas cuya identidad conozco)
-        seen_per_suit = list(played_per_suit)
+        seen_per_suit = played_per_suit
         for cid in my_hand_ids:
             seen_per_suit[cid // len(RANKS)] += 1
         if trump_id >= 0:
             seen_per_suit[trump_id // len(RANKS)] += 1
         for s in range(4):
-            cnt = min(seen_per_suit[s], 12)
-            d["seen_per_suit"][s * 13 + cnt] = 1.0
+            ones.append(_OFF["seen_per_suit"] + s * 13 + min(seen_per_suit[s], 12))
 
         # 20) players_left (cuantos faltan jugar en la baza despues de este agente)
         if eng.phase == "playing":
-            already = len(eng.current_trick)
-            left = n - 1 - already      # los que faltan tras el que mueve ahora
-            left = max(0, min(left, _MAX_PLAYERS - 1))
-            d["players_left"][left] = 1.0
+            left = n - 1 - len(trick)      # los que faltan tras el que mueve ahora
+            ones.append(_OFF["players_left"] + max(0, min(left, _MAX_PLAYERS - 1)))
 
-    @staticmethod
-    def _infer_voids(eng: PodridaGame, n: int):
-        voids = [[False] * 4 for _ in range(n)]
-        all_tricks = list(eng.completed_tricks)
-        if eng.current_trick:
-            all_tricks = all_tricks + [list(eng.current_trick)]
-        for trick in all_tricks:
-            if not trick:
-                continue
-            lead_suit = trick[0][1].suit
-            lead_idx = SUITS.index(lead_suit)
-            for j, c in trick:
-                if c.suit != lead_suit:
-                    voids[j][lead_idx] = True    # no siguio el palo => void en el palo
-        return voids
+        t[ones] = 1.0
+        t[idx] = val
 
     def string_from(self, state: PodridaState_OS, player: int) -> str:
         eng = state._engine

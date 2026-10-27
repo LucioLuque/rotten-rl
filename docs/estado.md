@@ -206,6 +206,10 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
 4. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
    idénticos, ~7 veces menos RAM por agente). Ver `docs/optimizacion.md`.
 5. ~~DQN vs PPO compartidos~~ Hecho: gana PPO (26–27/10).
+5b. ~~Observación más rápida~~ Hecho (27/10): idéntica bit a bit (`tests/test_observation.py`
+   contra `tests/data/info_states.npz`), 31% más rápida con 3 jugadores y 47% con 7; la partida
+   completa, ~8–10%. El historial de la ronda (quién jugó cada carta, voids, quién va ganando la
+   baza) lo lleva el estado jugada a jugada. Ver `docs/optimizacion.md`.
 6. **Siguiente:** confirmar lotes de 128 con 3 semillas (3 jugadores) y, si mejora, usarlo de base;
    7 jugadores con 3 semillas (retomando `y70` si volvemos a la -04, si no de cero).
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.

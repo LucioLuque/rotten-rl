@@ -43,4 +43,7 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
 
 - Código, comentarios y docs en castellano; identificadores en inglés.
 - `runs/` y `checkpoints/` no se commitean.
-- Tests con `pytest` (los de OpenSpiel se saltean si no está `pyspiel`).
+- Tests con `pytest` (los de OpenSpiel se saltean si no está `pyspiel`). En la laptop hay un
+  entorno en `.venv` (OpenSpiel y torch de CPU, sin GPU): `.venv/bin/python -m pytest -p no:anyio`
+  (el pytest del sistema choca con el plugin de anyio). Sirve para tests y para medir código de
+  CPU, no para entrenar.

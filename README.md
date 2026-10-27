@@ -27,9 +27,10 @@ scripts/
   run_queue.py          cola de experimentos para el laboratorio
   bench_parallel.py     cuántas corridas conviene correr a la vez
   summarize_runs.py     tabla comparativa de corridas
+  make_obs_fixture.py   regenera tests/data/info_states.npz (observaciones de referencia)
   diag_dqn.py           diagnóstico: DQN solo contra rivales fijos
   play.py               partida jugable contra bots
-tests/                  tests con pytest
+tests/                  tests con pytest (tests/data: observaciones de referencia)
 docs/plan.md            plan del proyecto, diseño de la observación, recompensa y métricas
 docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN, SSH, horarios, velocidad)
 docs/estado.md          estado actual: corridas, resultados y próximos pasos
