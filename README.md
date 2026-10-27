@@ -18,6 +18,7 @@ rotten_rl/                    paquete
     ppo.py                    PPO con política y crítico compartidos (self-play)
   exact/                      partes del juego resueltas sin RL (ver su README.md)
     round1.py                 la ronda de 1 carta: equilibrio (CFR) y comparaciones
+    round2/                   la ronda de 2 cartas, en C++ (MCCFR)
   checkpoint.py               checkpoints completos para cortar y retomar
   buffers.py                  buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
   run_logger.py               logging a TensorBoard, CSV y config.json en runs/
@@ -31,6 +32,7 @@ scripts/
     summarize_runs.py         tabla comparativa de corridas
   exact/
     solve_round1.py           resuelve la ronda de 1 carta de 2 a 7 jugadores
+    analyze_round2.py         preguntas sobre la estrategia de la ronda de 2 cartas
   dev/                        herramientas de desarrollo
     bench_parallel.py         cuántas corridas conviene correr a la vez
     diag_dqn.py               diagnóstico: DQN solo contra rivales fijos
@@ -47,7 +49,7 @@ docs/                         documentación (índice en docs/README.md)
 - **Evaluación** (`rotten_rl/evaluation.py`, `scripts/eval/`): contra el azar, una heurística y
   versiones anteriores, con repartos duplicados y error estándar, y un torneo entre agentes.
 - **Partes resueltas sin RL** (`rotten_rl/exact/`): las partes del juego lo bastante chicas para
-  calcular cómo conviene jugar de forma exacta, hoy la ronda de 1 carta. Sirven para entender el
+  calcular cómo conviene jugar de forma exacta: la ronda de 1 carta y la de 2 (en C++). Sirven para entender el
   juego y para controlar si el agente aprendió bien en un caso con respuesta conocida. Ver
   `rotten_rl/exact/README.md` y `docs/primera-ronda/`.
 

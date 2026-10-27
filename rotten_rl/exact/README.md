@@ -15,6 +15,7 @@ objetivos:
 | Archivo | Qué resuelve |
 |---|---|
 | `round1.py` | La ronda de 1 carta (primera y última de cada partida), de 2 a 7 jugadores |
+| `round2/` | La ronda de 2 cartas, en C++ (MCCFR); hoy 3 jugadores ([README](round2/README.md)) |
 
 ## La idea, en corto
 
@@ -28,14 +29,15 @@ de millones de repartos. Sobre eso:
 - **Mejor respuesta**: qué conviene cantar contra una forma concreta de jugar de los demás (la
   heurística, el equilibrio, el agente), con toda la información o mirando solo la carta propia.
 
-Con 2 cartas o más hay jugadas para elegir y el problema crece mucho: 2 cartas parece viable con
-MCCFR y más trabajo; de 3 en adelante ya no se puede de forma exacta (ver
-`docs/primera-ronda/README.md`, "Pendiente").
+Con 2 cartas ya hay jugadas para elegir y el problema crece mucho: se resuelve en C++ agrupando
+también las cartas jugadas en la baza (`round2/`, `docs/segunda-ronda/`). De 3 cartas en adelante
+ya no se puede de forma exacta.
 
 ## Cómo se usa
 
 ```bash
-python scripts/exact/solve_round1.py      # 2 a 7 jugadores, ~30–40 min en CPU
+python scripts/exact/solve_round1.py      # ronda de 1 carta, 2 a 7 jugadores, ~45 min en CPU
+make -C rotten_rl/exact/round2            # ronda de 2 cartas: ver round2/README.md
 ```
 
 Escribe `docs/primera-ronda/resultados.md` y las tablas en `docs/primera-ronda/equilibrio.npz`.
