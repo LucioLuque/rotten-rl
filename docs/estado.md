@@ -238,6 +238,10 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    por ronda; con 7 jugadores nadie canta 1 sin triunfo; escuchar los cantos ajenos vale 0.07 a
    0.49 puntos por ronda; la heurística canta casi como el equilibrio salvo con 2 jugadores.
    Pendiente: comparar con el agente (`round1.policy_tables`).
+5f. ~~Ronda de 2 cartas~~ Hecho para 3 jugadores (27/10): solver en C++ con MCCFR y agrupación de
+   las cartas jugadas (`rotten_rl/exact/round2/`, `docs/segunda-ronda/`), verificado contra el
+   motor. Converge en 8 minutos; la estrategia le saca ~1 punto por ronda a la heurística.
+   Pendiente: comparar con la versión exacta, 4 a 7 jugadores (lab, por sesiones), el agente.
 6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
    para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3

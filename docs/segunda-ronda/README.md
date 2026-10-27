@@ -47,9 +47,47 @@ desviación (exagera por ruido) y sobre repartos nuevos (cota por abajo).
 La tabla se guarda y se retoma (`--save`/`--load`), así que se puede correr por sesiones en el lab
 con los procesadores que quedan libres mientras se entrena.
 
-## Resultados
+## Resultados: 3 jugadores, agrupación B (27/10/2026)
 
-En curso (27/10/2026): 3 jugadores con la agrupación B. Ver más abajo cuando termine.
+30 millones de iteraciones, 8 minutos en la notebook, 1,2 millones de situaciones visitadas.
+Se regenera con:
+
+```bash
+rotten_rl/exact/round2/build/round2 solve --n 3 --iters 30000000 --abstraction b --seed 7 --save tabla.bin
+```
+
+**Convergió.** Quien se desvía gana como mucho 0.06 puntos por ronda medido sobre los mismos
+repartos (que exagera), y nada medido sobre repartos nuevos (−0.02, ruido). Con 1 millón de
+iteraciones eran 0.27–0.43.
+
+**Valor de cada posición** (todos en equilibrio, puntos por ronda contra el resto): +1.50 el
+primero, +1.81 el segundo, **−3.32 el último**. Como en la ronda de 1 carta, cantar último es lo
+peor.
+
+**Contra la heurística** (una posición juega el equilibrio y las otras dos la heurística,
+comparado con que juegue la heurística): +0.98 puntos por ronda saliendo primero, +1.28 segundo,
++0.62 último. Casi 1 punto por ronda de 2 cartas en promedio: la heurística deja bastante.
+
+**Saliendo primero con un triunfo y otra carta**, la probabilidad de salir con la otra depende
+sobre todo de lo que se cantó:
+
+| Su triunfo | canto 0 | canto 1 | canto 2 |
+|---|---|---|---|
+| 2 | 0.23 | 0.97 | 0.41 |
+| 5 | 0.27 | 0.97 | 0.35 |
+| 8 | 0.41 | 0.97 | 0.22 |
+| J | 0.48 | 0.97 | 0.20 |
+| A | 0.50 | 0.97 | 0.06 |
+
+- **Cantó 1**: sale con la otra casi siempre, con cualquier triunfo. Guarda el triunfo para la
+  segunda baza (la intuición de Lucio, pero no solo con triunfo bajo: con cualquiera).
+- **Cantó 2**: sale con el triunfo, más cuanto más alto (con el As, 94%): asegura una baza y sale
+  él en la segunda.
+- **Cantó 0**: sale con el triunfo la mayoría de las veces, sobre todo si es bajo: se saca de
+  encima el triunfo mientras puede perder con él; con triunfo alto es mitad y mitad (depende de
+  la otra carta y de los cantos).
+
+Tabla completa: `python scripts/exact/analyze_round2.py --tsv <(round2 dump ...) --n 3`.
 
 ## Pendiente
 
