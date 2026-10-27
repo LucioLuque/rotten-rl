@@ -6,39 +6,37 @@ sobre [OpenSpiel](https://github.com/google-deepmind/open_spiel).
 ## Estructura
 
 ```
-rotten_rl/              paquete
-  engine.py             motor del juego en Python puro: reglas, cantos, bazas y puntaje
-  openspiel_game.py     wrapper pyspiel.Game/State y observer (2 a 7 jugadores, con padding)
-  evaluation.py         rivales de referencia (random, heurística, redes) y métricas
-  training.py           loop de partidas para agentes de OpenSpiel (sin rl_environment);
-                        opción de que cada ronda sea un episodio
-  algorithms/           algoritmos con una interfaz común (base.py):
-    nfsp.py             NFSP de OpenSpiel, un agente por asiento
-    dqn.py              DQN con una red compartida por todos los asientos
-    ppo.py              PPO con política y crítico compartidos (self-play)
-  checkpoint.py         checkpoints completos (cualquier algoritmo) para cortar y retomar
-  buffers.py            buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
-  vector.py             muchas partidas a la vez, con la red decidiendo en lote (--vector_games)
-  run_logger.py         logging a TensorBoard, CSV y config.json en runs/
-  renderer.py           render con Pygame
+rotten_rl/                    paquete
+  engine.py                   motor del juego en Python puro: reglas, cantos, bazas y puntaje
+  openspiel_game.py           wrapper pyspiel.Game/State y observación (2 a 7 jugadores)
+  evaluation.py               rivales de referencia (azar, heurística, redes) y métricas
+  training.py                 loop de partidas de a una (opción: cada ronda es un episodio)
+  vector.py                   muchas partidas a la vez, con la red decidiendo en lote
+  algorithms/                 algoritmos con una interfaz común (base.py):
+    nfsp.py                   NFSP de OpenSpiel, un agente por asiento
+    dqn.py                    DQN con una red compartida por todos los asientos
+    ppo.py                    PPO con política y crítico compartidos (self-play)
+  exact/                      partes del juego resueltas sin RL
+    round1.py                 la ronda de 1 carta: equilibrio (CFR) y comparaciones
+  checkpoint.py               checkpoints completos para cortar y retomar
+  buffers.py                  buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
+  run_logger.py               logging a TensorBoard, CSV y config.json en runs/
+  renderer.py                 render con Pygame
 scripts/
-  train.py              entrenamiento con self-play: --algo nfsp|dqn|ppo, --round_episodes,
-                        --vector_games, --resume, --stop_at
-  run_queue.py          cola de experimentos para el laboratorio
-  bench_parallel.py     cuántas corridas conviene correr a la vez
-  summarize_runs.py     tabla comparativa de corridas
-  tournament.py         torneo entre agentes (políticas guardadas, heurística, azar)
-  make_obs_fixture.py   regenera tests/data/info_states.npz (observaciones de referencia)
-  diag_dqn.py           diagnóstico: DQN solo contra rivales fijos
-  play.py               partida jugable contra bots
-tests/                  tests con pytest (tests/data: observaciones de referencia)
-docs/plan.md            plan del proyecto, diseño de la observación, recompensa y métricas
-docs/lab-s004.md        cómo correr en las máquinas del laboratorio S004 (VPN, SSH, horarios, velocidad)
-docs/estado.md          estado actual: corridas, resultados y próximos pasos
-docs/openspiel-upstream.md  bugs de OpenSpiel que encontramos y qué contribuir
-docs/optimizacion.md    dónde se va el tiempo y la memoria, y qué conviene optimizar
-docs/bibliografia.md    trabajos sobre juegos parecidos y qué tomar de cada uno
-docs/reporte.md         reporte de la última noche de corridas
+  train.py                    entrenamiento: --algo nfsp|dqn|ppo, --vector_games, --resume, ...
+  run_queue.py                cola de experimentos para el laboratorio
+  play.py                     partida jugable contra bots
+  eval/                       evaluar agentes ya entrenados
+    tournament.py             torneo entre agentes (políticas guardadas, heurística, azar)
+    summarize_runs.py         tabla comparativa de corridas
+  exact/
+    solve_round1.py           resuelve la ronda de 1 carta de 2 a 7 jugadores
+  dev/                        herramientas de desarrollo
+    bench_parallel.py         cuántas corridas conviene correr a la vez
+    diag_dqn.py               diagnóstico: DQN solo contra rivales fijos
+    make_obs_fixture.py       regenera tests/data/info_states.npz
+tests/                        tests con pytest (tests/data: observaciones de referencia)
+docs/                         documentación (índice en docs/README.md)
 ```
 
 ## Instalación

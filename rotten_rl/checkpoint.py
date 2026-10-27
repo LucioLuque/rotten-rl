@@ -13,7 +13,7 @@ formato en disco:
     buffers/           <nombre>.<campo>.npy por cada buffer (solo la parte llena)
 
 (El save/restore de NFSP de OpenSpiel 2.0.2 no sirve: ver
-docs/openspiel-upstream.md.)
+docs/tecnico/openspiel-upstream.md.)
 
 Se escribe primero en ckpt_ep<N>.tmp y despues se renombra, asi un corte en
 medio del guardado nunca deja un checkpoint a medias.

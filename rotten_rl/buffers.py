@@ -9,7 +9,7 @@ solo 32 son fracciones (cartas en mano /h, bazas /h, puntaje /maximo,
 bits (np.packbits: 97 bytes) y las fracciones en float32 (128 bytes): 225 bytes
 por info-state en vez de 3232, unas 14 veces menos, y al samplear se recupera
 exactamente el mismo tensor. Un agente con los buffers llenos pasa de ~8.3 GB a
-~1.2 GB (ver docs/optimizacion.md).
+~1.2 GB (ver docs/tecnico/optimizacion.md).
 
 Uso: NFSP(..., replay_buffer_class=CompactReservoirBuffer) para el reservoir, y
 `use_compact_buffers(agent)` antes de que el agente vea la primera transicion

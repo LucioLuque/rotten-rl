@@ -2,9 +2,13 @@
 
 RL para La Podrida (Oh Hell) sobre OpenSpiel. Estructura y uso en `README.md`; plan y métricas en
 `docs/plan.md`; estado actual, corridas y próximos pasos en `docs/estado.md` (leerlo al empezar y
-actualizarlo al terminar algo); bibliografía y qué aplicar en `docs/bibliografia.md`; reporte de
-la última noche en `docs/reporte.md`. Mantener actualizados todos los `.md` que cambien con el
-trabajo.
+actualizarlo al terminar algo); bibliografía y qué aplicar en `docs/bibliografia.md`; un reporte
+por noche de corridas en `docs/reportes/<fecha en que empieza la noche>.md`; índice de todo en
+`docs/README.md`. Mantener actualizados todos los `.md` que cambien con el trabajo.
+
+Orden del repo: cada tema nuevo en su carpeta (código en `rotten_rl/<tema>/`, scripts en
+`scripts/<tema>/`, docs en `docs/<tema>/` con un `README.md` que explique qué es), no como
+archivos sueltos. Arriba de `scripts/` solo lo principal (`train.py`, `run_queue.py`, `play.py`).
 
 Entrenamiento: `scripts/train.py --algo nfsp|dqn|ppo`; cada algoritmo en `rotten_rl/algorithms/`
 implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola son comunes).
@@ -12,7 +16,7 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
 ## Dónde se corre
 
 - **No entrenar en la laptop.** Las corridas van al laboratorio S004; todo el detalle está en
-  `docs/lab-s004.md`.
+  `docs/tecnico/lab-s004.md`.
 - La VPN la levanta el usuario (necesita `sudo` y login en el navegador). Con la VPN arriba,
   `ssh labs004` entra sin contraseña (alias en `~/.ssh/config` de la laptop).
 - Comandos remotos siempre como `ssh labs004 'bash -lc "..."'`: sin shell de login no se cargan

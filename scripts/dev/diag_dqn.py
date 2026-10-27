@@ -1,5 +1,5 @@
 """
-scripts/diag_dqn.py  —  Diagnostico: DQN solo contra rivales fijos.
+scripts/dev/diag_dqn.py  —  Diagnostico: DQN solo contra rivales fijos.
 
 Si el entorno y el reward permiten aprender, un DQN contra rivales al azar
 tiene que despegarse rapido del nivel aleatorio (sobre todo en el canto). Es
@@ -9,7 +9,7 @@ El DQN juega siempre en el asiento 0 y los demas asientos los juega
 --opponent. Se evalua con la politica greedy (epsilon = 0), en el asiento 0.
 
 Ejemplo:
-    OMP_NUM_THREADS=1 python scripts/diag_dqn.py --players 2 --num_train_episodes 20000
+    OMP_NUM_THREADS=1 python scripts/dev/diag_dqn.py --players 2 --num_train_episodes 20000
 """
 
 import numpy as np

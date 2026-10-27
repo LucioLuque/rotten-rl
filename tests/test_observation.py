@@ -1,5 +1,5 @@
 """El info-state sigue siendo exactamente el mismo que el guardado en
-tests/data/info_states.npz (generado con scripts/make_obs_fixture.py antes de
+tests/data/info_states.npz (generado con scripts/dev/make_obs_fixture.py antes de
 optimizar el armado de la observacion)."""
 import importlib.util
 import os
@@ -13,7 +13,7 @@ import rotten_rl.openspiel_game as og  # noqa: E402
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..")
 _spec = importlib.util.spec_from_file_location(
-    "make_obs_fixture", os.path.join(_ROOT, "scripts", "make_obs_fixture.py"))
+    "make_obs_fixture", os.path.join(_ROOT, "scripts", "dev", "make_obs_fixture.py"))
 fixture = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fixture)
 

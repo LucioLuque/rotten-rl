@@ -1,12 +1,12 @@
 """
-scripts/summarize_runs.py  —  Tabla comparativa de corridas, desde sus CSV.
+scripts/eval/summarize_runs.py  —  Tabla comparativa de corridas, desde sus CSV.
 
 Para cada corrida en --runs_dir (o las que matcheen --filter) muestra el ultimo
 episodio evaluado y, contra cada rival, el promedio de las ultimas --last
 evaluaciones (promediar baja el ruido de evaluar con pocas partidas).
 
 Ejemplo:
-    python scripts/summarize_runs.py --runs_dir ~/scratch/runs --filter e0 --last 3
+    python scripts/eval/summarize_runs.py --runs_dir ~/scratch/runs --filter e0 --last 3
 """
 
 import argparse

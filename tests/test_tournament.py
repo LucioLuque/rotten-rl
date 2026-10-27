@@ -1,4 +1,4 @@
-"""scripts/tournament.py: carga politicas guardadas y, en evaluacion duplicada,
+"""scripts/eval/tournament.py: carga politicas guardadas y, en evaluacion duplicada,
 una red contra si misma da exactamente el empate."""
 import importlib.util
 import json
@@ -14,7 +14,7 @@ from rotten_rl.algorithms.dqn import mlp  # noqa: E402
 from rotten_rl.evaluation import evaluate  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
-    "tournament", os.path.join(os.path.dirname(__file__), "..", "scripts", "tournament.py"))
+    "tournament", os.path.join(os.path.dirname(__file__), "..", "scripts", "eval", "tournament.py"))
 tournament = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tournament)
 

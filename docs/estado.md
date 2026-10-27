@@ -29,7 +29,7 @@
   vez: `e00_base`, `e01_seed1`, `e06_seed2` (para medir el ruido entre semillas),
   `e02_antic0.2`, `e03_antic0.3`, `e04_relative` (reward relativo), `e05_h512` (capas de 512),
   `e07_rl3e-4` (lr del DQN 0.0003), `e08_batch256`, `e09_learn32`.
-- Comparar con `python scripts/summarize_runs.py --runs_dir ~/scratch/runs --filter e0`.
+- Comparar con `python scripts/eval/summarize_runs.py --runs_dir ~/scratch/runs --filter e0`.
 
 Resultados del barrido 1 (promedio de las últimas 3 evaluaciones de 500 partidas, vs heurística):
 
@@ -83,7 +83,7 @@ exclusivo no la aceleró (~96 → ~109 ms/ep), así que el freno no es compartir
 comunes (caché, memoria, frecuencia). Se bajó `~/scratch/queue2.txt.max_total` a 6 (las que ya
 corren terminan; no se lanzan reemplazos hasta bajar de 6).
 
-**Medido el 26/10/2026 con la máquina libre** (`scripts/bench_parallel.py --ns
+**Medido el 26/10/2026 con la máquina libre** (`scripts/dev/bench_parallel.py --ns
 1,2,4,6,8,12,16,20,24 --episodes 2000`, NFSP de 2 jugadores, buffers chicos):
 
 | A la vez | ms/episodio (mín / media / máx) | Episodios/s en total | Cuánto se frena cada una |
@@ -144,7 +144,7 @@ anteriores. Entra después, para medir y mejorar la robustez de un agente ya fue
 
 ### Lunes 26/10/2026
 
-Resultados finales de la noche del 25 en `docs/reporte.md` ("Resultados finales"). En resumen:
+Resultados finales de la noche del 25 en `docs/reportes/2026-10-25.md` ("Resultados finales"). En resumen:
 DQN y PPO compartidos con rondas como episodios le ganan a la heurística con 2 jugadores (3
 semillas cada uno, diferencia entre ellos dentro del ruido) y empatan con ella con 3 jugadores;
 NFSP queda atrás.
@@ -162,14 +162,14 @@ Decidido:
 juegan 32 partidas a la vez y la red decide en lote en la RTX 4090 del lab; la evaluación también
 juega sus partidas a la vez y DQN tiene el replay buffer espejado en la GPU. PPO de 3 jugadores
 pasa de ~210 a ~16–37 ms por partida, DQN de ~400 a ~30. Validado contra `q10`/`q20`: aprende
-igual (ver `docs/reporte.md`). En la GPU conviene **8 corridas a la vez** (~220 partidas/s en
+igual (ver `docs/reportes/2026-10-26.md`). En la GPU conviene **8 corridas a la vez** (~220 partidas/s en
 total). `run_queue.py` le deja la GPU visible a las corridas con `--device cuda`. Lo que queda por
-optimizar: `docs/optimizacion.md`.
+optimizar: `docs/tecnico/optimizacion.md`.
 
 El barrido 7 (`t10`–`t22`, `u10`/`u20`, de a una en CPU) se cortó a las 23:19 para pasar al modo
 en lote (tienen checkpoint). Lo reemplaza el barrido 8 (`w*`, en lote, `~/scratch/queue4.txt`).
 
-### Resultados de la noche del 26 al 27/10 (detalle en `docs/reporte.md`)
+### Resultados de la noche del 26 al 27/10 (detalle en `docs/reportes/2026-10-26.md`)
 
 - **PPO le gana a DQN** con 3 y 4 jugadores (3 semillas, 200k) y tarda la mitad: se sigue con
   PPO compartido (`--algo ppo --round_episodes --reward_scheme relative --vector_games 32
@@ -184,7 +184,7 @@ en lote (tienen checkpoint). Lo reemplaza el barrido 8 (`w*`, en lote, `~/scratc
 Corridas con checkpoint para retomar (`--resume`): `y70_ppo_7p_s0` (7 jugadores), `x11` (= `w10`
 seguida hacia 1M; con lotes de 32 ya no mejora, no hace falta), `x26`, `x27` (lotes de 64). Están
 en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo-s004-17 (ver
-`docs/reporte.md`), así que solo se pueden retomar si volvemos a la -04.
+`docs/reportes/2026-10-26.md`), así que solo se pueden retomar si volvemos a la -04.
 
 ## Bugs encontrados (25/10/2026)
 
@@ -204,12 +204,12 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    corte prolijo por señal. Cortar y retomar da resultados idénticos.
 3. ~~Varios algoritmos~~ Hecho: NFSP, DQN y PPO compartidos con `--round_episodes`.
 4. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
-   idénticos, ~7 veces menos RAM por agente). Ver `docs/optimizacion.md`.
+   idénticos, ~7 veces menos RAM por agente). Ver `docs/tecnico/optimizacion.md`.
 5. ~~DQN vs PPO compartidos~~ Hecho: gana PPO (26–27/10).
 5b. ~~Observación más rápida~~ Hecho (27/10): idéntica bit a bit (`tests/test_observation.py`
    contra `tests/data/info_states.npz`), 31% más rápida con 3 jugadores y 47% con 7; la partida
    completa, ~8–10%. El historial de la ronda (quién jugó cada carta, voids, quién va ganando la
-   baza) lo lleva el estado jugada a jugada. Ver `docs/optimizacion.md`.
+   baza) lo lleva el estado jugada a jugada. Ver `docs/tecnico/optimizacion.md`.
 5c. ~~Revisar `ppo.py` contra la receta estándar~~ Hecho (27/10, contra los detalles de PPO de
    CleanRL). Sin errores: GAE por asiento, rewards entre turnos, máscara de acciones, recortes y
    ventajas normalizadas están bien; no recortar la pérdida del valor es a propósito (Andrychowicz
@@ -229,7 +229,7 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    rota, así que no sesga. Cambios: evaluación duplicada (`--eval_deal_seed`, los mismos repartos
    con el agente en cada asiento, en todas las evaluaciones y corridas), error estándar en cada
    evaluación (`*_se`), `--eval_games` 1500 por defecto, `paired_diff` para comparar dos agentes
-   reparto a reparto, y `scripts/tournament.py` (todos contra todos: variantes, versiones
+   reparto a reparto, y `scripts/eval/tournament.py` (todos contra todos: variantes, versiones
    anteriores, heurística). Medido: el duplicado baja poco el error en este juego (~15% al comparar
    dos agentes; lo que más pesa es clavar o no el canto, no las cartas), así que la palanca es jugar
    más partidas.
@@ -238,7 +238,7 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
    semillas (retomando `y70` si volvemos a la -04, si no de cero). Medir también cómo se reparte el
    tiempo con 7 jugadores (si la simulación pesa mucho, optimizar el motor antes de las largas).
-   Al terminar las de 3 jugadores: torneo (`scripts/tournament.py`, 2.000 repartos) entre la base,
+   Al terminar las de 3 jugadores: torneo (`scripts/eval/tournament.py`, 2.000 repartos) entre la base,
    lotes de 128, tasa que baja, inicialización ortogonal, la heurística y la versión muestreada de
    la mejor, para decidir con números confiables.
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.

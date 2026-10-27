@@ -1,5 +1,5 @@
 """
-scripts/tournament.py  —  Torneo entre agentes con evaluacion duplicada.
+scripts/eval/tournament.py  —  Torneo entre agentes con evaluacion duplicada.
 
 Enfrenta a cada par de agentes (A en un asiento, B en todos los demas, y al
 reves) sobre los mismos repartos, con A en cada asiento de cada reparto (ver
@@ -23,7 +23,7 @@ estandar; y un ranking por diferencia promedio contra el resto. Si dos agentes
 juegan igual, la diferencia da exactamente 0.
 
 Ejemplo (en el lab):
-    python scripts/tournament.py --players 3 --deals 1000 --device cuda \\
+    python scripts/eval/tournament.py --players 3 --deals 1000 --device cuda \\
         --agents heuristic,~/scratch/runs/x21_ppo_3p_roll128_<ts>,~/scratch/runs/w10_ppo_3p_s0_<ts>@100000 \\
         --out ~/scratch/torneo_3p.md
 """
@@ -40,7 +40,7 @@ import numpy as np
 import pyspiel
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.algorithms.dqn import greedy_batch, mlp  # noqa: E402
 from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent  # noqa: E402

@@ -1,5 +1,5 @@
 """
-scripts/bench_parallel.py  —  Cuantas corridas conviene correr a la vez en una maquina.
+scripts/dev/bench_parallel.py  —  Cuantas corridas conviene correr a la vez en una maquina.
 
 Para cada N de --ns lanza N entrenamientos identicos y cortos al mismo tiempo, y
 mide la velocidad de cada uno (ms por episodio entre dos lineas del log, sin el
@@ -9,10 +9,10 @@ importa ademas cuanto se frena cada una.
 
 Correrlo con la maquina libre (si hay otros entrenamientos, la medicion no
 sirve). Ejemplo, en el lab:
-    python scripts/bench_parallel.py --ns 1,2,4,6,8,12 --episodes 2000
+    python scripts/dev/bench_parallel.py --ns 1,2,4,6,8,12 --episodes 2000
 Con --gpu deja la GPU visible (para medir corridas con --device cuda, que la
 comparten), p.ej.:
-    python scripts/bench_parallel.py --gpu --players 3 --ns 1,2,4,8 --episodes 4000 \
+    python scripts/dev/bench_parallel.py --gpu --players 3 --ns 1,2,4,8 --episodes 4000 \
         --extra "--algo ppo --vector_games 32 --device cuda --round_episodes"
 """
 
@@ -52,7 +52,7 @@ def main():
                         "reserva memoria de video)")
     a = p.parse_args()
 
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
     if not a.gpu:
         env["CUDA_VISIBLE_DEVICES"] = ""
