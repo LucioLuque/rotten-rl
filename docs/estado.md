@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 26/10/2026.
+Última actualización: 27/10/2026.
 
 ## Hecho
 
@@ -169,6 +169,23 @@ optimizar: `docs/optimizacion.md`.
 El barrido 7 (`t10`–`t22`, `u10`/`u20`, de a una en CPU) se cortó a las 23:19 para pasar al modo
 en lote (tienen checkpoint). Lo reemplaza el barrido 8 (`w*`, en lote, `~/scratch/queue4.txt`).
 
+### Resultados de la noche del 26 al 27/10 (detalle en `docs/reporte.md`)
+
+- **PPO le gana a DQN** con 3 y 4 jugadores (3 semillas, 200k) y tarda la mitad: se sigue con
+  PPO compartido (`--algo ppo --round_episodes --reward_scheme relative --vector_games 32
+  --device cuda`, capas 512,512). DQN y NFSP quedan como referencia.
+- PPO contra la heurística, 200k, 3 semillas: 3 jugadores 0.426–0.431 (empate 0.333), 4
+  jugadores 0.364–0.387 (empate 0.25), 5 jugadores 0.332–0.346 (empate 0.20). 7 jugadores
+  (`y70`, una semilla) ya le gana a los 50k; quedó con checkpoint.
+- Con lotes de 32 partidas, PPO con 3 jugadores se estanca en ~0.43. 128 partidas por
+  actualización dio 0.458 (una semilla, sin confirmar); 64, igual que 32. Capas de 1024 y
+  entropía 0.005 no ayudan.
+
+Corridas con checkpoint para retomar (`--resume`): `y70_ppo_7p_s0` (7 jugadores), `x11` (= `w10`
+seguida hacia 1M; con lotes de 32 ya no mejora, no hace falta), `x26`, `x27` (lotes de 64). Están
+en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo-s004-17 (ver
+`docs/reporte.md`), así que solo se pueden retomar si volvemos a la -04.
+
 ## Bugs encontrados (25/10/2026)
 
 1. **Reward perdido entre turnos.** El juego da reward al cerrar cada ronda, pero cada agente solo
@@ -188,7 +205,8 @@ en lote (tienen checkpoint). Lo reemplaza el barrido 8 (`w*`, en lote, `~/scratc
 3. ~~Varios algoritmos~~ Hecho: NFSP, DQN y PPO compartidos con `--round_episodes`.
 4. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
    idénticos, ~7 veces menos RAM por agente). Ver `docs/optimizacion.md`.
-5. **En curso:** DQN vs PPO compartidos con 3 jugadores (barrido 7) y llevar el mejor al máximo.
-6. Corridas de 4 jugadores.
+5. ~~DQN vs PPO compartidos~~ Hecho: gana PPO (26–27/10).
+6. **Siguiente:** confirmar lotes de 128 con 3 semillas (3 jugadores) y, si mejora, usarlo de base;
+   7 jugadores con 3 semillas (retomando `y70` si volvemos a la -04, si no de cero).
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.
 8. Un modelo para n de 2 a 4; después escalar a 7.

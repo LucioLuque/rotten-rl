@@ -29,6 +29,9 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   compartida (ControlMaster) quedó rota del lado del lab: `ssh -O exit labs004` y reconectar.
 - Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);
   fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas.
+- **Nada se conecta al lab fuera de horario**: toda espera o monitor que haga `ssh labs004` tiene
+  que terminar a las 07:00 en días hábiles. El 27/10 una espera siguió y a las 07:32, con la -04
+  reiniciando, el lab nos asignó otra máquina (la -17) y quedamos sin acceso a `~/scratch` de la -04.
 
 ## En el laboratorio
 

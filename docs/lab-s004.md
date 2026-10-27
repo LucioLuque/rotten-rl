@@ -79,8 +79,12 @@ ssh <usuario>@labs004.udesa.edu.ar
 ```
 
 - Huella del host: `SHA256:7Z4z4U9EjmYBgcpDWe8KDzMPc6smtJ7BjrtjoKoB95s` (ED25519).
-- `labs004` es un punto de entrada que asigna una máquina (`[lab-s004] slot 1 -> ...`). Siempre
-  asigna la misma, así que `~/scratch` se conserva entre sesiones.
+- `labs004` es un punto de entrada que asigna una máquina (`[lab-s004] slot 1 -> ...`). Según la
+  documentación oficial, cada conexión va a la misma máquina, así que `~/scratch` se conserva entre
+  sesiones. **Pero la asignación puede cambiar**: el 27/10/2026 una conexión a las 07:32, mientras
+  la máquina de siempre (labo-s004-04) se reiniciaba, cayó en la labo-s004-17, y desde ahí el lab
+  nos asigna esa. Por eso no conectarse nunca fuera de horario (después de las 07:00 en días
+  hábiles), tampoco desde esperas o monitores automáticos.
 - **Máximo 2 conexiones simultáneas por usuario** (`ssh`, `scp`, `rsync` cuentan cada uno).
 
 Para entrar sin contraseña y que todas las sesiones compartan una sola conexión:

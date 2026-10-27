@@ -15,8 +15,17 @@ de la noche anterior.
 - **Partidas en lote y GPU** (`--vector_games`): PPO y DQN de 3 jugadores pasan de ~210 y ~400 ms
   por partida a ~16–37 y ~30 en la RTX 4090 del lab; la evaluación, de ~78 s a ~8 s. Validado:
   aprende igual que de a una (ver abajo). 41 tests.
-- **Barrido 8** (00:00, 8 a la vez en la GPU): la comparación DQN vs PPO con 3 jugadores (3
-  semillas, 200k) y un adelanto de 4 jugadores, en lote. Termina en la noche.
+- **PPO le gana a DQN** con 3 jugadores (3 semillas cada uno, 200k: 0.43 contra 0.38 de win vs
+  heurística, diff +6.4 contra +3.2) y con 4 (0.36–0.39 contra 0.31), y tarda la mitad.
+  **Recomendación: seguir con PPO.**
+- **PPO escala a más jugadores**: le gana a la heurística con 4 (0.364–0.387, empate 0.25) y con
+  5 (0.332–0.346, diff ~+10, empate 0.20), 3 semillas cada uno, y ya con 7 a los 50k (0.19,
+  empate 0.14).
+- **Lotes más grandes, sin confirmar**: con 3 jugadores, 128 partidas por actualización dio 0.458
+  (una semilla) contra 0.43 de la base de 32; con 64, una semilla dio 0.445 y otra 0.426 (igual
+  que la base). Hay que repetir 128 con más semillas antes de adoptarlo. Con 32, PPO se estanca
+  (igual a los 400k que a los 200k). Capas de 1024 y menos entropía no ayudan.
+- **La VPN se reconectó sola** a las 06:02 (7h45), en 4 segundos.
 
 ## Qué se hizo
 
@@ -60,6 +69,7 @@ de la noche anterior.
 | 5k | 0.186 | 0.245 |
 | 15k | 0.269 | 0.266 |
 | 30k | 0.314 (diff +0.20) | 0.348 (diff −0.44) |
+| 50k | — (cortada a los 30k) | 0.322 (diff +0.92) |
 
 **El modo en lote aprende igual** (las diferencias están dentro del ruido de 500 partidas por
 evaluación; si algo, en lote va un poco mejor). `v10`/`v11` tardaron 35 minutos para 50k
@@ -80,6 +90,115 @@ evaluación; si algo, en lote va un poco mejor). `v10`/`v11` tardaron 35 minutos
 8 a la vez es el punto justo. Perfil del modo en lote y lo que queda por optimizar:
 `docs/optimizacion.md`. Probado y descartado: 64 partidas a la vez en vez de 32 (misma
 velocidad).
+
+### Barrido 8: PPO con 3 jugadores (terminado ~01:45)
+
+Promedio de las últimas 3 evaluaciones (500 partidas cada una) contra la heurística, empate 0.333:
+
+| Corrida | Win | Diff | Acierto de canto | Sesgo |
+|---|---|---|---|---|
+| `w10` (s0) | 0.426 | +6.7 | 0.542 | −0.07 |
+| `w11` (s1) | 0.429 | +6.4 | 0.536 | −0.06 |
+| `w12` (s2) | 0.430 | +6.5 | 0.542 | −0.08 |
+
+Las 3 semillas dan lo mismo y le ganan claro a la heurística, cantando sin sesgo. La curva sigue
+subiendo despacio (~0.37 entre 40k y 80k, ~0.43 a los 200k). Tardaron ~1h50 con 8 corridas
+compartiendo la GPU.
+
+### Barrido 8: PPO con 4 jugadores, `w30` (terminado 02:19)
+
+Contra la heurística (empate 0.25): **0.364 de win, diff +7.5**, acierto de canto 0.626, sesgo
+−0.05 (promedio de las últimas 3 evaluaciones). La curva se aplana desde ~120k: 0.280 (40k),
+0.327 (80k), 0.373 (120k), 0.372 (160k), 0.369 (200k). Con 4 jugadores le gana a la heurística
+por más margen relativo que con 3. `w31`/`w32` (las otras semillas) van parecido a esa altura.
+
+### Barrido 8: DQN con 3 jugadores (terminado 03:39) — **PPO gana la comparación**
+
+Promedio de las últimas 3 evaluaciones contra la heurística (empate 0.333), 200k, 3 semillas:
+
+| | Win | Diff | Acierto de canto | Sesgo | Tiempo (8 a la vez) |
+|---|---|---|---|---|---|
+| **PPO** (`w10`–`w12`) | **0.426 – 0.431** | **+6.2 a +6.7** | 0.54 | −0.07 | ~1h50 |
+| DQN (`w20`–`w22`) | 0.369 – 0.394 | +1.7 a +4.6 | 0.51 | +0.03 | ~3h45 |
+
+Los rangos de las semillas no se superponen. DQN sigue subiendo despacio (0.36 a los 80k, 0.38
+a los 200k), pero a los 200k está donde PPO estaba a los ~80k, y tarda el doble por partida
+(aprende cada 16 decisiones). **Recomendación: seguir con PPO.** DQN queda como segunda referencia,
+como NFSP.
+
+### PPO con 4 jugadores, 3 semillas, y lotes de 64 partidas (terminados ~04:05)
+
+Contra la heurística, promedio de las últimas 3 evaluaciones:
+
+| Corrida | Win | Diff | Acierto de canto | Empate |
+|---|---|---|---|---|
+| `w30` / `w31` / `w32` (PPO 4 jugadores) | 0.364 / 0.368 / 0.387 | +7.5 / +8.4 / +9.2 | 0.63 | 0.25 |
+| `x20` (PPO 3 jugadores, 64 partidas por actualización) | 0.445 | +7.4 | 0.55 | 0.333 |
+
+PPO con 4 jugadores es consistente entre semillas. `x20` queda apenas por encima de las 3
+semillas con 32 (0.426–0.431): indicio a favor de lotes más grandes, con una sola semilla. `w10`
+retomada (`x11`) sigue mejorando pasados los 200k: 0.459 y diff +8.8 a los 240k.
+
+### PPO con 3 jugadores: tamaño del lote, entropía y entrenar más (terminados ~05:18)
+
+Promedio de las últimas 3 evaluaciones contra la heurística (empate 0.333), a los 200k:
+
+| Variante | Win | Diff | Acierto de canto |
+|---|---|---|---|
+| 32 partidas por actualización, base (`w10`–`w12`, 3 semillas) | 0.426 – 0.431 | +6.2 a +6.7 | 0.54 |
+| 64 partidas (`x20`) | 0.445 | +7.4 | 0.55 |
+| **128 partidas (`x21`)** | **0.458** | **+8.6** | 0.55 |
+| Entropía 0.005 en vez de 0.01 (`x23`) | 0.415 | +5.5 | 0.53 |
+| `w10` seguida hasta 400k (`x11`, a los 400k) | 0.427 | +6.9 | 0.54 |
+
+- **Con lotes de 32, PPO se estanca**: `w10` a los 400k está igual que a los 200k.
+- **Lotes más grandes: sin confirmar.** 128 dio la mejor corrida de 3 jugadores (una semilla).
+  Con 64, `x25` (semilla 1, terminada 06:18) dio 0.426 y diff +6.7, igual que la base, contra
+  0.445 de `x20`: la diferencia de `x20` parece ruido entre semillas. Para saber si 128 sirve hay
+  que repetirlo con 3 semillas (MAPPO usa lotes grandes, así que es razonable probarlo).
+- **Menos entropía empeora.**
+- **Capas de 1024 no ayudan** (`x24`, terminada 06:05): 0.400 y diff +5.7 a los 200k, por
+  debajo de la base. Arrancó más rápido (0.40 a los 80k) pero no siguió subiendo.
+
+### Cola después del barrido 8 (agregado durante la noche)
+
+- 00:30: `w31`, `w32` (PPO 4 jugadores, semillas 1 y 2, para tener 3 con `w30`) y `w50` (PPO 5
+  jugadores, adelanto). Arrancaron 01:44.
+- 01:45: `x20`, `x21` (PPO 3 jugadores con 64 y 128 partidas por actualización en vez de 32:
+  MAPPO usa lotes grandes), `x10` (retoma `w10` hasta 1M para ver dónde se estanca; queda con
+  checkpoint) y `x23` (PPO 3 jugadores con entropía 0.005 en vez de 0.01).
+- 03:40: `x10` falló al arrancar (`No CUDA GPUs are available`): `run_queue.py` decidía si mostrar
+  la GPU mirando `--device cuda` en la línea de la cola, y una corrida retomada no lo tiene (sale
+  de su config). Se relanzó como `x11` con `--device cuda` (retomó bien desde los 200k) y se
+  arregló `run_queue.py` (lee el device del config.json al retomar).
+- 03:45: con PPO ganador, `y70` (**PPO con 7 jugadores**, una semilla: si aprende y cuánto
+  cuesta), `w51`/`w52` (PPO 5 jugadores, semillas 1 y 2) y `x24` (PPO 3 jugadores con capas de
+  1024). Lo que no termine a las 06:55 queda con checkpoint.
+- 04:27: terminó `w40` (DQN 4 jugadores): 0.309 de win y diff +4.7 contra la heurística (empate
+  0.25), por debajo de PPO con 4 (0.364–0.387), como con 3 jugadores.
+- 04:39: terminó `w50` (PPO 5 jugadores): **0.337 de win y diff +10.6** contra la heurística
+  (empate 0.20; promedio de las últimas 3), acierto de canto 0.685, sesgo −0.03. Le gana por
+  mucho desde los 40k (0.303) y se aplana desde ~80k (0.33–0.38).
+- 06:41: terminaron `w51`/`w52` (PPO 5 jugadores, semillas 1 y 2): 0.346 y 0.332, diff +10.3 y
+  +9.9. Con 3 semillas, PPO con 5 jugadores es tan consistente como con 3 y 4.
+- 04:30: para confirmar el indicio de `x20`, `x25`/`x26` (PPO 3 jugadores con lotes de 64,
+  semillas 1 y 2) y `x27` (PPO 4 jugadores con lotes de 64).
+
+## Problemas de la noche
+
+- **Cambio de máquina (error de Claude)**: una espera que buscaba el corte de las 06:55 siguió
+  conectándose después de las 07:00. A las 07:32, con la labo-s004-04 reiniciando, el lab la mandó
+  a la labo-s004-17 y desde ahí nos asigna esa. Los logs y checkpoints de la noche (incluidos los
+  de `x11`, `x26`, `x27` e `y70`, cortadas a las 06:55, cuyos números finales no se llegaron a
+  leer) quedaron en `/scratch` de la -04, que no se ve desde otras máquinas. Regla nueva: nada se
+  conecta al lab después de las 07:00 en días hábiles (`CLAUDE.md`, `docs/lab-s004.md`).
+- **La VPN se reconectó sola** a las 06:02:48 (7h45 de conexión, cortada a propósito antes del
+  límite de 8 horas): túnel arriba en 4 segundos, sin intervención y con la pantalla bloqueada;
+  `ssh labs004` siguió andando. Primera prueba real de la reconexión automática: anduvo.
+- ~02:20–02:45: la conexión SSH compartida se rompió del lado del lab (`unknown userid`, ya
+  conocido) y el monitor de corridas fallaba en silencio: no se vio el fin de `w30` hasta las
+  02:45. No afectó a las corridas (la cola lanzó `x20` sola). El monitor ahora detecta ese error,
+  cierra la conexión compartida y reintenta.
 
 ---
 

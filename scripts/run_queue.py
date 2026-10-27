@@ -33,6 +33,7 @@ Ejemplo (en el lab, dentro de tmux):
 
 import argparse
 import datetime
+import json
 import os
 import shlex
 import subprocess
@@ -75,6 +76,20 @@ def count_training_processes(script_name=TRAINING_SCRIPTS):
                 and os.path.basename(argv[1]).decode(errors="replace") in names):
             n += 1
     return n
+
+
+def _wants_gpu(args):
+    """Si la corrida va a usar la GPU: --device cuda, o al retomar (--resume) sin
+    --device, lo que diga el config.json de la corrida."""
+    if "--device" in args:
+        return args[args.index("--device") + 1] == "cuda"
+    if "--resume" in args:
+        try:
+            with open(os.path.join(args[args.index("--resume") + 1], "config.json")) as f:
+                return json.load(f).get("device") == "cuda"
+        except (OSError, ValueError):
+            return False
+    return False
 
 
 def _read_max_total(queue_path, default):
@@ -160,7 +175,7 @@ def main():
             cmd += args
             with open(os.path.join(a.logs_dir, f"{name}.log"), "w") as out:
                 # Sesion propia: si la cola (o su tmux) muere, las corridas siguen.
-                gpu = "--device" in args and args[args.index("--device") + 1] == "cuda"
+                gpu = _wants_gpu(args)
                 running[name] = subprocess.Popen(cmd, cwd=repo, env=env if gpu else cpu_env,
                                                  stdout=out,
                                                  stderr=subprocess.STDOUT,
