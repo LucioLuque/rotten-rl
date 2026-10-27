@@ -16,7 +16,7 @@ rotten_rl/                    paquete
     nfsp.py                   NFSP de OpenSpiel, un agente por asiento
     dqn.py                    DQN con una red compartida por todos los asientos
     ppo.py                    PPO con política y crítico compartidos (self-play)
-  exact/                      partes del juego resueltas sin RL
+  exact/                      partes del juego resueltas sin RL (ver su README.md)
     round1.py                 la ronda de 1 carta: equilibrio (CFR) y comparaciones
   checkpoint.py               checkpoints completos para cortar y retomar
   buffers.py                  buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
@@ -39,6 +39,18 @@ tests/                        tests con pytest (tests/data: observaciones de ref
 docs/                         documentación (índice en docs/README.md)
 ```
 
+## Qué hay
+
+- **Entrenamiento con RL** (`scripts/train.py`): agentes que aprenden jugando contra sí mismos
+  (self-play). Hoy el mejor es PPO con una red compartida por todos los asientos; el estado y los
+  resultados están en `docs/estado.md` y en los reportes de cada noche (`docs/reportes/`).
+- **Evaluación** (`rotten_rl/evaluation.py`, `scripts/eval/`): contra el azar, una heurística y
+  versiones anteriores, con repartos duplicados y error estándar, y un torneo entre agentes.
+- **Partes resueltas sin RL** (`rotten_rl/exact/`): las partes del juego lo bastante chicas para
+  calcular cómo conviene jugar de forma exacta, hoy la ronda de 1 carta. Sirven para entender el
+  juego y para controlar si el agente aprendió bien en un caso con respuesta conocida. Ver
+  `rotten_rl/exact/README.md` y `docs/primera-ronda/`.
+
 ## Instalación
 
 ```bash
@@ -57,5 +69,8 @@ python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --p
     --vector_games 32 --device cuda --run_name ppo3p
 tensorboard --logdir runs
 python scripts/play.py      # jugar contra bots
+# torneo entre agentes guardados (ver el docstring para el formato de --agents)
+python scripts/eval/tournament.py --players 3 --deals 1000 --agents heuristic,runs/<corrida>
+python scripts/exact/solve_round1.py      # la ronda de 1 carta resuelta (CPU, ~30–40 min)
 pytest
 ```
