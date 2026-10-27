@@ -18,11 +18,12 @@ rotten_rl/              paquete
     ppo.py              PPO con política y crítico compartidos (self-play)
   checkpoint.py         checkpoints completos (cualquier algoritmo) para cortar y retomar
   buffers.py            buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
+  vector.py             muchas partidas a la vez, con la red decidiendo en lote (--vector_games)
   run_logger.py         logging a TensorBoard, CSV y config.json en runs/
   renderer.py           render con Pygame
 scripts/
   train.py              entrenamiento con self-play: --algo nfsp|dqn|ppo, --round_episodes,
-                        --resume, --stop_at
+                        --vector_games, --resume, --stop_at
   run_queue.py          cola de experimentos para el laboratorio
   bench_parallel.py     cuántas corridas conviene correr a la vez
   summarize_runs.py     tabla comparativa de corridas
@@ -51,6 +52,9 @@ Hace falta `open_spiel` 2.0 o más nuevo (Python 3.11+): las versiones 1.x de pi
 
 ```bash
 python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 2 --run_name ppo2p
+# 32 partidas a la vez, decidiendo en lote en la GPU (DQN y PPO; mucho más rápido):
+python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 3 \
+    --vector_games 32 --device cuda --run_name ppo3p
 tensorboard --logdir runs
 python scripts/play.py      # jugar contra bots
 pytest

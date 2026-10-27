@@ -29,6 +29,10 @@ class Algorithm:
       - `frozen_state()` / `frozen_act(state, rng)`: copia congelada de la
         politica actual, para el rival "past" de la evaluacion (y para guardar
         en <corrida>/checkpoints/).
+      - Con --vector_games K > 1, en vez de `seats()`/`begin_episode` se juegan
+        K partidas a la vez con rotten_rl/vector.py: `begin_batch`,
+        `batch_step`/`batch_end` (ver ahi) y `end_batch`. Solo los algoritmos
+        con `supports_vector`.
       - `losses()`: metricas de entrenamiento para loguear.
       - `checkpoint_state()` / `checkpoint_buffers()` / `load_checkpoint_state()`:
         todo lo necesario para cortar y retomar (ver rotten_rl/checkpoint.py).
@@ -40,12 +44,20 @@ class Algorithm:
     # Defaults propios de este algoritmo para flags compartidos, cuando no se
     # pasan explicitamente (p.ej. otra exploracion para DQN que para NFSP).
     FLAG_DEFAULTS: Dict[str, object] = {}
+    # Si sabe jugar muchas partidas a la vez (rotten_rl/vector.py).
+    supports_vector: bool = False
 
     def seats(self) -> list:
         raise NotImplementedError
 
     def begin_episode(self, episode: int) -> None:
         pass
+
+    def begin_batch(self, episode: int, num_games: int) -> None:
+        """Antes de un lote de partidas (--vector_games); `episode` es la primera."""
+
+    def end_batch(self, num_games: int) -> None:
+        """Despues de un lote de partidas, todas terminadas."""
 
     def eval_act(self) -> ActFn:
         raise NotImplementedError

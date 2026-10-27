@@ -1,4 +1,89 @@
-# Reporte de la noche del 25 al 26/10/2026
+# Reporte de la noche del 26 al 27/10/2026
+
+Lo que se hizo después de las 22:00 del lunes, con Lucio despierto al principio. Se va completando
+durante la noche; la versión final se escribe antes del corte de las 07:00. Abajo queda el reporte
+de la noche anterior.
+
+## Resumen
+
+- **VPN**: se reconecta sola (script de root con sudo sin contraseña, login SAML en una instancia
+  de Chrome aparte, monitor que reconecta si se cae o a las 7h45). Detalle en `NOTAS_LOCALES.md`.
+- **Decidido**: NFSP queda como referencia, se sacó la compatibilidad con el código viejo, se pasa
+  a 3 jugadores comparando DQN y PPO compartidos (ver "Resultados finales" de la noche anterior).
+- **Benchmark de paralelismo** (`docs/estado.md`): hasta 8 corridas de CPU a la vez cada una se
+  frena poco; el total sube hasta ~20 y con 24 baja.
+- **Partidas en lote y GPU** (`--vector_games`): PPO y DQN de 3 jugadores pasan de ~210 y ~400 ms
+  por partida a ~16–37 y ~30 en la RTX 4090 del lab; la evaluación, de ~78 s a ~8 s. Validado:
+  aprende igual que de a una (ver abajo). 41 tests.
+- **Barrido 8** (00:00, 8 a la vez en la GPU): la comparación DQN vs PPO con 3 jugadores (3
+  semillas, 200k) y un adelanto de 4 jugadores, en lote. Termina en la noche.
+
+## Qué se hizo
+
+### Corridas
+
+- 22:48: barrido 7 (`queue3`, 8 a la vez, de a una partida en CPU): `t10`–`t12` (PPO 3 jugadores),
+  `t20`–`t22` (DQN 3 jugadores), `u10`/`u20` (PPO/DQN 4 jugadores), 200k cada una. A esa velocidad
+  ninguna terminaba en la noche (PPO ~24k partidas por hora, DQN ≤15k).
+- 23:19: **cortadas a pedido de Lucio** con SIGTERM (checkpoint guardado), para validar primero el
+  modo en lote: PPO de 3 en ~10–11k, DQN de 3 en ~6.5–6.8k, `u10` en 8k, `u20` en 4.7k. Se
+  retoman con `--resume` si hiciera falta.
+- 23:16: validación del modo en lote, 3 jugadores, misma config que `q10`/`q20`, 50k, GPU:
+  `v10`, `v11` (PPO, semillas 0 y 1) y `v21` (DQN, con el aprendizaje rápido; `v20` era la primera
+  versión y se reemplazó). Corren desde una copia aparte del repo (`~/scratch/dev/rotten-rl`, con
+  `PYTHONPATH=.`), sin commitear todavía.
+
+### Código
+
+- `rotten_rl/vector.py`: `VectorRunner`, K partidas a la vez con la red decidiendo en lote.
+- PPO y DQN: `batch_step`/`batch_end`, una trayectoria por asiento de cada partida. DQN, además:
+  transiciones de a lote, muestreo con reposición y el info-state comprimido hasta la GPU.
+- `evaluate(..., parallel=True)`: todas las partidas de la evaluación a la vez.
+- `scripts/train.py --vector_games K` (1 = como siempre); `bench_parallel.py --gpu`.
+- Tests: con una partida, el modo en lote ve exactamente lo mismo que de a una; los rewards llegan
+  completos; PPO y DQN aprenden y se retoman idéntico en lote; el buffer en lote queda igual que
+  de a una; evaluar en paralelo una partida da las mismas métricas.
+
+## Resultados
+
+### Validación del modo en lote (3 jugadores, vs heurística)
+
+| Episodios | `q10` (PPO de a una, anoche) | `v10` (PPO en lote, s0) | `v11` (PPO en lote, s1) |
+|---|---|---|---|
+| 5k | 0.273 | 0.305 | 0.266 |
+| 10k | 0.292 | 0.275 | 0.312 |
+| 25k | 0.347 | 0.334 | 0.363 |
+| 50k | 0.343 (diff +1.45) | 0.353 (diff +2.43) | 0.381 (diff +3.01) |
+
+| Episodios | `q20` (DQN de a una, anoche) | `v21` (DQN en lote, s0) |
+|---|---|---|
+| 5k | 0.186 | 0.245 |
+| 15k | 0.269 | 0.266 |
+| 30k | 0.314 (diff +0.20) | 0.348 (diff −0.44) |
+
+**El modo en lote aprende igual** (las diferencias están dentro del ruido de 500 partidas por
+evaluación; si algo, en lote va un poco mejor). `v10`/`v11` tardaron 35 minutos para 50k
+(compartiendo la GPU con otras pruebas), contra ~110 de `q10` en CPU.
+
+### Velocidad en la GPU
+
+`bench_parallel.py --gpu` con PPO en lote, 3 jugadores (con las 3 de validación usando la GPU):
+
+| A la vez | ms por partida | Partidas/s en total |
+|---|---|---|
+| 1 | 16.1 | 62 |
+| 2 | 18.7 | 107 |
+| 4 | 24.1 | 166 |
+| 8 | 36.6 | 219 |
+| 12 | 50.6 | 238 |
+
+8 a la vez es el punto justo. Perfil del modo en lote y lo que queda por optimizar:
+`docs/optimizacion.md`. Probado y descartado: 64 partidas a la vez en vez de 32 (misma
+velocidad).
+
+---
+
+# Noche del 25 al 26/10/2026
 
 Lo que se hizo mientras Lucio dormía, y lo que hay para decidir. Se va completando durante la noche;
 la versión final se escribe antes del corte de las 07:00. El detalle de cada corrida está en

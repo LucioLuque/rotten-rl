@@ -10,6 +10,10 @@ importa ademas cuanto se frena cada una.
 Correrlo con la maquina libre (si hay otros entrenamientos, la medicion no
 sirve). Ejemplo, en el lab:
     python scripts/bench_parallel.py --ns 1,2,4,6,8,12 --episodes 2000
+Con --gpu deja la GPU visible (para medir corridas con --device cuda, que la
+comparten), p.ej.:
+    python scripts/bench_parallel.py --gpu --players 3 --ns 1,2,4,8 --episodes 4000 \
+        --extra "--algo ppo --vector_games 32 --device cuda --round_episodes"
 """
 
 import argparse
@@ -43,10 +47,15 @@ def main():
     p.add_argument("--players", type=int, default=2)
     p.add_argument("--extra", default="--rl_learning_rate 0.001 --sl_learning_rate 0.001",
                    help="flags extra para train.py")
+    p.add_argument("--gpu", action="store_true",
+                   help="dejar la GPU visible (por defecto se oculta: sin ella torch no "
+                        "reserva memoria de video)")
     a = p.parse_args()
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", CUDA_VISIBLE_DEVICES="")
+    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    if not a.gpu:
+        env["CUDA_VISIBLE_DEVICES"] = ""
     print(f"{'N':>3} | {'ms/ep (min/media/max)':>24} | {'ep/s total':>10}", flush=True)
     for n in [int(x) for x in a.ns.split(",")]:
         tmp = tempfile.mkdtemp(prefix=f"bench{n}_")

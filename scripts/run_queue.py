@@ -12,6 +12,8 @@ Se lanza como
     OMP_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.py --runs_dir <runs_dir> \
         --run_name <nombre> --stop_at <stop_at> <flags> > <logs_dir>/<nombre>.log
 
+(sin CUDA_VISIBLE_DEVICES= si la corrida pide --device cuda).
+
 La cola se relee en cada vuelta: se pueden agregar lineas mientras corre. Los
 nombres ya lanzados se anotan en <queue>.started, asi que reiniciar la cola no
 repite experimentos. No lanza nada nuevo despues de --no_launch_after; hasta
@@ -123,9 +125,11 @@ def main():
     os.makedirs(a.runs_dir, exist_ok=True)
     os.makedirs(a.logs_dir, exist_ok=True)
     stop_at, no_launch_after = _next_time(a.stop_at), _next_time(a.no_launch_after)
-    # Las corridas son de CPU: sin GPU visible, torch no crea el contexto CUDA
-    # (~386 MB de VRAM y ~90 MB de RAM por corrida; resultados identicos).
-    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", CUDA_VISIBLE_DEVICES="")
+    # A las corridas de CPU se les oculta la GPU: sin ella torch no crea el
+    # contexto CUDA (~386 MB de VRAM y ~90 MB de RAM por corrida; resultados
+    # identicos). Las que piden --device cuda la ven.
+    env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    cpu_env = dict(env, CUDA_VISIBLE_DEVICES="")
     running = {}
 
     def log(msg):
@@ -156,7 +160,9 @@ def main():
             cmd += args
             with open(os.path.join(a.logs_dir, f"{name}.log"), "w") as out:
                 # Sesion propia: si la cola (o su tmux) muere, las corridas siguen.
-                running[name] = subprocess.Popen(cmd, cwd=repo, env=env, stdout=out,
+                gpu = "--device" in args and args[args.index("--device") + 1] == "cuda"
+                running[name] = subprocess.Popen(cmd, cwd=repo, env=env if gpu else cpu_env,
+                                                 stdout=out,
                                                  stderr=subprocess.STDOUT,
                                                  start_new_session=True)
             started.add(name)

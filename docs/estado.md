@@ -155,9 +155,19 @@ Decidido:
 - Se sacó la compatibilidad con el código viejo: el alias `train_nfsp.py`, la lectura de
   checkpoints del formato anterior a `rotten_rl/algorithms/` y `past_nets`. Las corridas lanzadas
   antes de ese cambio ya no se retoman (sus métricas y redes siguen en `~/scratch/runs/`).
-- Se pasa a 3 jugadores, con DQN y PPO compartidos en paralelo (barrido 7: `t10`–`t12` PPO,
-  `t20`–`t22` DQN, 200k episodios, eval cada 10k) para elegir algoritmo. 2 jugadores queda como
-  banco de pruebas rápido para los cambios de código.
+- Se pasa a 3 jugadores, con DQN y PPO compartidos en paralelo, para elegir algoritmo. 2
+  jugadores queda como banco de pruebas rápido para los cambios de código.
+
+**Partidas en lote y GPU** (`--vector_games 32 --device cuda`, `rotten_rl/vector.py`): DQN y PPO
+juegan 32 partidas a la vez y la red decide en lote en la RTX 4090 del lab; la evaluación también
+juega sus partidas a la vez y DQN tiene el replay buffer espejado en la GPU. PPO de 3 jugadores
+pasa de ~210 a ~16–37 ms por partida, DQN de ~400 a ~30. Validado contra `q10`/`q20`: aprende
+igual (ver `docs/reporte.md`). En la GPU conviene **8 corridas a la vez** (~220 partidas/s en
+total). `run_queue.py` le deja la GPU visible a las corridas con `--device cuda`. Lo que queda por
+optimizar: `docs/optimizacion.md`.
+
+El barrido 7 (`t10`–`t22`, `u10`/`u20`, de a una en CPU) se cortó a las 23:19 para pasar al modo
+en lote (tienen checkpoint). Lo reemplaza el barrido 8 (`w*`, en lote, `~/scratch/queue4.txt`).
 
 ## Bugs encontrados (25/10/2026)
 

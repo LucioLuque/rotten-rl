@@ -20,6 +20,7 @@ Uso: NFSP(..., replay_buffer_class=CompactReservoirBuffer) para el reservoir, y
 from __future__ import annotations
 
 import numpy as np
+import torch
 
 from open_spiel.python.pytorch import dqn, nfsp
 
@@ -62,6 +63,24 @@ def decode_info_states(e: np.ndarray) -> np.ndarray:
     return out
 
 
+_TORCH_IDX = {}
+
+
+def decode_info_states_torch(e: torch.Tensor) -> torch.Tensor:
+    """Como decode_info_states, para un tensor (B, 225) uint8, en su device
+    (asi a la GPU se mandan 14 veces menos bytes)."""
+    if e.device not in _TORCH_IDX:
+        _TORCH_IDX[e.device] = (
+            torch.as_tensor(_BIN_IDX, device=e.device), torch.as_tensor(_CONT_IDX, device=e.device),
+            torch.arange(7, -1, -1, device=e.device, dtype=torch.uint8))
+    bin_idx, cont_idx, shifts = _TORCH_IDX[e.device]
+    bits = (e[:, :_N_BITS_BYTES, None] >> shifts) & 1          # packbits: primero el bit alto
+    out = torch.zeros(e.shape[0], INFO_SIZE, device=e.device)
+    out[:, bin_idx] = bits.reshape(e.shape[0], -1)[:, :len(_BIN_IDX)].float()
+    out[:, cont_idx] = e[:, _N_BITS_BYTES:].contiguous().view(torch.float32)
+    return out
+
+
 def _is_encoded(arr) -> bool:
     return np.asarray(arr).dtype == np.uint8
 
@@ -100,6 +119,44 @@ class CompactReservoirBuffer(_CompactMixin, nfsp.ReservoirBuffer):
 class CompactReplayBuffer(_CompactMixin, dqn.ReplayBuffer):
     """Replay buffer del DQN, con info_state y next_info_state comprimidos."""
     _INFO_FIELDS = ("info_state", "next_info_state")
+
+    def append_batch(self, info_state, action, reward, next_info_state, is_final_step,
+                     legal_actions_mask) -> None:
+        """Como `append` para k transiciones a la vez (arrays con k filas), en el
+        mismo orden en que quedarian con k appends."""
+        k = len(action)
+        idx = (int(self.entry_index) + np.arange(k)) % int(self.capacity)
+        e = self.experience
+        e.info_state[idx] = encode_info_states(info_state)
+        e.action[idx] = action
+        e.reward[idx] = reward
+        e.next_info_state[idx] = encode_info_states(next_info_state)
+        e.is_final_step[idx] = is_final_step
+        e.legal_actions_mask[idx] = legal_actions_mask
+        self.entry_index = self.entry_index + k
+        return idx
+
+
+def pack_rows(e, idx=slice(None)) -> np.ndarray:
+    """Las transiciones `idx` de un CompactReplayBuffer como filas de bytes:
+    info (225) | next_info (225) | accion (1) | reward (float32, 4) | final (1) |
+    mascara (una por accion). Es lo que guarda el espejo en GPU del DQN."""
+    reward = np.ascontiguousarray(e.reward[idx], dtype=np.float32)
+    return np.concatenate([
+        e.info_state[idx], e.next_info_state[idx],
+        e.action[idx].astype(np.uint8)[:, None], reward.view(np.uint8).reshape(-1, 4),
+        e.is_final_step[idx].astype(np.uint8)[:, None],
+        e.legal_actions_mask[idx].astype(np.uint8)], axis=1)
+
+
+def unpack_rows(rows: torch.Tensor):
+    """Inversa de pack_rows, en el device de `rows` (con el info-state ya
+    descomprimido): (info, accion, reward, next_info, final, mascara)."""
+    a = 2 * ENCODED_SIZE
+    return (decode_info_states_torch(rows[:, :ENCODED_SIZE]), rows[:, a].long(),
+            rows[:, a + 1:a + 5].contiguous().view(torch.float32)[:, 0],
+            decode_info_states_torch(rows[:, ENCODED_SIZE:a]), rows[:, a + 5].bool(),
+            rows[:, a + 6:].bool())
 
 
 def use_compact_buffers(agent: nfsp.NFSP) -> None:

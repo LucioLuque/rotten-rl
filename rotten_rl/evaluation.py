@@ -163,6 +163,7 @@ def evaluate(
     num_games: int,
     rng: np.random.RandomState,
     seat: Optional[int] = None,
+    parallel: bool = False,
 ) -> Dict:
     """Juega `num_games` partidas con `act_fn` en `seat` y `opponent_fn` en el
     resto. Devuelve un dict anidado con metricas overall, por-h, por asiento y
@@ -172,7 +173,12 @@ def evaluate(
     (0, 1, ..., n-1, 0, ...): el asiento importa (quien canta ultimo tiene la
     restriccion de suma, quien sale primero) y evaluar siempre en el mismo
     sesga las metricas. Ojo: con n jugadores, empatar con el rival da
-    win_rate = 1/n, no 0.5."""
+    win_rate = 1/n, no 0.5.
+
+    Con `parallel=True` juega todas las partidas a la vez: las funciones con un
+    atributo `batch(states, legals) -> acciones` (las redes, ver
+    rotten_rl/algorithms) deciden en lote; las demas, de a una. Mismas
+    metricas, pero otro orden de sorteos que de a una."""
     n = num_players
 
     wins = 0.0
@@ -193,46 +199,32 @@ def evaluate(
 
     ladder = game.new_initial_state()._ladder  # escalera fija de esta config
 
-    fixed_seat = seat
-    for g in range(num_games):
-        seat = fixed_seat if fixed_seat is not None else g % n
-        games_by_seat[seat] += 1
-        state = game.new_initial_state()
-        prev_ptr = 0
-        while not state.is_terminal():
-            if state.is_chance_node():
-                outcomes, probs = zip(*state.chance_outcomes())
-                state.apply_action(int(rng.choice(outcomes, p=probs)))
-                continue
-            cur = state.current_player()
-            legal = state.legal_actions(cur)
-            action = act_fn(state, legal) if cur == seat else opponent_fn(state, legal)
-            state.apply_action(action)
+    def round_closed(state, seat, prev_ptr):
+        nonlocal norm_round_sum, norm_round_cnt
+        h = ladder[prev_ptr]
+        b = state._last_closed_bid[seat]
+        t = state._last_closed_tricks[seat]
+        e = abs(b - t)
+        overall["n"] += 1
+        overall["exact"] += int(e == 0)
+        overall["abs"] += e
+        overall["signed"] += (b - t)
+        a = by_h[h]
+        a["n"] += 1
+        a["exact"] += int(e == 0)
+        a["abs"] += e
+        a["signed"] += (b - t)
+        calib[b][0] += t
+        calib[b][1] += 1
+        calib_by_h[(h, b)][0] += t
+        calib_by_h[(h, b)][1] += 1
+        # puntaje de ronda normalizado por (10 + 2h)
+        s_round = (10 + 2 * t) if t == b else t
+        norm_round_sum += s_round / (10 + 2 * h)
+        norm_round_cnt += 1
 
-            if state._round_ptr != prev_ptr:
-                h = ladder[prev_ptr]
-                b = state._last_closed_bid[seat]
-                t = state._last_closed_tricks[seat]
-                e = abs(b - t)
-                overall["n"] += 1
-                overall["exact"] += int(e == 0)
-                overall["abs"] += e
-                overall["signed"] += (b - t)
-                a = by_h[h]
-                a["n"] += 1
-                a["exact"] += int(e == 0)
-                a["abs"] += e
-                a["signed"] += (b - t)
-                calib[b][0] += t
-                calib[b][1] += 1
-                calib_by_h[(h, b)][0] += t
-                calib_by_h[(h, b)][1] += 1
-                # puntaje de ronda normalizado por (10 + 2h)
-                s_round = (10 + 2 * t) if t == b else t
-                norm_round_sum += s_round / (10 + 2 * h)
-                norm_round_cnt += 1
-                prev_ptr = state._round_ptr
-
+    def game_over(state, seat):
+        nonlocal wins, score_diff_sum, return_sum
         # fin de partida: puntajes CRUDOS acumulados en el motor
         scores = [state._engine.players[i].score for i in range(n)]
         my = scores[seat]
@@ -244,6 +236,62 @@ def evaluate(
         others = [scores[i] for i in range(n) if i != seat]
         score_diff_sum += my - (sum(others) / len(others))
         return_sum += state.returns()[seat]
+
+    def chance(state):
+        outcomes, probs = zip(*state.chance_outcomes())
+        state.apply_action(int(rng.choice(outcomes, p=probs)))
+
+    seats = [seat if seat is not None else g % n for g in range(num_games)]
+    for s in seats:
+        games_by_seat[s] += 1
+
+    if not parallel:
+        for g in range(num_games):
+            seat = seats[g]
+            state = game.new_initial_state()
+            prev_ptr = 0
+            while not state.is_terminal():
+                if state.is_chance_node():
+                    chance(state)
+                    continue
+                cur = state.current_player()
+                legal = state.legal_actions(cur)
+                action = act_fn(state, legal) if cur == seat else opponent_fn(state, legal)
+                state.apply_action(action)
+                if state._round_ptr != prev_ptr:
+                    round_closed(state, seat, prev_ptr)
+                    prev_ptr = state._round_ptr
+            game_over(state, seat)
+    else:
+        states = [game.new_initial_state() for _ in range(num_games)]
+        prev_ptr = [0] * num_games
+        alive = list(range(num_games))
+        while alive:
+            mine, theirs, still = [], [], []
+            for g in alive:
+                state = states[g]
+                while state.is_chance_node():
+                    chance(state)
+                if state.is_terminal():
+                    game_over(state, seats[g])
+                    continue
+                still.append(g)
+                (mine if state.current_player() == seats[g] else theirs).append(g)
+            alive = still
+            for fn, games in ((act_fn, mine), (opponent_fn, theirs)):
+                if not games:
+                    continue
+                legals = [states[g].legal_actions(states[g].current_player()) for g in games]
+                if hasattr(fn, "batch"):
+                    actions = fn.batch([states[g] for g in games], legals)
+                else:
+                    actions = [fn(states[g], legal) for g, legal in zip(games, legals)]
+                for g, action in zip(games, actions):
+                    state = states[g]
+                    state.apply_action(int(action))
+                    if state._round_ptr != prev_ptr[g]:
+                        round_closed(state, seats[g], prev_ptr[g])
+                        prev_ptr[g] = state._round_ptr
 
     def _pack(acc):
         m = max(acc["n"], 1)

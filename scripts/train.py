@@ -15,6 +15,8 @@ Algoritmos:
   - dqn:  DQN con una red compartida por todos los asientos (como en Wizard).
   - ppo:  PPO con politica y critico compartidos, self-play contra la politica actual.
 --round_episodes hace que para los agentes cada ronda sea un episodio.
+--vector_games K (dqn y ppo) juega K partidas a la vez y decide en lote
+(rotten_rl/vector.py); con --device cuda es mucho mas rapido.
 
 Cortar y retomar: con --stop_at HH:MM (o si llega SIGTERM/SIGHUP/SIGINT, como
 en el reinicio del laboratorio) guarda un checkpoint al terminar la partida en
@@ -46,6 +48,7 @@ from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkp
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent
 from rotten_rl.run_logger import RunLogger
 from rotten_rl.training import EpisodeRunner
+from rotten_rl.vector import VectorRunner
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum("algo", "nfsp", sorted(ALGORITHMS), "Algoritmo de entrenamiento.")
@@ -56,6 +59,9 @@ flags.DEFINE_bool("round_episodes", False,
                   "Para los agentes, cada ronda es un episodio (el valor de una decision no "
                   "incluye los puntos de las rondas siguientes).")
 flags.DEFINE_integer("num_train_episodes", 1000000, "Partidas de entrenamiento (en total).")
+flags.DEFINE_integer("vector_games", 1,
+                     "Partidas de entrenamiento a la vez, decidiendo en lote (solo dqn y ppo; "
+                     "1 = de a una, como siempre).")
 flags.DEFINE_integer("eval_every", 25000, "Cada cuantas partidas evaluar.")
 flags.DEFINE_integer("eval_games", 500, "Partidas por evaluacion.")
 flags.DEFINE_list("eval_opponents", ["random", "heuristic", "past"],
@@ -121,7 +127,8 @@ flags.DEFINE_string("device", "cpu", "cpu | cuda (para chico casi no ayuda; ver 
 
 # Flags que se guardan en config.json: los comunes y los de cada algoritmo.
 _COMMON_KEYS = [
-    "algo", "players", "reward_scheme", "round_episodes", "num_train_episodes", "eval_every",
+    "algo", "players", "reward_scheme", "round_episodes", "vector_games", "num_train_episodes",
+    "eval_every",
     "eval_games", "eval_opponents", "save_eval_snapshots", "log_every", "checkpoint_every",
     "checkpoint_buffers", "keep_checkpoints", "seed"]
 _ALL_KEYS = list(dict.fromkeys(_COMMON_KEYS + [k for cls in ALGORITHMS.values()
@@ -226,7 +233,8 @@ def main(_):
                 opponent = algo.frozen_act(past_state, rng)
             else:
                 opponent = fixed_opponents[name]
-            m = evaluate(game, eval_act, opponent, n, FLAGS.eval_games, rng)
+            m = evaluate(game, eval_act, opponent, n, FLAGS.eval_games, rng,
+                         parallel=FLAGS.vector_games > 1)
             log.log_eval(ep, m, opponent=name)
             results[name] = m
             o = m["overall"]
@@ -268,18 +276,35 @@ def main(_):
     if start_ep == 0:
         run_eval(0)               # baseline (redes sin entrenar ~ jugador aleatorio)
 
+    if FLAGS.vector_games > 1 and not algo.supports_vector:
+        raise ValueError(f"--vector_games no esta implementado para --algo {FLAGS.algo}")
     runner = EpisodeRunner(game, rng)
+    vrunner = VectorRunner(game, rng) if FLAGS.vector_games > 1 else None
     reward_window = collections.deque(resume_extra.get("reward_window", []),
                                       maxlen=FLAGS.log_every)
+
+    def next_stop(ep):
+        """Proximo episodio en el que hay que loguear, evaluar, guardar o terminar:
+        los lotes de --vector_games se achican para caer justo ahi."""
+        every = (FLAGS.log_every, FLAGS.eval_every, FLAGS.checkpoint_every)
+        return min([(ep // e + 1) * e for e in every] + [FLAGS.num_train_episodes])
+
     last_metrics = None
     ep = start_ep
     while ep < FLAGS.num_train_episodes:
-        ep += 1
-        algo.begin_episode(ep)
-        seat0 = [0.0]
-        runner.play(algo.seats(), round_episodes=FLAGS.round_episodes,
-                    on_round_reward=lambda r: seat0.__setitem__(0, seat0[0] + r[0]))
-        reward_window.append(seat0[0])                 # = retorno de la partida (asiento 0)
+        if vrunner is not None:
+            k = min(FLAGS.vector_games, next_stop(ep) - ep)
+            algo.begin_batch(ep + 1, k)
+            reward_window.extend(vrunner.play(algo, k, round_episodes=FLAGS.round_episodes))
+            algo.end_batch(k)
+            ep += k
+        else:
+            ep += 1
+            algo.begin_episode(ep)
+            seat0 = [0.0]
+            runner.play(algo.seats(), round_episodes=FLAGS.round_episodes,
+                        on_round_reward=lambda r: seat0.__setitem__(0, seat0[0] + r[0]))
+            reward_window.append(seat0[0])             # = retorno de la partida (asiento 0)
 
         if ep % FLAGS.log_every == 0:
             reward_ma = float(np.mean(reward_window)) if reward_window else 0.0

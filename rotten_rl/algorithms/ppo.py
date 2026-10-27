@@ -15,6 +15,9 @@ MAPPO se toman pocas epocas por lote y clipping chico (ver docs/bibliografia.md)
   probable.
 - El critico ve lo mismo que el jugador (critico "local"). Un critico que vea
   todas las manos durante el entrenamiento queda para mas adelante.
+- Con --vector_games K (rotten_rl/vector.py) se juegan K partidas a la vez y se
+  decide en lote; cada asiento de cada partida tiene su trayectoria ("stream").
+  Se actualiza al terminar un lote de partidas si ya hay --ppo_rollout_episodes.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ from open_spiel.python import rl_agent
 
 from ..openspiel_game import info_state_tensor
 from .base import ActFn, Algorithm
-from .dqn import mlp
+from .dqn import greedy_batch, mlp
 
 _ILLEGAL = -1e9
 
@@ -45,7 +48,6 @@ class _Seat(rl_agent.AbstractAgent):
     def __init__(self, algo: "SharedPPO", player_id: int):
         self._algo = algo
         self.player_id = player_id
-        self._open = False          # hay un paso propio esperando su reward
 
     def step(self, time_step, is_evaluation=False):
         algo, p = self._algo, self.player_id
@@ -57,19 +59,18 @@ class _Seat(rl_agent.AbstractAgent):
             return rl_agent.StepOutput(
                 action=algo.greedy(info, time_step.observations["legal_actions"][p]), probs=None)
 
-        if self._open:
+        if algo.open[p]:
             algo.close_step(p, time_step.rewards[p], done=last)
-            self._open = False
         if last:
             return None
         info = np.asarray(time_step.observations["info_state"][p], dtype=np.float32)
         action = algo.act_and_record(p, info, time_step.observations["legal_actions"][p])
-        self._open = True
         return rl_agent.StepOutput(action=action, probs=None)
 
 
 class SharedPPO(Algorithm):
     name = "ppo"
+    supports_vector = True
     FLAG_KEYS = [
         "hidden_layers_sizes", "rl_learning_rate", "discount_factor", "ppo_rollout_episodes",
         "ppo_epochs", "ppo_minibatch", "ppo_clip", "ppo_ent_coef", "ppo_vf_coef",
@@ -78,7 +79,8 @@ class SharedPPO(Algorithm):
 
     def __init__(self, game, *, hidden_layers_sizes, learning_rate, discount_factor,
                  rollout_episodes=32, epochs=5, minibatch=512, clip=0.2, ent_coef=0.01,
-                 vf_coef=0.5, gae_lambda=0.95, max_grad_norm=0.5, device="cpu"):
+                 vf_coef=0.5, gae_lambda=0.95, max_grad_norm=0.5, device="cpu",
+                 vector_games=1):
         n = game.num_players()
         size, self.num_actions = game.information_state_tensor_size(), game.num_distinct_actions()
         self.device = torch.device(device)
@@ -91,6 +93,7 @@ class SharedPPO(Algorithm):
         self.clip, self.ent_coef, self.vf_coef = clip, ent_coef, vf_coef
         self.max_grad_norm = max_grad_norm
         self.n = n
+        self.num_streams = n * max(1, vector_games)
         self._seats = [_Seat(self, i) for i in range(n)]
         self._reset_rollout()
         self.updates = 0
@@ -112,15 +115,18 @@ class SharedPPO(Algorithm):
             gae_lambda=flags.ppo_gae_lambda,
             max_grad_norm=flags.ppo_max_grad_norm,
             device=flags.device,
+            vector_games=flags.vector_games,
         )
 
     # -- rollout -----------------------------------------------------------------
 
     def _reset_rollout(self):
-        # Por asiento: listas paralelas de los pasos de la partida en curso y
-        # pasos ya cerrados (con reward y done) de las partidas de este lote.
+        # Por stream (asiento, o asiento de cada partida con --vector_games):
+        # listas paralelas de los pasos de la partida en curso y pasos ya
+        # cerrados (con reward y done) de las partidas de este lote.
         self.traj = [{"obs": [], "mask": [], "act": [], "logp": [], "val": [], "rew": [],
-                      "done": []} for _ in range(self.n)]
+                      "done": []} for _ in range(self.num_streams)]
+        self.open = [False] * self.num_streams   # hay un paso esperando su reward
         self.games_in_rollout = 0
 
     def seats(self) -> list:
@@ -155,12 +161,51 @@ class SharedPPO(Algorithm):
         t["act"].append(int(a))
         t["logp"].append(float(logp))
         t["val"].append(float(v))
+        self.open[p] = True
         return int(a)
 
     def close_step(self, p: int, reward: float, done: bool) -> None:
         t = self.traj[p]
         t["rew"].append(float(reward))
         t["done"].append(bool(done))
+        self.open[p] = False
+
+    # -- partidas en lote (rotten_rl/vector.py) --------------------------------
+
+    def batch_step(self, streams, infos, masks, legals, rewards) -> np.ndarray:
+        for s, r in zip(streams, rewards):
+            if self.open[s]:
+                self.close_step(s, r, done=False)
+        with torch.no_grad():
+            x = torch.as_tensor(infos, device=self.device)
+            logits = _masked_logits(self.policy(x), torch.as_tensor(masks, device=self.device))
+            dist = torch.distributions.Categorical(logits=logits, validate_args=False)
+            a = dist.sample()
+            logp = dist.log_prob(a).cpu().numpy()
+            v = self.value(x)[:, 0].cpu().numpy()
+            a = a.cpu().numpy()
+        for i, s in enumerate(streams):
+            t = self.traj[s]
+            t["obs"].append(infos[i])
+            t["mask"].append(masks[i])
+            t["act"].append(int(a[i]))
+            t["logp"].append(float(logp[i]))
+            t["val"].append(float(v[i]))
+            self.open[s] = True
+        return a
+
+    def batch_end(self, streams, rewards) -> None:
+        for s, r in zip(streams, rewards):
+            if self.open[s]:
+                self.close_step(s, r, done=True)
+
+    def end_batch(self, num_games: int) -> None:
+        """Despues de un lote de partidas (todas terminadas): actualizar si ya
+        hay --ppo_rollout_episodes partidas juntadas."""
+        self.games_in_rollout += num_games
+        if self.games_in_rollout >= self.rollout_episodes:
+            self._update()
+            self._reset_rollout()
 
     # -- actualizacion -------------------------------------------------------------
 
@@ -233,6 +278,8 @@ class SharedPPO(Algorithm):
     def eval_act(self) -> ActFn:
         def act(state, legal):
             return self.greedy(info_state_tensor(state, state.current_player()), legal)
+        act.batch = lambda states, legals: greedy_batch(self.policy, states, legals,
+                                                        self.num_actions, self.device)
         return act
 
     def frozen_state(self):
@@ -245,6 +292,8 @@ class SharedPPO(Algorithm):
 
         def act(s, legal):
             return self.greedy(info_state_tensor(s, s.current_player()), legal, net)
+        act.batch = lambda states, legals: greedy_batch(net, states, legals, self.num_actions,
+                                                        self.device)
         return act
 
     def losses(self) -> Dict[str, float]:
@@ -270,5 +319,4 @@ class SharedPPO(Algorithm):
         self.optimizer.load_state_dict(s["optimizer"])
         self.updates, self.last_stats = s["updates"], s["last_stats"]
         self.traj, self.games_in_rollout = s["traj"], s["games_in_rollout"]
-        for seat in self._seats:                 # entre partidas: nada a medias
-            seat._open = False
+        self.open = [False] * self.num_streams   # entre partidas: nada a medias

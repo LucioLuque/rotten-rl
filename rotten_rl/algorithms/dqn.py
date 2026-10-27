@@ -17,6 +17,14 @@ rotten_rl.buffers), asi los checkpoints funcionan igual que con NFSP.
   --epsilon_end a lo largo de --dqn_epsilon_decay_fraction de la corrida.
 - target: r + gamma * max_{a' legal} Q_target(s', a') (0 si s' es final).
 - La red target se copia de la online cada --dqn_target_update_every pasos.
+- Con --vector_games K (rotten_rl/vector.py) se juegan K partidas a la vez y se
+  decide en lote; cada asiento de cada partida recuerda su decision anterior
+  ("stream"). Se aprende cada --learn_every decisiones, igual que de a una,
+  pero mas barato: las transiciones se guardan de a lote, el muestreo es con
+  reposicion (el de OpenSpiel, sin reposicion, baraja todo el buffer en cada
+  muestreo) y el buffer tiene un espejo en el device (filas de bytes con el
+  info-state comprimido, ver buffers.pack_rows): muestrear es indexar ahi, sin
+  copiar nada de la CPU. El buffer de CPU sigue siendo el que va al checkpoint.
 """
 
 from __future__ import annotations
@@ -31,7 +39,7 @@ from torch import nn
 from open_spiel.python import rl_agent
 from open_spiel.python.pytorch import dqn as os_dqn
 
-from ..buffers import CompactReplayBuffer
+from ..buffers import CompactReplayBuffer, pack_rows, unpack_rows
 from ..openspiel_game import info_state_tensor
 from .base import ActFn, Algorithm
 
@@ -50,6 +58,19 @@ def mlp(input_size: int, hidden: List[int], output_size: int) -> nn.Module:
 def _greedy(q_values: torch.Tensor, legal) -> int:
     legal = list(legal)
     return int(legal[int(torch.argmax(q_values[legal]))])
+
+
+def greedy_batch(net, states, legals, num_actions: int, device) -> np.ndarray:
+    """La accion legal de mayor salida de `net` en cada estado, en una sola
+    pasada (para evaluar muchas partidas a la vez, ver evaluation.evaluate)."""
+    infos = np.stack([info_state_tensor(s, s.current_player()) for s in states])
+    mask = np.zeros((len(states), num_actions), dtype=bool)
+    for i, legal in enumerate(legals):
+        mask[i, legal] = True
+    with torch.no_grad():
+        out = net(torch.as_tensor(infos, device=device))
+        out = out.masked_fill(~torch.as_tensor(mask, device=device), _ILLEGAL)
+    return out.argmax(dim=1).cpu().numpy()
 
 
 class _Seat(rl_agent.AbstractAgent):
@@ -89,6 +110,7 @@ class _Seat(rl_agent.AbstractAgent):
 
 class SharedDQN(Algorithm):
     name = "dqn"
+    supports_vector = True
     FLAG_KEYS = [
         "hidden_layers_sizes", "replay_buffer_capacity", "min_buffer_size_to_learn",
         "batch_size", "learn_every", "rl_learning_rate", "discount_factor", "epsilon_start",
@@ -101,7 +123,8 @@ class SharedDQN(Algorithm):
     def __init__(self, game, *, hidden_layers_sizes, replay_buffer_capacity,
                  min_buffer_size_to_learn, batch_size, learn_every, learning_rate,
                  discount_factor, epsilon_start, epsilon_end, epsilon_decay_episodes,
-                 target_update_every, loss="mse", compact_buffers=True, device="cpu"):
+                 target_update_every, loss="mse", compact_buffers=True, device="cpu",
+                 vector_games=1):
         n = game.num_players()
         size, num_actions = game.information_state_tensor_size(), game.num_distinct_actions()
         self.num_actions = num_actions
@@ -125,6 +148,11 @@ class SharedDQN(Algorithm):
         self.episode = 0
         self.last_loss = None
         self._seats = [_Seat(self, i) for i in range(n)]
+        self.n = n
+        self._prev = {}                          # stream -> (info, accion) de --vector_games
+        self.fast_learn = vector_games > 1 and compact_buffers
+        self._pending_loss = None                # loss sin sincronizar con la GPU
+        self._mirror = None                      # espejo del buffer en el device (fast_learn)
 
     @classmethod
     def from_flags(cls, game, flags) -> "SharedDQN":
@@ -145,6 +173,7 @@ class SharedDQN(Algorithm):
             loss=flags.dqn_loss,
             compact_buffers=flags.compact_buffers,
             device=flags.device,
+            vector_games=flags.vector_games,
         )
 
     # -- jugar y aprender -----------------------------------------------------
@@ -195,15 +224,82 @@ class SharedDQN(Algorithm):
         if self.steps % self.target_update_every == 0:
             self.target.load_state_dict(self.q.state_dict())
 
+    # -- partidas en lote (rotten_rl/vector.py) --------------------------------
+
+    def begin_batch(self, episode: int, num_games: int) -> None:
+        self.episode = episode
+
+    def _add_batch(self, infos, actions, rewards, next_infos, finals, next_masks) -> None:
+        if not infos:
+            return
+        if self.buffer is None or not hasattr(self.buffer, "append_batch"):
+            for t in zip(infos, actions, rewards, next_infos, next_masks, finals):
+                self.add_transition(t[0], t[1], t[2], t[3], np.flatnonzero(t[4]), t[5])
+            return
+        idx = self.buffer.append_batch(
+            np.stack(infos), np.asarray(actions), np.asarray(rewards, dtype=np.float32),
+            np.stack(next_infos), np.asarray(finals), np.stack(next_masks))
+        if self._mirror is not None:
+            self._mirror[torch.as_tensor(idx, device=self.device)] = torch.as_tensor(
+                pack_rows(self.buffer.experience, idx), device=self.device)
+
+    def batch_step(self, streams, infos, masks, legals, rewards) -> np.ndarray:
+        prev_infos, prev_actions, prev_rewards, next_infos, next_masks = [], [], [], [], []
+        for i, s in enumerate(streams):
+            prev = self._prev.get(s)
+            if prev is not None:
+                prev_infos.append(prev[0])
+                prev_actions.append(prev[1])
+                prev_rewards.append(rewards[i])
+                next_infos.append(infos[i])
+                next_masks.append(masks[i])
+        self._add_batch(prev_infos, prev_actions, prev_rewards, next_infos,
+                        [False] * len(prev_infos), next_masks)
+        with torch.no_grad():
+            q = self.q(torch.as_tensor(infos, device=self.device))
+            q = q.masked_fill(~torch.as_tensor(masks, device=self.device), _ILLEGAL)
+            actions = q.argmax(dim=1).cpu().numpy()
+        eps = self.epsilon
+        for i, s in enumerate(streams):
+            if np.random.rand() < eps:
+                actions[i] = np.random.choice(legals[i])
+            self._prev[s] = (infos[i], int(actions[i]))
+            self.after_step()
+        return actions
+
+    def batch_end(self, streams, rewards) -> None:
+        prev_infos, prev_actions, prev_rewards = [], [], []
+        for s, r in zip(streams, rewards):
+            prev = self._prev.pop(s, None)
+            if prev is not None:
+                prev_infos.append(prev[0])
+                prev_actions.append(prev[1])
+                prev_rewards.append(r)
+        k = len(prev_infos)
+        self._add_batch(prev_infos, prev_actions, prev_rewards, [self.terminal_info] * k,
+                        [True] * k, [np.zeros(self.num_actions, dtype=bool)] * k)
+
+    def _sample_fast(self):
+        """Muestreo con reposicion del espejo del buffer en el device (se arma
+        entero la primera vez, y despues lo mantiene _add_batch)."""
+        if self._mirror is None:
+            self._mirror = torch.as_tensor(pack_rows(self.buffer.experience),
+                                           device=self.device)
+        idx = np.random.randint(len(self.buffer), size=self.batch_size)
+        return unpack_rows(self._mirror[torch.as_tensor(idx, device=self.device)])
+
     def _learn(self) -> float:
-        b = self.buffer.sample(self.batch_size)
-        dev = self.device
-        s = torch.as_tensor(np.asarray(b.info_state, dtype=np.float32), device=dev)
-        a = torch.as_tensor(np.asarray(b.action, dtype=np.int64), device=dev)
-        r = torch.as_tensor(np.asarray(b.reward, dtype=np.float32), device=dev)
-        s2 = torch.as_tensor(np.asarray(b.next_info_state, dtype=np.float32), device=dev)
-        done = torch.as_tensor(np.asarray(b.is_final_step, dtype=bool), device=dev)
-        mask = torch.as_tensor(np.asarray(b.legal_actions_mask, dtype=bool), device=dev)
+        if self.fast_learn:
+            s, a, r, s2, done, mask = self._sample_fast()
+        else:
+            b = self.buffer.sample(self.batch_size)
+            dev = self.device
+            s = torch.as_tensor(np.asarray(b.info_state, dtype=np.float32), device=dev)
+            a = torch.as_tensor(np.asarray(b.action, dtype=np.int64), device=dev)
+            r = torch.as_tensor(np.asarray(b.reward, dtype=np.float32), device=dev)
+            s2 = torch.as_tensor(np.asarray(b.next_info_state, dtype=np.float32), device=dev)
+            done = torch.as_tensor(np.asarray(b.is_final_step, dtype=bool), device=dev)
+            mask = torch.as_tensor(np.asarray(b.legal_actions_mask, dtype=bool), device=dev)
         q = self.q(s).gather(1, a[:, None])[:, 0]
         with torch.no_grad():
             q2 = self.target(s2).masked_fill(~mask, _ILLEGAL).max(dim=1).values
@@ -213,6 +309,9 @@ class SharedDQN(Algorithm):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        if self.fast_learn:                      # sin esperar a la GPU en cada update
+            self._pending_loss = loss.detach()
+            return self.last_loss
         return float(loss.item())
 
     # -- evaluar ---------------------------------------------------------------
@@ -220,6 +319,8 @@ class SharedDQN(Algorithm):
     def eval_act(self) -> ActFn:
         def act(state, legal):
             return self.greedy(info_state_tensor(state, state.current_player()), legal)
+        act.batch = lambda states, legals: greedy_batch(self.q, states, legals,
+                                                        self.num_actions, self.device)
         return act
 
     def frozen_state(self):
@@ -232,15 +333,24 @@ class SharedDQN(Algorithm):
 
         def act(s, legal):
             return _greedy(self._q_values(info_state_tensor(s, s.current_player()), net), legal)
+        act.batch = lambda states, legals: greedy_batch(net, states, legals, self.num_actions,
+                                                        self.device)
         return act
 
+    def _sync_loss(self) -> None:
+        if self._pending_loss is not None:
+            self.last_loss = float(self._pending_loss)
+            self._pending_loss = None
+
     def losses(self) -> Dict[str, float]:
+        self._sync_loss()
         return {"loss_dqn": float(self.last_loss) if self.last_loss is not None else float("nan"),
                 "epsilon": self.epsilon}
 
     # -- checkpoints -----------------------------------------------------------
 
     def checkpoint_state(self) -> Dict:
+        self._sync_loss()
         return {"dqn": {"q": self.q.state_dict(), "target": self.target.state_dict(),
                         "optimizer": self.optimizer.state_dict(), "steps": self.steps,
                         "episode": self.episode, "last_loss": self.last_loss}}
@@ -259,3 +369,5 @@ class SharedDQN(Algorithm):
             self.buffer = buf
         for seat in self._seats:                 # entre partidas: nada a medias
             seat._prev_info = seat._prev_action = None
+        self._prev = {}
+        self._mirror = None
