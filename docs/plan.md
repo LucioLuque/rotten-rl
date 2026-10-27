@@ -25,6 +25,34 @@ Las fases quedan así:
 4. Robustez: liga de versiones anteriores o PSRO, rival PIMC más fuerte que la heurística.
 5. Un modelo para n variable (2 a 7).
 
+## Objetivo final y pendientes de diseño (27/10/2026)
+
+**El objetivo final es ganar la partida**, no maximizar el puntaje de cada ronda. Hoy el reward es
+por ronda (`relative`: puntaje de la ronda contra el promedio de los rivales), así que el agente no
+tiene incentivo para arriesgar cuando va perdiendo al final ni para cuidarse cuando va ganando, y el
+puntaje acumulado que ve en la observación casi no le sirve. Cuando haya una base sólida con el
+reward por ronda:
+
+- **Reward por ganar la partida**: al final, según el puesto (o mezclado con el de cada ronda para
+  no perder la señal densa). La métrica que importa pasa a ser el win rate.
+- **Empezar partidas en situaciones al azar**: en una ronda cualquiera de la escalera y con
+  puntajes iniciales al azar, para que el agente vea muchas veces situaciones como "voy 40 abajo y
+  quedan 2 rondas", que jugando desde el principio pueden ser raras. Es un parámetro del juego
+  (ronda inicial y puntajes de arranque).
+
+**Variantes de reglas que juega la gente** (para más adelante; las dos se deciden y se ven antes de
+cantar, así que van en la observación):
+
+- **No se puede cantar 3 veces la misma cantidad** (a confirmar el detalle: ¿3 veces seguidas?).
+  Impide cantar siempre 0, que parece lo más fácil.
+- **Rondas sin triunfo**, decididas antes. La observación ya tiene un lugar para "sin triunfo" en
+  el palo de triunfo; falta que el motor y el reparto lo permitan como opción.
+
+**Resolver las rondas chicas de forma exacta** (idea, como control del RL): la ronda de 1 carta es
+solo un canto (la jugada es forzada) con muy pocas situaciones distintas, así que se puede calcular
+el equilibrio con CFR (OpenSpiel) y comparar con lo que aprendió el agente. Con 2 cartas
+probablemente se pueda con MCCFR; de 3 en adelante el árbol es demasiado grande y hace falta RL.
+
 ## Plan original
 
 ### Camino concreto
