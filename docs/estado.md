@@ -220,10 +220,26 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    que ve todas las manos al entrenar): después. Menores: `eps` de Adam, sin KL objetivo. Aparte:
    se evalúa con la acción más probable aunque se entrena muestreando; medir también la política
    muestreada.
+5d. ~~Validar la evaluación~~ Hecho (27/10). Sin sesgo: con jugadores idénticos da el empate
+   (azar 4 jugadores, 6.000 partidas: 0.247 contra 0.250 ± 0.006; heurística 7 jugadores, 2.800:
+   0.142 contra 0.143 ± 0.007). Pero **500 partidas son pocas**: el win rate tiene ±0.022 y la
+   diferencia entre dos corridas (promediando 3 evaluaciones) ±0.018, así que 0.458 (lotes de 128)
+   contra 0.43 no es significativo. El asiento pesa mucho (heurística, 3 jugadores: 0.27 en el
+   asiento 0, 0.42 en el 2) por la rotación del reparto y la restricción del último en cantar; se
+   rota, así que no sesga. Cambios: evaluación duplicada (`--eval_deal_seed`, los mismos repartos
+   con el agente en cada asiento, en todas las evaluaciones y corridas), error estándar en cada
+   evaluación (`*_se`), `--eval_games` 1500 por defecto, `paired_diff` para comparar dos agentes
+   reparto a reparto, y `scripts/tournament.py` (todos contra todos: variantes, versiones
+   anteriores, heurística). Medido: el duplicado baja poco el error en este juego (~15% al comparar
+   dos agentes; lo que más pesa es clavar o no el canto, no las cartas), así que la palanca es jugar
+   más partidas.
 6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
    para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
    semillas (retomando `y70` si volvemos a la -04, si no de cero). Medir también cómo se reparte el
    tiempo con 7 jugadores (si la simulación pesa mucho, optimizar el motor antes de las largas).
+   Al terminar las de 3 jugadores: torneo (`scripts/tournament.py`, 2.000 repartos) entre la base,
+   lotes de 128, tasa que baja, inicialización ortogonal, la heurística y la versión muestreada de
+   la mejor, para decidir con números confiables.
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.
 8. Un modelo para n de 2 a 4; después escalar a 7.

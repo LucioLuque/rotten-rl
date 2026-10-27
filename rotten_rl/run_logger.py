@@ -100,7 +100,8 @@ class RunLogger:
                 with open(path, newline="") as f:
                     fieldnames = next(csv.reader(f))
                 f = open(path, "a", newline="")
-                w = csv.DictWriter(f, fieldnames=fieldnames)
+                # Columnas agregadas despues de que arranco la corrida: se ignoran.
+                w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             else:
                 f = open(path, "w", newline="")
                 w = csv.DictWriter(f, fieldnames=list(row.keys()))

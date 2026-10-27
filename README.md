@@ -27,6 +27,7 @@ scripts/
   run_queue.py          cola de experimentos para el laboratorio
   bench_parallel.py     cuántas corridas conviene correr a la vez
   summarize_runs.py     tabla comparativa de corridas
+  tournament.py         torneo entre agentes (políticas guardadas, heurística, azar)
   make_obs_fixture.py   regenera tests/data/info_states.npz (observaciones de referencia)
   diag_dqn.py           diagnóstico: DQN solo contra rivales fijos
   play.py               partida jugable contra bots

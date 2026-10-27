@@ -164,6 +164,7 @@ def evaluate(
     rng: np.random.RandomState,
     seat: Optional[int] = None,
     parallel: bool = False,
+    deal_seed: Optional[int] = None,
 ) -> Dict:
     """Juega `num_games` partidas con `act_fn` en `seat` y `opponent_fn` en el
     resto. Devuelve un dict anidado con metricas overall, por-h, por asiento y
@@ -178,7 +179,21 @@ def evaluate(
     Con `parallel=True` juega todas las partidas a la vez: las funciones con un
     atributo `batch(states, legals) -> acciones` (las redes, ver
     rotten_rl/algorithms) deciden en lote; las demas, de a una. Mismas
-    metricas, pero otro orden de sorteos que de a una."""
+    metricas, pero otro orden de sorteos que de a una.
+
+    Con `deal_seed` la evaluacion es "duplicada", como en el bridge de torneo:
+    se juegan num_games // n repartos y cada uno n veces, una con el evaluado en
+    cada asiento. El reparto de cada partida sale de su propio generador
+    (semilla `(deal_seed, reparto)`) y no depende de las jugadas, asi que dos
+    agentes evaluados con la misma `deal_seed` juegan exactamente las mismas
+    cartas. Se cancelan la suerte de las cartas y la del asiento: queda mucho
+    menos ruido para comparar agentes, y si todos juegan igual (y sin azar) da
+    exactamente el empate. `rng` no se usa para repartir.
+
+    `overall` trae ademas el error estandar de win_rate y mean_score_diff
+    (`*_se`); en modo duplicado, entre repartos (cada reparto es una muestra).
+    `per_deal` trae win y diff promedio de cada reparto (de cada partida si no
+    es duplicada), para comparar dos agentes reparto a reparto (`paired_diff`)."""
     n = num_players
 
     wins = 0.0
@@ -223,7 +238,7 @@ def evaluate(
         norm_round_sum += s_round / (10 + 2 * h)
         norm_round_cnt += 1
 
-    def game_over(state, seat):
+    def game_over(state, seat, g):
         nonlocal wins, score_diff_sum, return_sum
         # fin de partida: puntajes CRUDOS acumulados en el motor
         scores = [state._engine.players[i].score for i in range(n)]
@@ -233,17 +248,33 @@ def evaluate(
             n_top = sum(1 for s in scores if s == top)
             wins += 1.0 / n_top                      # reparto justo de empates
             wins_by_seat[seat] += 1.0 / n_top
+            game_win[g] = 1.0 / n_top
         others = [scores[i] for i in range(n) if i != seat]
-        score_diff_sum += my - (sum(others) / len(others))
+        game_diff[g] = my - (sum(others) / len(others))
+        score_diff_sum += game_diff[g]
         return_sum += state.returns()[seat]
 
-    def chance(state):
-        outcomes, probs = zip(*state.chance_outcomes())
-        state.apply_action(int(rng.choice(outcomes, p=probs)))
-
-    seats = [seat if seat is not None else g % n for g in range(num_games)]
+    if deal_seed is not None:
+        num_deals = max(1, num_games // n)
+        num_games = num_deals * n
+        groups = [g // n for g in range(num_games)]          # reparto de cada partida
+        deal_rngs = [np.random.RandomState([deal_seed, d]) for d in groups]
+        if seat is None:
+            seats = [g % n for g in range(num_games)]
+        else:
+            seats = [seat] * num_games
+    else:
+        groups = list(range(num_games))
+        deal_rngs = [rng] * num_games
+        seats = [seat if seat is not None else g % n for g in range(num_games)]
     for s in seats:
         games_by_seat[s] += 1
+    game_win = [0.0] * num_games
+    game_diff = [0.0] * num_games
+
+    def chance(state, g):
+        outcomes, probs = zip(*state.chance_outcomes())
+        state.apply_action(int(deal_rngs[g].choice(outcomes, p=probs)))
 
     if not parallel:
         for g in range(num_games):
@@ -252,7 +283,7 @@ def evaluate(
             prev_ptr = 0
             while not state.is_terminal():
                 if state.is_chance_node():
-                    chance(state)
+                    chance(state, g)
                     continue
                 cur = state.current_player()
                 legal = state.legal_actions(cur)
@@ -261,7 +292,7 @@ def evaluate(
                 if state._round_ptr != prev_ptr:
                     round_closed(state, seat, prev_ptr)
                     prev_ptr = state._round_ptr
-            game_over(state, seat)
+            game_over(state, seat, g)
     else:
         states = [game.new_initial_state() for _ in range(num_games)]
         prev_ptr = [0] * num_games
@@ -271,9 +302,9 @@ def evaluate(
             for g in alive:
                 state = states[g]
                 while state.is_chance_node():
-                    chance(state)
+                    chance(state, g)
                 if state.is_terminal():
-                    game_over(state, seats[g])
+                    game_over(state, seats[g], g)
                     continue
                 still.append(g)
                 (mine if state.current_player() == seats[g] else theirs).append(g)
@@ -302,10 +333,26 @@ def evaluate(
             "rounds": acc["n"],
         }
 
+    def _se(values):
+        """Error estandar de la media, tomando como muestra cada grupo
+        (cada reparto en modo duplicado, cada partida si no)."""
+        sums = defaultdict(float)
+        for grp, v in zip(groups, values):
+            sums[grp] += v
+        return _mean_se(np.array(list(sums.values())) / (num_games / len(sums)))[1]
+
+    def _per_group(values):
+        sums = defaultdict(float)
+        for grp, v in zip(groups, values):
+            sums[grp] += v
+        return [sums[grp] / (num_games / len(sums)) for grp in sorted(sums)]
+
     result = {
         "overall": {
             "win_rate": wins / num_games,
+            "win_rate_se": _se(game_win),
             "mean_score_diff": score_diff_sum / num_games,
+            "mean_score_diff_se": _se(game_diff),
             "mean_return": return_sum / num_games,
             "norm_round_score": norm_round_sum / max(norm_round_cnt, 1),
             **_pack(overall),
@@ -320,5 +367,24 @@ def evaluate(
         "calibration_by_h": {
             f"h{h}_b{b}": (s / c) for (h, b), (s, c) in sorted(calib_by_h.items()) if c > 0
         },
+        "per_deal": {"win": _per_group(game_win), "diff": _per_group(game_diff)},
     }
     return result
+
+
+def _mean_se(x):
+    x = np.asarray(x, dtype=float)
+    se = float(x.std(ddof=1) / np.sqrt(len(x))) if len(x) > 1 else float("nan")
+    return float(x.mean()), se
+
+
+def paired_diff(a: Dict, b: Dict, key: str = "diff"):
+    """(media, error estandar) de a - b reparto a reparto, para dos
+    evaluaciones duplicadas con la misma deal_seed y cantidad de partidas (por
+    ejemplo dos agentes contra la heuristica). La suerte de las cartas es la
+    misma para los dos y se cancela en la resta: el error es mucho menor que
+    comparar las dos medias por separado."""
+    x, y = a["per_deal"][key], b["per_deal"][key]
+    if len(x) != len(y):
+        raise ValueError("Las evaluaciones tienen distinta cantidad de repartos.")
+    return _mean_se(np.array(x) - np.array(y))

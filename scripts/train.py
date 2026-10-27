@@ -63,7 +63,13 @@ flags.DEFINE_integer("vector_games", 1,
                      "Partidas de entrenamiento a la vez, decidiendo en lote (solo dqn y ppo; "
                      "1 = de a una, como siempre).")
 flags.DEFINE_integer("eval_every", 25000, "Cada cuantas partidas evaluar.")
-flags.DEFINE_integer("eval_games", 500, "Partidas por evaluacion.")
+flags.DEFINE_integer("eval_games", 1500,
+                     "Partidas por evaluacion (con 500 el win rate tiene un error de ~0.02).")
+flags.DEFINE_integer("eval_deal_seed", 1234,
+                     "Evaluacion duplicada (rotten_rl/evaluation.py): eval_games // players "
+                     "repartos fijos, cada uno con el agente en cada asiento; los mismos en "
+                     "cada evaluacion y en todas las corridas con esta semilla. -1 = repartos "
+                     "al azar, sin duplicar (como antes del 27/10/2026).")
 flags.DEFINE_list("eval_opponents", ["random", "heuristic", "past"],
                   "Rivales de cada evaluacion: random | heuristic | past (la "
                   "politica de la evaluacion anterior).")
@@ -133,13 +139,14 @@ flags.DEFINE_string("device", "cpu", "cpu | cuda (para chico casi no ayuda; ver 
 _COMMON_KEYS = [
     "algo", "players", "reward_scheme", "round_episodes", "vector_games", "num_train_episodes",
     "eval_every",
-    "eval_games", "eval_opponents", "save_eval_snapshots", "log_every", "checkpoint_every",
+    "eval_games", "eval_deal_seed", "eval_opponents", "save_eval_snapshots", "log_every", "checkpoint_every",
     "checkpoint_buffers", "keep_checkpoints", "seed"]
 _ALL_KEYS = list(dict.fromkeys(_COMMON_KEYS + [k for cls in ALGORITHMS.values()
                                                 for k in cls.FLAG_KEYS]))
 # Los que se pueden cambiar al retomar (no cambian el modelo ni el entrenamiento).
 _RESUMABLE_OVERRIDES = {
-    "num_train_episodes", "eval_every", "eval_games", "eval_opponents", "save_eval_snapshots",
+    "num_train_episodes", "eval_every", "eval_games", "eval_deal_seed", "eval_opponents",
+    "save_eval_snapshots",
     "log_every", "checkpoint_every", "checkpoint_buffers", "keep_checkpoints"}
 
 
@@ -238,14 +245,16 @@ def main(_):
             else:
                 opponent = fixed_opponents[name]
             m = evaluate(game, eval_act, opponent, n, FLAGS.eval_games, rng,
-                         parallel=FLAGS.vector_games > 1)
+                         parallel=FLAGS.vector_games > 1,
+                         deal_seed=None if FLAGS.eval_deal_seed < 0 else FLAGS.eval_deal_seed)
             log.log_eval(ep, m, opponent=name)
             results[name] = m
             o = m["overall"]
             logging.info(
-                "[ep %d] EVAL vs %-9s | win=%.3f (empate=%.3f) diff=%+.2f exact_bid=%.3f "
-                "MAE=%.3f sesgo=%+.3f normS=%.3f",
-                ep, name, o["win_rate"], 1.0 / n, o["mean_score_diff"],
+                "[ep %d] EVAL vs %-9s | win=%.3f±%.3f (empate=%.3f) diff=%+.2f±%.2f "
+                "exact_bid=%.3f MAE=%.3f sesgo=%+.3f normS=%.3f",
+                ep, name, o["win_rate"], o["win_rate_se"], 1.0 / n, o["mean_score_diff"],
+                o["mean_score_diff_se"],
                 o["exact_bid_rate"], o["mae_bid"], o["bid_bias"], o["norm_round_score"])
 
         past_state = algo.frozen_state()

@@ -247,6 +247,9 @@ def test_evaluar_en_paralelo(hacer):
                             np.random.RandomState(2), seat=seat)
         paralelo = evaluate(game, act, heuristic_opponent(np.random.RandomState(1)), 3, 1,
                             np.random.RandomState(2), seat=seat, parallel=True)
+        for m in (de_a_una, paralelo):             # con una sola partida no hay error estandar
+            assert np.isnan(m["overall"].pop("win_rate_se"))
+            assert np.isnan(m["overall"].pop("mean_score_diff_se"))
         assert paralelo == de_a_una
 
 
