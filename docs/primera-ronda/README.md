@@ -49,6 +49,38 @@ Una estrategia puede ser "mezclada" (cantar 1 con cierta probabilidad): sirve pa
 información con el canto, que los que cantan después usan. Con 1 carta los cantos ajenos no
 cambian quién gana la baza; solo dicen algo de las cartas de cada uno.
 
+## Resultados (27/10/2026)
+
+Detalle completo en `resultados.md`. Todos convergieron: quien se desvía del equilibrio gana
+menos de 0.02 puntos por ronda (en una ronda donde se juegan ~10).
+
+**1. Cantar último es muy malo.** El último en cantar (el que reparte) pierde en promedio ~4 a
+~6 puntos por ronda contra el resto (−4.0 con 3 jugadores, −5.8 con 7): la restricción de la
+suma le saca justo el canto que le convenía. El resto gana, y más cuanto más tarde canta (más
+información). Con 2 jugadores el primero gana +4.75 por ronda.
+
+**2. Qué cantar** (probabilidad de cantar 1 promediada sobre las situaciones; donde no es 0 o 1,
+en general es porque depende de lo que cantaron antes, no necesariamente porque haya que tirar
+una moneda):
+
+- 2 jugadores: el primero canta 1 con cualquier carta; el segundo está forzado a copiarlo.
+- 3 jugadores: el primero canta 1 con 10 o más alto sin ser triunfo (el 9, a veces) o con
+  cualquier triunfo; el segundo, solo con triunfo (desde el 8 casi siempre, los bajos la mitad de
+  las veces según los cantos previos); el tercero, solo con triunfo Q, K o A.
+- 7 jugadores: **nadie canta 1 sin triunfo**, ni con un As saliendo primero (con 6 rivales, casi
+  seguro alguno tiene triunfo). Con triunfo, cuanto más tarde se canta más bajo alcanza... hasta el
+  último, que solo canta 1 con K o A de triunfo.
+
+**3. Escuchar los cantos de los demás vale, pero poco.** Contra rivales en equilibrio, cantar solo
+según la carta y la posición cuesta 0.07 a 0.49 puntos por ronda, más cuanto más tarde se canta
+(con 7 jugadores: 0.07 el segundo, 0.44 el sexto). Comparado con lo que pesa la posición (varios
+puntos), es chico: la carta y la posición explican casi todo.
+
+**4. La heurística de `evaluation.py` canta casi como el equilibrio**, salvo con 2 jugadores: ahí
+canta 0 con cartas bajas saliendo primero y pierde 2.7 puntos por ronda de 1 carta (debería cantar
+1 siempre). Con 3 a 7 jugadores, lo máximo que se le saca a una mesa de heurísticas es 0.1 a 0.6
+puntos por ronda, y casi todo escuchando los cantos (la heurística no los mira).
+
 ## Archivos
 
 - `rotten_rl/exact/round1.py`: el cálculo (repartos, CFR+, mejor respuesta, tablas de la
@@ -60,7 +92,7 @@ cambian quién gana la baza; solo dicen algo de las cartas de cada uno.
   canta 1 siempre; las situaciones se arman bien en pyspiel (para preguntarle al agente).
 
 ```bash
-python scripts/exact/solve_round1.py                 # ~30–40 min en la notebook, sin GPU
+python scripts/exact/solve_round1.py                 # ~45 min en la notebook (7 jugadores: 20), sin GPU
 ```
 
 ## Pendiente

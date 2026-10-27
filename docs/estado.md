@@ -233,6 +233,11 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    anteriores, heurística). Medido: el duplicado baja poco el error en este juego (~15% al comparar
    dos agentes; lo que más pesa es clavar o no el canto, no las cartas), así que la palanca es jugar
    más partidas.
+5e. ~~Resolver la ronda de 1 carta sin RL~~ Hecho (27/10): equilibrio con CFR+ de 2 a 7
+   jugadores (`rotten_rl/exact/`, `docs/primera-ronda/`). Cantar último cuesta ~4 a ~6 puntos
+   por ronda; con 7 jugadores nadie canta 1 sin triunfo; escuchar los cantos ajenos vale 0.07 a
+   0.49 puntos por ronda; la heurística canta casi como el equilibrio salvo con 2 jugadores.
+   Pendiente: comparar con el agente (`round1.policy_tables`).
 6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
    para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
