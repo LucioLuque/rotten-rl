@@ -115,6 +115,10 @@ flags.DEFINE_float("ppo_ent_coef", 0.01, "PPO: peso de la entropia.")
 flags.DEFINE_float("ppo_vf_coef", 0.5, "PPO: peso de la perdida del critico.")
 flags.DEFINE_float("ppo_gae_lambda", 0.95, "PPO: lambda de GAE.")
 flags.DEFINE_float("ppo_max_grad_norm", 0.5, "PPO: clipping de la norma del gradiente.")
+flags.DEFINE_bool("ppo_anneal_lr", False,
+                  "PPO: bajar la tasa de aprendizaje linealmente hasta 0 en --num_train_episodes.")
+flags.DEFINE_enum("ppo_init", "default", ["default", "orthogonal"],
+                  "PPO: inicializacion de las redes (orthogonal: ultima capa de la politica x0.01).")
 # --- solo NFSP: politica promedio ---
 flags.DEFINE_integer("reservoir_buffer_capacity", int(2e6), "NFSP: reservoir (avg policy).")
 flags.DEFINE_float("sl_learning_rate", 0.01, "NFSP: LR de la red de politica promedio.")

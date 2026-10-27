@@ -248,3 +248,43 @@ def test_evaluar_en_paralelo(hacer):
         paralelo = evaluate(game, act, heuristic_opponent(np.random.RandomState(1)), 3, 1,
                             np.random.RandomState(2), seat=seat, parallel=True)
         assert paralelo == de_a_una
+
+
+def test_ppo_baja_la_tasa_de_aprendizaje():
+    """--ppo_anneal_lr: la tasa baja linealmente con las partidas jugadas, en
+    lote y de a una, y llega a 0 al final."""
+    game = pyspiel.load_game("podrida", {"players": 3})
+    np.random.seed(0)
+    algo = _ppo(game, anneal_episodes=12)
+    lrs = []
+    runner = VectorRunner(game, np.random.RandomState(0))
+    for ep in (0, 4, 8):
+        algo.begin_batch(ep + 1, 4)
+        runner.play(algo, 4, round_episodes=True)
+        algo.end_batch(4)
+        lrs.append(algo.optimizer.param_groups[0]["lr"])
+    assert lrs == pytest.approx([1e-3 * 8 / 12, 1e-3 * 4 / 12, 0.0])
+
+    de_a_una = _ppo(game, anneal_episodes=12, vector_games=1)
+    seats = de_a_una.seats()
+    runner1 = EpisodeRunner(game, np.random.RandomState(0))
+    for ep in range(1, 5):
+        de_a_una.begin_episode(ep)
+        runner1.play(seats, round_episodes=True)
+    de_a_una.begin_episode(5)                      # actualiza con las 4 partidas jugadas
+    assert de_a_una.updates == 1
+    assert de_a_una.optimizer.param_groups[0]["lr"] == pytest.approx(1e-3 * 8 / 12)
+
+
+def test_ppo_inicializacion_ortogonal():
+    """--ppo_init orthogonal: arranca con una politica casi uniforme."""
+    game = pyspiel.load_game("podrida", {"players": 3})
+    algo = _ppo(game, init="orthogonal")
+    x = torch.rand(64, game.information_state_tensor_size())
+    with torch.no_grad():
+        probs = torch.softmax(algo.policy(x), dim=1)
+        assert torch.allclose(probs, torch.full_like(probs, 1 / algo.num_actions), atol=1e-3)
+        normal = torch.softmax(_ppo(game).policy(x), dim=1)
+    assert not torch.allclose(normal, torch.full_like(normal, 1 / algo.num_actions), atol=1e-3)
+    with pytest.raises(ValueError):
+        _ppo(game, init="otra")

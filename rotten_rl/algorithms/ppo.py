@@ -18,6 +18,11 @@ MAPPO se toman pocas epocas por lote y clipping chico (ver docs/bibliografia.md)
 - Con --vector_games K (rotten_rl/vector.py) se juegan K partidas a la vez y se
   decide en lote; cada asiento de cada partida tiene su trayectoria ("stream").
   Se actualiza al terminar un lote de partidas si ya hay --ppo_rollout_episodes.
+- Opcionales, de la receta estandar de PPO (CleanRL; Andrychowicz et al. 2021,
+  "What Matters in On-Policy RL"): --ppo_anneal_lr baja la tasa de aprendizaje
+  linealmente hasta 0 en --num_train_episodes partidas, y --ppo_init orthogonal
+  inicializa las redes ortogonales con la ultima capa de la politica 100 veces
+  mas chica (arranca casi uniforme).
 """
 
 from __future__ import annotations
@@ -36,6 +41,16 @@ from .base import ActFn, Algorithm
 from .dqn import greedy_batch, mlp
 
 _ILLEGAL = -1e9
+
+
+def _orthogonal_init(net: nn.Sequential, last_gain: float) -> None:
+    """Pesos ortogonales (ganancia sqrt(2) en las capas ocultas, `last_gain` en
+    la de salida) y bias en 0."""
+    linears = [m for m in net if isinstance(m, nn.Linear)]
+    for i, layer in enumerate(linears):
+        gain = last_gain if i == len(linears) - 1 else np.sqrt(2)
+        nn.init.orthogonal_(layer.weight, gain)
+        nn.init.zeros_(layer.bias)
 
 
 def _masked_logits(logits: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
@@ -74,24 +89,34 @@ class SharedPPO(Algorithm):
     FLAG_KEYS = [
         "hidden_layers_sizes", "rl_learning_rate", "discount_factor", "ppo_rollout_episodes",
         "ppo_epochs", "ppo_minibatch", "ppo_clip", "ppo_ent_coef", "ppo_vf_coef",
-        "ppo_gae_lambda", "ppo_max_grad_norm", "device"]
+        "ppo_gae_lambda", "ppo_max_grad_norm", "ppo_anneal_lr", "ppo_init", "device"]
     FLAG_DEFAULTS = {"rl_learning_rate": 3e-4}
 
     def __init__(self, game, *, hidden_layers_sizes, learning_rate, discount_factor,
                  rollout_episodes=32, epochs=5, minibatch=512, clip=0.2, ent_coef=0.01,
-                 vf_coef=0.5, gae_lambda=0.95, max_grad_norm=0.5, device="cpu",
-                 vector_games=1):
+                 vf_coef=0.5, gae_lambda=0.95, max_grad_norm=0.5, anneal_episodes=0,
+                 init="default", device="cpu", vector_games=1):
         n = game.num_players()
         size, self.num_actions = game.information_state_tensor_size(), game.num_distinct_actions()
         self.device = torch.device(device)
         self.policy = mlp(size, hidden_layers_sizes, self.num_actions).to(self.device)
         self.value = mlp(size, hidden_layers_sizes, 1).to(self.device)
+        if init == "orthogonal":
+            _orthogonal_init(self.policy, 0.01)
+            _orthogonal_init(self.value, 1.0)
+        elif init != "default":
+            raise ValueError(f"Inicializacion desconocida: {init!r}")
         self.optimizer = torch.optim.Adam(
             list(self.policy.parameters()) + list(self.value.parameters()), lr=learning_rate)
         self.gamma, self.lam = discount_factor, gae_lambda
         self.rollout_episodes, self.epochs, self.minibatch = rollout_episodes, epochs, minibatch
         self.clip, self.ent_coef, self.vf_coef = clip, ent_coef, vf_coef
         self.max_grad_norm = max_grad_norm
+        # Con anneal_episodes > 0, la tasa baja linealmente de learning_rate a 0
+        # en ese numero de partidas (se ajusta antes de cada actualizacion).
+        self.base_lr, self.anneal_episodes = learning_rate, anneal_episodes
+        self.games_done = 0
+        self._batch_start = 1
         self.n = n
         self.num_streams = n * max(1, vector_games)
         self._seats = [_Seat(self, i) for i in range(n)]
@@ -114,6 +139,8 @@ class SharedPPO(Algorithm):
             vf_coef=flags.ppo_vf_coef,
             gae_lambda=flags.ppo_gae_lambda,
             max_grad_norm=flags.ppo_max_grad_norm,
+            anneal_episodes=flags.num_train_episodes if flags.ppo_anneal_lr else 0,
+            init=flags.ppo_init,
             device=flags.device,
             vector_games=flags.vector_games,
         )
@@ -137,6 +164,7 @@ class SharedPPO(Algorithm):
         juntadas, actualizar."""
         if episode > 1:
             self.games_in_rollout += 1
+        self.games_done = episode - 1
         if self.games_in_rollout >= self.rollout_episodes:
             self._update()
             self._reset_rollout()
@@ -199,10 +227,14 @@ class SharedPPO(Algorithm):
             if self.open[s]:
                 self.close_step(s, r, done=True)
 
+    def begin_batch(self, episode: int, num_games: int) -> None:
+        self._batch_start = episode
+
     def end_batch(self, num_games: int) -> None:
         """Despues de un lote de partidas (todas terminadas): actualizar si ya
         hay --ppo_rollout_episodes partidas juntadas."""
         self.games_in_rollout += num_games
+        self.games_done = self._batch_start - 1 + num_games
         if self.games_in_rollout >= self.rollout_episodes:
             self._update()
             self._reset_rollout()
@@ -224,6 +256,10 @@ class SharedPPO(Algorithm):
         parts = [t for t in self.traj if t["rew"]]
         if not parts:
             return
+        if self.anneal_episodes:
+            frac = max(0.0, 1.0 - self.games_done / self.anneal_episodes)
+            for group in self.optimizer.param_groups:
+                group["lr"] = self.base_lr * frac
         advs, rets = zip(*(self._advantages(t) for t in parts))
         dev = self.device
         obs = torch.as_tensor(np.concatenate([np.stack(t["obs"]) for t in parts]), device=dev)

@@ -210,7 +210,20 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    contra `tests/data/info_states.npz`), 31% más rápida con 3 jugadores y 47% con 7; la partida
    completa, ~8–10%. El historial de la ronda (quién jugó cada carta, voids, quién va ganando la
    baza) lo lleva el estado jugada a jugada. Ver `docs/optimizacion.md`.
-6. **Siguiente:** confirmar lotes de 128 con 3 semillas (3 jugadores) y, si mejora, usarlo de base;
-   7 jugadores con 3 semillas (retomando `y70` si volvemos a la -04, si no de cero).
+5c. ~~Revisar `ppo.py` contra la receta estándar~~ Hecho (27/10, contra los detalles de PPO de
+   CleanRL). Sin errores: GAE por asiento, rewards entre turnos, máscara de acciones, recortes y
+   ventajas normalizadas están bien; no recortar la pérdida del valor es a propósito (Andrychowicz
+   et al. 2021: no ayuda). Diferencias que vale probar: (1) la tasa de aprendizaje fija, cuando la
+   receta la baja hasta 0 (podría explicar el estancamiento con lotes de 32) → `--ppo_anneal_lr`;
+   (2) la inicialización por defecto, cuando la receta es ortogonal con la última capa de la
+   política ×0.01 → `--ppo_init orthogonal`; (3) el crítico ve solo lo del jugador (MAPPO usa uno
+   que ve todas las manos al entrenar): después. Menores: `eps` de Adam, sin KL objetivo. Aparte:
+   se evalúa con la acción más probable aunque se entrena muestreando; medir también la política
+   muestreada.
+6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
+   para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
+   con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
+   semillas (retomando `y70` si volvemos a la -04, si no de cero). Medir también cómo se reparte el
+   tiempo con 7 jugadores (si la simulación pesa mucho, optimizar el motor antes de las largas).
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.
 8. Un modelo para n de 2 a 4; después escalar a 7.
