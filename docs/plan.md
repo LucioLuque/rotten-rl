@@ -43,14 +43,31 @@ reward por ronda:
 **Variantes de reglas que juega la gente** (para más adelante; las dos se deciden y se ven antes de
 cantar, así que van en la observación):
 
-- **No se puede cantar 3 veces la misma cantidad** (a confirmar el detalle: ¿3 veces seguidas?).
-  Impide cantar siempre 0, que parece lo más fácil.
+- **No se puede cantar la misma cantidad 3 veces seguidas** (cualquier número, no solo 0): quien
+  cantó 0 y 0 en las dos rondas anteriores no puede cantar 0 en esta. Impide cantar siempre 0, que
+  parece lo más fácil. Si choca con la regla de que no todos pueden cumplir y no queda ningún canto
+  posible (pasa poco, en general al final: no puede repetir 0 y cantar 1 haría que todos cumplan),
+  **gana la de que no todos pueden cumplir**: ahí sí puede repetir. La observación tendría que
+  incluir los cantos de las dos rondas anteriores de cada jugador.
 - **Rondas sin triunfo**, decididas antes. La observación ya tiene un lugar para "sin triunfo" en
   el palo de triunfo; falta que el motor y el reparto lo permitan como opción.
 
+**Identificar el estilo de cada rival durante la partida** (conservador o de cantar alto, si
+cumple, si juega bien). Hoy el agente no puede: la observación solo tiene la ronda en curso y los
+puntajes, y en self-play todos los rivales son él mismo, así que no hay nada que distinguir.
+Haría falta: (1) estadísticas de cada rival en la observación (sesgo de sus cantos hasta ahora,
+cuántas veces cumplió, cuánto canta respecto de sus cartas), o una red con memoria de la partida;
+y (2) entrenar contra rivales con estilos distintos (versiones anteriores, heurísticas
+conservadoras y agresivas), para que adaptarse sirva. Cuidado: adaptarse a un rival también
+abre la puerta a que lo exploten a uno. "Tener suerte" no sirve para predecir.
+
 **Resolver las rondas chicas de forma exacta** (idea, como control del RL): la ronda de 1 carta es
 solo un canto (la jugada es forzada) con muy pocas situaciones distintas, así que se puede calcular
-el equilibrio con CFR (OpenSpiel) y comparar con lo que aprendió el agente. Con 2 cartas
+el equilibrio con CFR (OpenSpiel) y comparar con lo que aprendió el agente. Con 2 jugadores ni
+hace falta: el segundo está obligado a cantar lo mismo que el primero (si el primero canta 1, el
+segundo no puede cantar 0 porque sumaría 1; y al revés), y al primero le conviene cantar 1 con
+cualquier carta, porque saliendo primero gana la baza con probabilidad ≥ 0.52 (un 2 que no es
+triunfo) y cantar 1 conviene desde 0.5. Con 2 cartas
 probablemente se pueda con MCCFR; de 3 en adelante el árbol es demasiado grande y hace falta RL.
 
 ## Plan original
