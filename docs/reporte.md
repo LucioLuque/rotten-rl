@@ -164,3 +164,46 @@ ssh labs004 'bash -lc "cd ~/rotten-rl && . ~/scratch/work/venvs/rotten-rl/bin/ac
   grep -l Cortado ~/scratch/logs/*.log; grep -v ^# ~/scratch/queue2.txt | awk \"{print \$1}\" | \
   grep -vxF -f ~/scratch/queue2.txt.started"'
 ```
+
+## Resultados finales (vistos el lunes 26/10 a las 22:20)
+
+Se lanzó toda la cola. Quedaron cortadas a las 06:55 `q20` (a los 30k), la corrida larga de NFSP (a
+los 375k) y `e14` (cortada a propósito). Win rate y diff contra la heurística, 300 partidas por
+evaluación (el ruido de una sola evaluación es de ±0.03 en win rate):
+
+| Corridas | Algoritmo | Rondas como episodios | Episodios | Win | Diff | Sesgo |
+|---|---|---|---|---|---|---|
+| `r10`–`r12` | DQN compartido | sí | 50k | **0.546 – 0.576** | **+4.4 a +6.3** | +0.15 |
+| `p10`–`p12` | PPO compartido | sí | 50k | 0.526 – 0.571 | +1.9 a +6.4 | −0.16 a +0.04 |
+| `r20` | DQN compartido | no | 50k | 0.502 | −0.9 | +0.13 |
+| `p20` | PPO compartido | no | 50k | 0.476 | −2.7 | +0.23 |
+| `r00`–`r02` | NFSP combo | sí | 50k | 0.421 – 0.460 | −6.1 a −3.5 | +0.48 |
+| `e22`–`e24` | NFSP combo | no | 50k | 0.435 – 0.468 | −4.8 a −3.2 | +0.38 |
+| `e25` | NFSP combo | no | 200k | 0.489 | −1.8 | +0.45 |
+| `nfsp2p_1M_lr1e-3` | NFSP | no | 375k | 0.530 | +3.0 | +0.27 |
+
+3 jugadores (empate 0.33):
+
+| Corrida | Algoritmo | Episodios | Win | Diff |
+|---|---|---|---|---|
+| `e19`, `e20` | NFSP | 50k | 0.16 – 0.17 | −13 |
+| `q10` | PPO compartido + rondas | 50k | **0.331** | +0.9 |
+| `q20` | DQN compartido + rondas | 30k (cortada) | 0.313 | −1.1 |
+
+- DQN y PPO compartidos con rondas como episodios le ganan a la heurística con 2 jugadores en las
+  3 semillas. Entre ellos la diferencia está dentro del ruido; PPO canta mejor (sin sesgo).
+- Rondas como episodios suma ~0.06 de win rate a DQN y PPO; a NFSP no le cambia nada.
+- NFSP necesita 375k episodios para lo que DQN y PPO hacen en 50k, y sigue cantando de más.
+- Con 3 jugadores, PPO y DQN compartidos empatan con la heurística, donde NFSP perdía por 13
+  puntos (una semilla cada uno).
+
+### Decisiones (charladas con Lucio)
+
+- **NFSP queda como referencia.** La corrida larga no se retoma: 375k episodios alcanzan como
+  baseline. Sus métricas y redes siguen en `~/scratch/runs/`.
+- **Se saca la compatibilidad con el código viejo** (alias `train_nfsp.py`, checkpoints del formato
+  anterior a `rotten_rl/algorithms/`, `past_nets`). Las corridas lanzadas antes de ese cambio ya no
+  se pueden retomar; si hiciera falta, se vuelven a correr desde cero.
+- **Se pasa a 3 jugadores**, con DQN y PPO compartidos en paralelo (3 semillas cada uno, más
+  episodios), para elegir el algoritmo con el que seguir. 2 jugadores queda como banco de pruebas
+  rápido para los cambios de código.

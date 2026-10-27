@@ -1,9 +1,7 @@
 """
 rotten_rl/algorithms/nfsp.py
 
-NFSP de OpenSpiel, un agente por asiento (aprendizaje independiente). Es lo que
-hacia scripts/train_nfsp.py antes de tener varios algoritmos; el comportamiento
-es el mismo (mismos resultados con la misma semilla).
+NFSP de OpenSpiel, un agente por asiento (aprendizaje independiente).
 """
 
 from __future__ import annotations
@@ -119,8 +117,6 @@ class NFSPAlgorithm(Algorithm):
         return out
 
     # -- checkpoints ---------------------------------------------------------
-    # Mismo formato que antes de rotten_rl.algorithms ("agents" en meta.pt y
-    # buffers/agent<i>.{reservoir,replay}.*.npy): las corridas viejas se retoman.
 
     def checkpoint_state(self) -> Dict:
         return {"agents": [_agent_state(a) for a in self.agents]}

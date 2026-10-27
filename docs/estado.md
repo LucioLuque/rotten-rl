@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 25/10/2026.
+Última actualización: 26/10/2026.
 
 ## Hecho
 
@@ -83,8 +83,26 @@ exclusivo no la aceleró (~96 → ~109 ms/ep), así que el freno no es compartir
 comunes (caché, memoria, frecuencia). Se bajó `~/scratch/queue2.txt.max_total` a 6 (las que ya
 corren terminan; no se lanzan reemplazos hasta bajar de 6).
 
-**Primero el lunes, con la máquina libre:**
-`python scripts/bench_parallel.py --ns 1,2,4,6,8,12 --episodes 2000` (~15 min) y fijar el número.
+**Medido el 26/10/2026 con la máquina libre** (`scripts/bench_parallel.py --ns
+1,2,4,6,8,12,16,20,24 --episodes 2000`, NFSP de 2 jugadores, buffers chicos):
+
+| A la vez | ms/episodio (mín / media / máx) | Episodios/s en total | Cuánto se frena cada una |
+|---|---|---|---|
+| 1 | 35.3 / 35.3 / 35.3 | 28.3 | 1.00× |
+| 2 | 36.6 / 36.7 / 36.8 | 54.5 | 1.04× |
+| 4 | 38.6 / 38.9 / 39.1 | 102.7 | 1.10× |
+| 6 | 41.9 / 42.3 / 42.8 | 141.8 | 1.20× |
+| 8 | 46.6 / 47.4 / 48.2 | 168.8 | 1.34× |
+| 12 | 52.6 / 57.2 / 65.1 | 211.7 | 1.62× |
+| 16 | 58.0 / 68.1 / 80.4 | 237.3 | 1.93× |
+| 20 | 64.2 / 80.8 / 96.9 | 251.2 | 2.29× |
+| 24 | 72.8 / 107.1 / 134.4 | 233.4 | 3.03× |
+
+El total sube hasta ~20 a la vez y con 24 baja. Hasta 8 cada corrida se frena poco; con 12 o más
+el total crece cada vez menos y cada corrida tarda mucho más. Con buffers grandes (NFSP con
+reservoir de millones) se frena antes: la noche del 25, con 11 a la vez, iban a ~106 ms/episodio.
+Criterio: **hasta 8 a la vez** si importa que terminen rápido (comparaciones para la mañana);
+**12–16** si son muchos experimentos independientes y no importa cuándo termina cada uno.
 
 ### Plan a partir de la bibliografía (ver `docs/bibliografia.md`)
 
@@ -124,50 +142,22 @@ PSRO no se descarta, pero baja de prioridad: con más de 2 jugadores no tiene ga
 el self-play contra la política actual le ganó a entrenar contra un conjunto de versiones
 anteriores. Entra después, para medir y mejorar la robustez de un agente ya fuerte.
 
-### Para retomar el lunes 26/10 (acceso desde las 22:00)
+### Lunes 26/10/2026
 
-**Decisión pendiente para charlar con Lucio** (no hacer nada antes): con los resultados de esta
-noche (barrido 5, `e20`–`e25` y la corrida larga), evaluar si sacar la compatibilidad con el código
-viejo (alias `train_nfsp.py`, lectura del formato viejo de checkpoints, `past_nets` en `extra`) y
-reentrenar con la estructura nueva solo la mejor configuración de NFSP. La corrida larga
-`nfsp2p_1M_lr1e-3` sirve como baseline de NFSP con muchos episodios: no cortarla hasta decidirlo.
+Resultados finales de la noche del 25 en `docs/reporte.md` ("Resultados finales"). En resumen:
+DQN y PPO compartidos con rondas como episodios le ganan a la heurística con 2 jugadores (3
+semillas cada uno, diferencia entre ellos dentro del ruido) y empatan con ella con 3 jugadores;
+NFSP queda atrás.
 
-0. Ver los resultados del resto de la noche (la VPN se cortó a la 01:33; comandos en
-   `docs/reporte.md`, sección "Qué mirar el lunes") y correr `scripts/bench_parallel.py`
-   (arriba) antes de lanzar nada.
-1. Levantar la VPN y verificar con `ssh labs004 hostname` que sea `labo-s004-04` (la máquina de
-   hoy: los checkpoints están en su disco local, `~/scratch/runs/<corrida>/state/`).
-2. Retomar la corrida larga:
-   `python scripts/train.py --resume ~/scratch/runs/nfsp2p_1M_lr1e-3_20261025-200043 --stop_at 06:55`.
-3. Retomar con `--resume` los experimentos de la cola que hayan quedado cortados a las 06:55
-   (`grep -l Cortado ~/scratch/logs/*.log`) y volver a lanzar `run_queue.py` para los pendientes
-   (los ya lanzados están en `~/scratch/queue.txt.started` y no se repiten).
-
-**Si no aparecen los checkpoints** (otra máquina asignada, máquina reinstalada o `~/scratch`
-borrado): se pierden las corridas en curso. Las de 50k se relanzan desde cero (~40 min cada una);
-la larga también, desde cero. Para que no vuelva a pasar, antes de relanzar implementar:
-
-- `--backup_dir` en `train.py`: después de cada checkpoint, copiar solo `meta.pt` (redes,
-  optimizadores, contadores y RNGs: ~20 MB con 2 jugadores, ~40 MB con 4) a una carpeta del home
-  (NFS: compartido por las 22 máquinas, persistente, cuota de 2 GB) y borrar la copia anterior. Sin
-  los buffers (pesan GB y no entran en la cuota): al retomar desde esa copia se vuelven a llenar.
-- Que `--resume` use esa copia si no encuentra checkpoints en `~/scratch`.
-- Un comando para traer a la laptop, al conectarse, las métricas y las redes de cada evaluación
-  (`rsync` sin `state/`), para tener los resultados a salvo y graficarlos.
-
-Descartado: copiar cada checkpoint completo a la laptop. El lab no puede conectarse a la laptop,
-así que la laptop tendría que quedar prendida toda la noche con la VPN, bajando ~2.3 GB cada ~20
-minutos; si se corta algo, deja de copiar sin avisar.
-
-El home tiene 51 MB usados de 1.9 GB (las dos primeras corridas, en `~/rotten-rl/runs`); las
-corridas nuevas van a `~/scratch/runs`, que no tiene cuota (605 GB libres).
-
-Conclusión del barrido de learning rate: 0.01 es demasiado alto; 0.001 y 0.0003 andan parecido (la
-diferencia está dentro del ruido de 300 partidas) y siguen mejorando de a poco a los 50k. Las dos
-cantan de más.
-
-Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log en
-`~/scratch/logs/`.
+Decidido:
+- NFSP queda como referencia; la corrida larga `nfsp2p_1M_lr1e-3` no se retoma (375k episodios:
+  0.53 vs heurística, diff +3.0).
+- Se sacó la compatibilidad con el código viejo: el alias `train_nfsp.py`, la lectura de
+  checkpoints del formato anterior a `rotten_rl/algorithms/` y `past_nets`. Las corridas lanzadas
+  antes de ese cambio ya no se retoman (sus métricas y redes siguen en `~/scratch/runs/`).
+- Se pasa a 3 jugadores, con DQN y PPO compartidos en paralelo (barrido 7: `t10`–`t12` PPO,
+  `t20`–`t22` DQN, 200k episodios, eval cada 10k) para elegir algoritmo. 2 jugadores queda como
+  banco de pruebas rápido para los cambios de código.
 
 ## Bugs encontrados (25/10/2026)
 
@@ -181,14 +171,14 @@ Los resultados de cada corrida están en `~/rotten-rl/runs/<corrida>/` y el log 
 
 ## Próximos pasos
 
-1. Ver si NFSP aprende con los dos arreglos (`nfsp2p_50k_fix`).
+1. ~~Que NFSP aprenda con 2 jugadores~~ Hecho (arreglos de reward y exploración, barridos 1–4).
 2. ~~Loop de entrenamiento propio y checkpoints~~ Hecho: `rotten_rl/training.py`
-   (`EpisodeRunner`, 1.65× más rápido) y `rotten_rl/checkpoint.py`; `train_nfsp.py` tiene
-   `--resume`, `--stop_at` y corte prolijo por señal. Cortar y retomar da resultados idénticos.
-3. Ajustar hiperparámetros de NFSP (learning rate en curso) hasta que aprenda bien con 2 jugadores.
-4. Corridas largas de 2 jugadores.
-5. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
+   (`EpisodeRunner`, 1.65× más rápido) y `rotten_rl/checkpoint.py`; `--resume`, `--stop_at` y
+   corte prolijo por señal. Cortar y retomar da resultados idénticos.
+3. ~~Varios algoritmos~~ Hecho: NFSP, DQN y PPO compartidos con `--round_episodes`.
+4. ~~Bajar la memoria de los buffers~~ Hecho: `--compact_buffers` (sin pérdida, resultados
    idénticos, ~7 veces menos RAM por agente). Ver `docs/optimizacion.md`.
-6. Corridas de 3 y 4 jugadores.
-7. PSRO simétrico con 3 jugadores.
+5. **En curso:** DQN vs PPO compartidos con 3 jugadores (barrido 7) y llevar el mejor al máximo.
+6. Corridas de 4 jugadores.
+7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.
 8. Un modelo para n de 2 a 4; después escalar a 7.

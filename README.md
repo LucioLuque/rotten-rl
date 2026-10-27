@@ -23,7 +23,6 @@ rotten_rl/              paquete
 scripts/
   train.py              entrenamiento con self-play: --algo nfsp|dqn|ppo, --round_episodes,
                         --resume, --stop_at
-  train_nfsp.py         alias de train.py (para retomar corridas viejas)
   run_queue.py          cola de experimentos para el laboratorio
   bench_parallel.py     cuántas corridas conviene correr a la vez
   summarize_runs.py     tabla comparativa de corridas

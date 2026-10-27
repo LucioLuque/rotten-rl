@@ -47,15 +47,15 @@ def _next_time(hhmm):
     return when if when > now else when + datetime.timedelta(days=1)
 
 
-TRAINING_SCRIPTS = ("train.py", "train_nfsp.py")
+TRAINING_SCRIPTS = ("train.py",)
 
 
 def count_training_processes(script_name=TRAINING_SCRIPTS):
     """Procesos de Python del usuario que estan corriendo `script_name` (un
-    nombre o una tupla de nombres; por defecto los dos scripts de entrenamiento,
-    train.py y su alias train_nfsp.py), lanzados por cualquier cola o a mano. Mira argv en /proc:
+    nombre o una tupla de nombres; por defecto train.py), lanzados por cualquier
+    cola o a mano. Mira argv en /proc:
     cuenta solo si el ejecutable es python y el script es el primer argumento,
-    asi no cuenta los `bash -lc "... python scripts/train_nfsp.py ..."` que los
+    asi no cuenta los `bash -lc "... python scripts/train.py ..."` que los
     envuelven."""
     names = (script_name,) if isinstance(script_name, str) else tuple(script_name)
     uid, n = os.getuid(), 0

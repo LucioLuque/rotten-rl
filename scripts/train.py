@@ -11,7 +11,7 @@ desglosadas por tamanio de ronda h y por asiento, con:
   - checkpoints completos cada --checkpoint_every episodios en <corrida>/state/.
 
 Algoritmos:
-  - nfsp: NFSP de OpenSpiel, un agente por asiento (lo de scripts/train_nfsp.py).
+  - nfsp: NFSP de OpenSpiel, un agente por asiento.
   - dqn:  DQN con una red compartida por todos los asientos (como en Wizard).
   - ppo:  PPO con politica y critico compartidos, self-play contra la politica actual.
 --round_episodes hace que para los agentes cada ronda sea un episodio.
@@ -134,11 +134,9 @@ _RESUMABLE_OVERRIDES = {
 
 def _apply_resume_config(run_dir):
     """Carga la config guardada de la corrida y la impone en FLAGS. Solo deja
-    cambiar (pasandolos explicitamente) los flags de _RESUMABLE_OVERRIDES.
-    Las corridas de antes de --algo no lo tienen en su config: eran NFSP."""
+    cambiar (pasandolos explicitamente) los flags de _RESUMABLE_OVERRIDES."""
     with open(os.path.join(run_dir, "config.json")) as f:
         config = json.load(f)
-    config.setdefault("algo", "nfsp")
     for key, saved in config.items():
         if key not in _ALL_KEYS:
             continue
@@ -206,8 +204,7 @@ def main(_):
         info = load_checkpoint(ckpt, algo, rng)
         start_ep = info["episode"]
         resume_extra = info["extra"]
-        # "past_nets": nombre de antes de rotten_rl.algorithms (NFSP).
-        past_state = resume_extra.get("past_state", resume_extra.get("past_nets"))
+        past_state = resume_extra.get("past_state")
         log = RunLogger(run_dir=FLAGS.resume, config=config, resume_after=start_ep)
         logging.info("Retomando %s desde %s (episodio %d)", log.name, ckpt, start_ep)
     else:

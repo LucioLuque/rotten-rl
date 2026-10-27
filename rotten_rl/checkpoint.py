@@ -120,21 +120,11 @@ def save_checkpoint(ckpt_root: str, episode: int, algorithm, rng: np.random.Rand
     return final
 
 
-def _buffer_infos(meta: Dict) -> Dict:
-    """{nombre: info} de los buffers guardados. Los checkpoints de antes de
-    rotten_rl.algorithms (solo NFSP) los guardaban como una lista por agente:
-    [{"reservoir": info, "replay": info}, ...] -> agent<i>.<tipo>."""
-    b = meta.get("buffers") or {}
-    if isinstance(b, list):
-        b = {f"agent{i}.{kind}": info for i, per in enumerate(b) for kind, info in per.items()}
-    return b
-
-
 def load_checkpoint(path: str, algorithm, rng: np.random.RandomState) -> Dict:
     """Restaura en `algorithm` (ya construido con la misma config) y en `rng` el
     estado guardado en `path`. Devuelve {"episode": ..., "extra": ...}."""
     meta = torch.load(os.path.join(path, "meta.pt"), weights_only=False)
-    infos = _buffer_infos(meta)
+    infos = meta.get("buffers") or {}
 
     def load_buffer(name, buffer_class, transition_class):
         return _load_buffer(buffer_class, transition_class, infos.get(name),
