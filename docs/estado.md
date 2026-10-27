@@ -249,6 +249,10 @@ en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo
    tiempo con 7 jugadores (si la simulación pesa mucho, optimizar el motor antes de las largas).
    Al terminar las de 3 jugadores: torneo (`scripts/eval/tournament.py`, 2.000 repartos) entre la base,
    lotes de 128, tasa que baja, inicialización ortogonal, la heurística y la versión muestreada de
-   la mejor, para decidir con números confiables.
+   la mejor, para decidir con números confiables; y comparar cómo canta el agente de 3 jugadores
+   en la ronda de 1 carta con el equilibrio (`round1.policy_tables`).
+   En paralelo, en los procesadores libres (si el lab tiene `g++`): ronda de 2 cartas con 3
+   jugadores **exacta** (sin agrupar, para medir cuánto pierde la agrupación B) y con 4 jugadores
+   agrupada, guardando cada 10 millones de iteraciones y cortando antes de las 06:55.
 7. PSRO simétrico con 3 jugadores, para medir y mejorar la robustez de un agente ya fuerte.
 8. Un modelo para n de 2 a 4; después escalar a 7.
