@@ -52,8 +52,19 @@ observación (~50–60 µs contra ~25–33 por decisión en la laptop).
    redes de 512.
 6. **NFSP en lote.** NFSP (el de OpenSpiel) sigue jugando de a una partida. Solo si vuelve a ser
    un algoritmo principal.
-7. **El juego en C++.** Solo si con 7 jugadores o PSRO el juego sigue siendo el límite después de
-   1 y 2.
+7. **El juego en C++.** Python sirvió para entender y armar el juego; para velocidad no hay
+   razón para quedarse ahí. Cuánto rinde depende de para qué:
+   - **Entrenamiento con la red en la GPU**: el juego (simulación más observación) es ~35% del
+     tiempo con 3 jugadores, así que con C++ iría ~1.5 veces más rápido (la mitad del tiempo es la
+     red, que no cambia); con 7 jugadores pesa más, quizás ~2 veces. Medirlo con las corridas de
+     7 (27/10): si el juego pasa de ~40% del tiempo, hacerlo antes de las corridas largas de 7.
+   - **Lo que no usa la red** (PIMC con búsqueda, CFR de la ronda de 2 cartas, torneos grandes):
+     ahí es imprescindible, la diferencia puede ser de 50 a 100 veces.
+   - Cómo: OpenSpiel trae un Oh Hell en C++ (`oh_hell`), pero hay que verificar sus reglas (hasta
+     donde se sabe juega una sola ronda, sin la escalera, con otro puntaje y sin la obligación de
+     fallar); lo probable es escribir el nuestro basado en ese. Se valida contra lo que ya hay:
+     `tests/test_rules.py` y las observaciones de referencia (`tests/data/info_states.npz`), que
+     tienen que dar idéntico. Falta ver que el lab tenga compilador. ~1–2 días.
 
 Recordatorio: más que la velocidad, importa cuánto aprende el agente por partida
 (hiperparámetros, algoritmo). Una mejora ahí rinde más que cualquiera de estas.
