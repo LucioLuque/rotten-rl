@@ -194,6 +194,14 @@ baja, `z15` inicialización ortogonal), `z40` (4 jugadores, lotes de 128) y `z70
 jugadores). En CPU, la ronda de 2 cartas: 3 jugadores exacta y 4 agrupada. Perfil de 7
 jugadores: el juego en Python es ~25% del tiempo, así que el C++ no es urgente.
 
+Resultados hasta la 01:15: **PPO con lotes de 128 partidas por actualización** confirmado con 3
+semillas (3 jugadores, 0.441–0.447 vs heurística contra 0.421 de la base; en el torneo le gana a
+la base por 1.4–1.9 puntos por partida) y con 4 jugadores (0.393 contra 0.364–0.387). La tasa que
+baja ayuda casi igual (una semilla); la inicialización ortogonal, no. Jugar la acción más probable
+le gana a muestrear. En la ronda de 1 carta, todos los agentes cantan casi como el equilibrio
+(pierden 0.01–0.08 puntos por ronda, la heurística 0.37). Nueva config por defecto para PPO:
+`--ppo_rollout_episodes 128`.
+
 ## Bugs encontrados (25/10/2026)
 
 1. **Reward perdido entre turnos.** El juego da reward al cerrar cada ronda, pero cada agente solo
@@ -245,7 +253,8 @@ jugadores: el juego en Python es ~25% del tiempo, así que el C++ no es urgente.
    jugadores (`rotten_rl/exact/`, `docs/primera-ronda/`). Cantar último cuesta ~4 a ~6 puntos
    por ronda; con 7 jugadores nadie canta 1 sin triunfo; escuchar los cantos ajenos vale 0.07 a
    0.49 puntos por ronda; la heurística canta casi como el equilibrio salvo con 2 jugadores.
-   Pendiente: comparar con el agente (`round1.policy_tables`).
+   Comparado con el agente (27/10, `scripts/exact/compare_round1_agent.py`): canta casi como el
+   equilibrio.
 5f. ~~Ronda de 2 cartas~~ Hecho para 3 jugadores (27/10): solver en C++ con MCCFR y agrupación de
    las cartas jugadas (`rotten_rl/exact/round2/`, `docs/segunda-ronda/`), verificado contra el
    motor. Converge en 8 minutos; la estrategia le saca ~1 punto por ronda a la heurística.
