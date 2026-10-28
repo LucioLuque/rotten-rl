@@ -97,7 +97,8 @@ python scripts/exact/solve_round1.py                 # ~45 min en la notebook (7
 
 ## Pendiente
 
-- Comparar con el agente: `round1.policy_tables(game, prob_bid1)` arma sus tablas preguntándole
-  a la red en cada situación, y `round1.evaluate` mide cuánto pierde contra la mejor respuesta.
+- Comparar con el agente: `scripts/exact/compare_round1_agent.py --run <corrida>` (arma sus
+  tablas con `round1.policy_tables` y mide, por posición, cuánto pierde cantando como el agente
+  con los demás en equilibrio). Resultados en `docs/reportes/2026-10-27.md`.
 - Rondas de 2 cartas: ya hay jugadas para elegir; probablemente viable con MCCFR y la misma
   simetría de palos.
