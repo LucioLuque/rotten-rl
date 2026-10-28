@@ -186,7 +186,7 @@ seguida hacia 1M; con lotes de 32 ya no mejora, no hace falta), `x26`, `x27` (lo
 en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo-s004-17 (ver
 `docs/reportes/2026-10-26.md`), así que solo se pueden retomar si volvemos a la -04.
 
-### Noche del 27 al 28/10 (en curso, detalle en `docs/reportes/2026-10-27.md`)
+### Noche del 27 al 28/10 (detalle en `docs/reportes/2026-10-27.md`)
 
 En la labo-s004-17 (entorno armado de cero; lo de la -04 no se puede retomar). Cola `queue5`,
 8 a la vez en la GPU: PPO de 3 jugadores (`z10` base, `z11`–`z13` lotes de 128, `z14` tasa que
@@ -201,6 +201,13 @@ baja ayuda casi igual (una semilla); la inicialización ortogonal, no. Jugar la 
 le gana a muestrear. En la ronda de 1 carta, todos los agentes cantan casi como el equilibrio
 (pierden 0.01–0.08 puntos por ronda, la heurística 0.37). Recomendación: usar en PPO
 `--ppo_rollout_episodes 128`.
+
+Cierre de la noche (06:30): **lotes de 128 + tasa que baja** (`--ppo_anneal_lr`) da 0.463–0.467
+con 3 jugadores (3 semillas) y 0.423 con 4 (antes 0.393); lotes de 128 también mejoran 5 (0.359)
+y 7 jugadores (0.289). Con lotes de 256 o 512, 3 jugadores llega a ~0.50 (600k / 400k) y sigue
+subiendo. Para retomar (en la -17, o desde el respaldo en `runs/lab/`): `z16r2`, `z18r2` (hacia
+1M), `z21` (tasa que baja con horizonte 400k), `z51`, `z74`, `z75`. Próximo paso sugerido:
+lotes de 256–512 + tasa que baja con horizonte largo, y llevarlo a 4–7 jugadores.
 
 ## Bugs encontrados (25/10/2026)
 
