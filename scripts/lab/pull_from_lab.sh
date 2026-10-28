@@ -19,6 +19,9 @@ fi
 dest=runs/lab/$host
 mkdir -p "$dest"
 opts=(-a --partial --timeout=60 -e "ssh")
+# Código 24 = archivos que desaparecieron durante la copia (checkpoints que una corrida rotó): no
+# es un error.
+rsync() { command rsync "$@" || [ $? -eq 24 ]; }
 # --delete saca los checkpoints viejos que el lab ya rotó (guarda 2); 'P /*' protege las carpetas
 # de corrida, así una corrida que desaparece del lab (scratch borrado) no se borra acá.
 rsync "${opts[@]}" --delete --filter 'P /*' --exclude 'prof*' labs004:scratch/runs/ "$dest/runs/"
