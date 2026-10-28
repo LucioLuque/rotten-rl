@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 27/10/2026.
+Última actualización: 27/10/2026 (noche).
 
 ## Hecho
 
@@ -185,6 +185,14 @@ Corridas con checkpoint para retomar (`--resume`): `y70_ppo_7p_s0` (7 jugadores)
 seguida hacia 1M; con lotes de 32 ya no mejora, no hace falta), `x26`, `x27` (lotes de 64). Están
 en `/scratch` de la labo-s004-04; desde el 27/10 07:32 el lab nos asigna la labo-s004-17 (ver
 `docs/reportes/2026-10-26.md`), así que solo se pueden retomar si volvemos a la -04.
+
+### Noche del 27 al 28/10 (en curso, detalle en `docs/reportes/2026-10-27.md`)
+
+En la labo-s004-17 (entorno armado de cero; lo de la -04 no se puede retomar). Cola `queue5`,
+8 a la vez en la GPU: PPO de 3 jugadores (`z10` base, `z11`–`z13` lotes de 128, `z14` tasa que
+baja, `z15` inicialización ortogonal), `z40` (4 jugadores, lotes de 128) y `z70`–`z72` (7
+jugadores). En CPU, la ronda de 2 cartas: 3 jugadores exacta y 4 agrupada. Perfil de 7
+jugadores: el juego en Python es ~25% del tiempo, así que el C++ no es urgente.
 
 ## Bugs encontrados (25/10/2026)
 

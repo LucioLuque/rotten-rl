@@ -58,6 +58,8 @@ observación (~50–60 µs contra ~25–33 por decisión en la laptop).
      tiempo con 3 jugadores, así que con C++ iría ~1.5 veces más rápido (la mitad del tiempo es la
      red, que no cambia); con 7 jugadores pesa más, quizás ~2 veces. Medirlo con las corridas de
      7 (27/10): si el juego pasa de ~40% del tiempo, hacerlo antes de las corridas largas de 7.
+     **Medido (27/10, `docs/reportes/2026-10-27.md`)**: con 7 jugadores y 8 corridas compartiendo
+     la GPU, el juego es ~25–30% del tiempo y esperar a la GPU ~35%. No es urgente.
    - **Lo que no usa la red** (PIMC con búsqueda, CFR de la ronda de 2 cartas, torneos grandes):
      ahí es imprescindible, la diferencia puede ser de 50 a 100 veces.
    - Cómo: OpenSpiel trae un Oh Hell en C++ (`oh_hell`), pero hay que verificar sus reglas (hasta

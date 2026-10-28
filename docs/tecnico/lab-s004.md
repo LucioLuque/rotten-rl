@@ -1,7 +1,8 @@
 # Correr en el laboratorio S004
 
 Las corridas de entrenamiento se hacen en las máquinas del laboratorio S004 de Ingeniería (UdeSA),
-no en la laptop. Documentación oficial: <https://it-ing-udesa.github.io/>.
+no en la laptop. Documentación oficial: <https://it-ing-udesa.github.io/>. Problemas de acceso
+(físico o remoto), fallas o pedidos de software: `soporte-s004@udesa.edu.ar`.
 
 ## Máquinas
 
