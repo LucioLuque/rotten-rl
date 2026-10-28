@@ -14,7 +14,9 @@ host=$(timeout 40 ssh labs004 hostname)
 dest=runs/lab/$host
 mkdir -p "$dest"
 opts=(-a --partial --timeout=60 -e "ssh")
-rsync "${opts[@]}" --exclude 'prof*' labs004:scratch/runs/ "$dest/runs/"
+# --delete saca los checkpoints viejos que el lab ya rotó (guarda 2); 'P /*' protege las carpetas
+# de corrida, así una corrida que desaparece del lab (scratch borrado) no se borra acá.
+rsync "${opts[@]}" --delete --filter 'P /*' --exclude 'prof*' labs004:scratch/runs/ "$dest/runs/"
 rsync "${opts[@]}" labs004:scratch/logs/ "$dest/logs/"
 rsync "${opts[@]}" --include '*.txt*' --include '*.sh' --exclude '*' labs004:scratch/ "$dest/"
 if [ "${1:-}" = "--tables" ]; then
