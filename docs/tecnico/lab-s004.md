@@ -147,6 +147,16 @@ pytest
 Se instala `open_spiel` 2.0.2, que ya trae `pytorch/nfsp.py`, y torch con CUDA
 (`torch.cuda.is_available()` da `True`).
 
+## Respaldo en la laptop
+
+`~/scratch` es de cada máquina: si el lab nos asigna otra (pasó el 27/10, de la -04 a la -17), lo
+que hay ahí deja de verse. `scripts/lab/pull_from_lab.sh [--tables]` copia con `rsync` a
+`runs/lab/<máquina>/` las corridas (CSVs, snapshots y checkpoints completos), los logs, las colas
+y, con `--tables`, las tablas de la ronda de 2 cartas. Es incremental (~14 MB/s por la VPN; la
+primera copia, 2.3 GB, tardó 3 minutos). Correrlo durante la noche y una última vez después del
+corte de las 06:55, antes de las 07:00. Para retomar en otra máquina: copiar la corrida a
+`~/scratch/runs/` y usar `--resume`.
+
 ## Lanzar, cortar y retomar corridas
 
 Las corridas van en `tmux` (sobrevive al corte de SSH y de la VPN) y con los resultados en
