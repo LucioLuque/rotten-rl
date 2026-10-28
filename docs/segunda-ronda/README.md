@@ -89,8 +89,18 @@ sobre todo de lo que se cantó:
 
 Tabla completa: `python scripts/exact/analyze_round2.py --tsv <(round2 dump ...) --n 3`.
 
+## 4 jugadores (agrupación B) y 3 exacta (noche del 27/10/2026)
+
+En el lab, por sesiones de 10M iteraciones (`docs/reportes/2026-10-27.md`). 4 jugadores
+agrupada: 1.900M iteraciones, 12.5M situaciones, ~1 GB; **convergida** (quien se desvía gana como
+mucho 0.07 sobre los mismos repartos, nada sobre repartos nuevos). 3 jugadores exacta: 2.710M
+iteraciones, ~40M situaciones, ~2.9 GB; el último todavía gana 0.12 desviándose sobre los mismos
+repartos (nada sobre nuevos). 5 jugadores agrupada: cortada a los 150M por memoria (7.4 GB y
+creciendo).
+
 ## Pendiente
 
 - Comparar B con la versión exacta en 3 jugadores (cuánto se pierde agrupando).
-- Escalar a 4, 5 y 7 jugadores (en el lab, por sesiones).
+- Escalar a 5 y 7 jugadores: con 5 la agrupación B ya no entra en memoria junto a las corridas
+  de PPO; hace falta otra agrupación o podar situaciones poco frecuentes.
 - Comparar con el agente de RL en las mismas situaciones, como en la ronda de 1 carta.
