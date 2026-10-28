@@ -10,7 +10,12 @@
 # usar --resume (los checkpoints de state/ son el estado completo).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-host=$(timeout 40 ssh labs004 hostname)
+# La conexión compartida (ControlMaster) a veces queda rota del lado del lab ("unknown userid"):
+# se cierra y se reconecta.
+if ! host=$(timeout 40 ssh labs004 hostname 2>/dev/null); then
+  ssh -O exit labs004 >/dev/null 2>&1 || true
+  host=$(timeout 40 ssh labs004 hostname)
+fi
 dest=runs/lab/$host
 mkdir -p "$dest"
 opts=(-a --partial --timeout=60 -e "ssh")
