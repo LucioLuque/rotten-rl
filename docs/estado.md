@@ -199,7 +199,7 @@ semillas (3 jugadores, 0.441–0.447 vs heurística contra 0.421 de la base; en 
 la base por 1.4–1.9 puntos por partida) y con 4 jugadores (0.393 contra 0.364–0.387). La tasa que
 baja ayuda casi igual (una semilla); la inicialización ortogonal, no. Jugar la acción más probable
 le gana a muestrear. En la ronda de 1 carta, todos los agentes cantan casi como el equilibrio
-(pierden 0.01–0.08 puntos por ronda, la heurística 0.37). Nueva config por defecto para PPO:
+(pierden 0.01–0.08 puntos por ronda, la heurística 0.37). Recomendación: usar en PPO
 `--ppo_rollout_episodes 128`.
 
 ## Bugs encontrados (25/10/2026)
