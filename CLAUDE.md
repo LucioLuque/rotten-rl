@@ -17,8 +17,14 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
 
 - **No entrenar en la laptop.** Las corridas van al laboratorio S004; todo el detalle está en
   `docs/tecnico/lab-s004.md`.
-- La VPN la levanta el usuario (necesita `sudo` y login en el navegador). Con la VPN arriba,
-  `ssh labs004` entra sin contraseña (alias en `~/.ssh/config` de la laptop).
+- La VPN la levanta Claude, sin pedírsela al usuario: `~/.local/bin/udesa-vpn-connect` (~3 s, no
+  pide nada) y después `setsid nohup ~/.local/bin/udesa-vpn-watch > /dev/null 2>&1 &`, que la
+  reconecta si se cae y corre hasta las 07:00 (detalle en `NOTAS_LOCALES.md`, fuera de git). Con
+  la VPN arriba, `ssh labs004` entra sin contraseña (alias en `~/.ssh/config` de la laptop).
+- Cada noche ver `hostname`: el lab puede asignar otra máquina (-04 hasta el 27/10, -17 el 27,
+  -19 el 28). Si cambió, armar el entorno de cero (`docs/tecnico/lab-s004.md`, "Entorno") y subir
+  desde `runs/lab/<máquina anterior>/` lo que haya que retomar.
+- Las corridas viven en `tmux` en el lab: siguen aunque se corte la VPN o se apague la laptop.
 - Comandos remotos siempre como `ssh labs004 'bash -lc "..."'`: sin shell de login no se cargan
   los cachés en `~/scratch` y se llena la cuota de 2 GB del home.
 - Entrenar con `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=` (más rápido con estas

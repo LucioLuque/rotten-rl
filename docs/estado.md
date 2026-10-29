@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 27/10/2026 (noche).
+Última actualización: 28/10/2026 (noche).
 
 ## Hecho
 
@@ -208,6 +208,14 @@ y 7 jugadores (0.289). Con lotes de 256 o 512, 3 jugadores llega a ~0.50 (600k /
 subiendo. Para retomar (en la -17, o desde el respaldo en `runs/lab/`): `z16r2`, `z18r2` (hacia
 1M), `z21` (tasa que baja con horizonte 400k), `z51`, `z74`, `z75`. Próximo paso sugerido:
 lotes de 256–512 + tasa que baja con horizonte largo, y llevarlo a 4–7 jugadores.
+
+### Noche del 28 al 29/10 (detalle en `docs/reportes/2026-10-28.md`)
+
+En la labo-s004-19 (otra vez entorno de cero; se subieron `z16`, `z18`, `z21` y `n3_exact` desde
+el respaldo). Cola `queue6`, 8 en la GPU: `z21r` (hasta 400k), lotes de 512 + tasa que baja con 3
+jugadores y 3 semillas (`a10`–`a12`, 400k), 4 jugadores (`a40`) y 7 (`a70`) con lotes de 256 +
+tasa que baja, y `z16r2`/`z18r2` hacia 1M. En CPU, la ronda de 2 cartas exacta de 3 jugadores.
+Probado: cortar la VPN no afecta a las corridas.
 
 ## Bugs encontrados (25/10/2026)
 
