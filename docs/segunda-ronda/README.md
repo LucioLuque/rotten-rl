@@ -107,6 +107,14 @@ La exacta está incluso menos convergida (quien se desvía gana hasta 0.11 sobre
 repartos, contra 0.08 de B). **La agrupación B no pierde nada medible**; la exacta no se sigue.
 Detalle en `docs/reportes/2026-10-29.md`.
 
+## El agente contra la tabla (30/10/2026)
+
+`scripts/exact/compare_round2_agent.py` (con `round2 serve`): el agente en una posición, la tabla
+en las demás, contra la tabla en esa posición. Con 3 jugadores (`c10`) pierde 0.035 puntos por
+ronda y con 4 (`b40`) 0.060; la heurística, 1.24 y 0.79. Elige el mismo canto que la tabla el 95%
+de las veces y la misma carta el 77–79%. **El agente ya juega la ronda 2 casi en equilibrio.**
+Detalle en `docs/reportes/2026-10-29.md`.
+
 ## Pendiente
 
 - **Agrupación C** (plan del 30/10/2026): para la jugada, en vez de cada carta tirada y los cantos
@@ -118,4 +126,3 @@ Detalle en `docs/reportes/2026-10-29.md`.
 
 - Escalar a 5 y 7 jugadores: con 5 la agrupación B ya no entra en memoria junto a las corridas
   de PPO; hace falta otra agrupación o podar situaciones poco frecuentes.
-- Comparar con el agente de RL en las mismas situaciones, como en la ronda de 1 carta.

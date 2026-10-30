@@ -291,7 +291,8 @@ contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara 
    motor. Converge en 8 minutos; la estrategia le saca ~1 punto por ronda a la heurística.
    Comparada con la exacta (29/10): la agrupación no pierde nada medible. Pendiente: 5 a 7
    jugadores (no entra en memoria con B): agrupación C, validada con 3 y 4 contra B y
-   corrida para 5, 6 y 7 (plan en `docs/segunda-ronda/README.md`); después, comparar con el agente.
+   corrida para 5, 6 y 7 (plan en `docs/segunda-ronda/README.md`). Agente contra la tabla (30/10):
+   con 3 y 4 jugadores pierde 0.04–0.06 puntos por ronda (la heurística, 0.8–1.2): casi en equilibrio.
 6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
    para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
