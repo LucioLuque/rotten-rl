@@ -125,7 +125,8 @@ cola (`TERMINO <n>`), apareció un archivo esperado, como la salida de un torneo
 las 06:35 (`HORA`: respaldo y reporte) o el lab no responde (`FALLA`). Cada consulta abre su propia
 conexión (`-o ControlPath=none`), así que no la afecta que se rompa la compartida; si falla dos
 veces seguidas (~5 minutos), cierra la compartida y sale con `FALLA`, en vez de seguir como si no
-pasara nada. No consulta el lab entre las 06:58 y las 22:00.
+pasara nada. De lunes a viernes no consulta el lab entre las 06:35 y las 22:00; sábados y domingos
+mira todo el día.
 
 ```bash
 scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md   # rutas relativas a ~/scratch
@@ -195,8 +196,9 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.p
 - Cada `--checkpoint_every` partidas (10.000 por defecto) se guarda el estado completo en
   `<corrida>/state/ckpt_ep<N>/` (redes, optimizadores, contadores, buffers y RNGs). Se conservan los
   últimos `--keep_checkpoints` (2).
-- `--stop_at 06:55` corta solo a esa hora guardando un checkpoint, antes del corte de SSH de las
-  07:00 y del reinicio de las 07:30. También corta prolijo con `SIGTERM`, `SIGHUP` o `Ctrl+C`:
+- `--stop_at lab` corta a las 06:55 de la próxima mañana de día hábil guardando un checkpoint,
+  antes del corte de SSH de las 07:00 y del reinicio de las 07:30 (el viernes a la noche significa
+  el lunes; `--stop_at HH:MM` corta a esa hora sin mirar el día, y un feriado no se detecta). También corta prolijo con `SIGTERM`, `SIGHUP` o `Ctrl+C`:
   termina la partida en curso, guarda y sale.
 - Para seguir otra noche:
   ```bash

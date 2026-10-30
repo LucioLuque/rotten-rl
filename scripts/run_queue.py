@@ -28,7 +28,7 @@ cola o su tmux mueren, siguen corriendo (y Ctrl+C en la cola no las corta).
 
 Ejemplo (en el lab, dentro de tmux):
     python scripts/run_queue.py --queue ~/scratch/queue.txt --parallel 10 --max_total 11 \
-        --stop_at 06:55 --no_launch_after 06:00
+        --stop_at lab --no_launch_after lab
 """
 
 import argparse
@@ -40,14 +40,8 @@ import subprocess
 import sys
 import time
 
-
-def _next_time(hhmm):
-    if not hhmm:
-        return None
-    hh, mm = (int(x) for x in hhmm.split(":"))
-    now = datetime.datetime.now()
-    when = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    return when if when > now else when + datetime.timedelta(days=1)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from rotten_rl.lab_hours import LAB_LAST_LAUNCH, next_time  # noqa: E402
 
 
 TRAINING_SCRIPTS = ("train.py",)
@@ -125,8 +119,8 @@ def main():
                    help="script de entrenamiento, relativo al repo")
     p.add_argument("--runs_dir", default=os.path.expanduser("~/scratch/runs"))
     p.add_argument("--logs_dir", default=os.path.expanduser("~/scratch/logs"))
-    p.add_argument("--stop_at", default=None, help="HH:MM, se le pasa a cada corrida")
-    p.add_argument("--no_launch_after", default=None, help="HH:MM, no lanzar nada nuevo despues")
+    p.add_argument("--stop_at", default=None, help="HH:MM o lab (próxima mañana de día hábil), se le pasa a cada corrida")
+    p.add_argument("--no_launch_after", default=None, help="HH:MM o lab, no lanzar nada nuevo despues")
     p.add_argument("--poll", type=int, default=30, help="segundos entre vueltas")
     a = p.parse_args()
 
@@ -139,7 +133,8 @@ def main():
             started = {line.strip() for line in f if line.strip()}
     os.makedirs(a.runs_dir, exist_ok=True)
     os.makedirs(a.logs_dir, exist_ok=True)
-    stop_at, no_launch_after = _next_time(a.stop_at), _next_time(a.no_launch_after)
+    stop_at = next_time(a.stop_at) if a.stop_at else None
+    no_launch_after = next_time(a.no_launch_after, LAB_LAST_LAUNCH) if a.no_launch_after else None
     # A las corridas de CPU se les oculta la GPU: sin ella torch no crea el
     # contexto CUDA (~386 MB de VRAM y ~90 MB de RAM por corrida; resultados
     # identicos). Las que piden --device cuda la ven.

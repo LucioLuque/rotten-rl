@@ -29,7 +29,7 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   los cachés en `~/scratch` y se llena la cuota de 2 GB del home.
 - Entrenar con `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES=` (más rápido con estas
   redes; sin GPU visible torch no reserva VRAM ni ~90 MB de RAM por corrida) y dentro de
-  `tmux`, con `--runs_dir ~/scratch/runs`, `--stop_at 06:55` y el log en
+  `tmux`, con `--runs_dir ~/scratch/runs`, `--stop_at lab` y el log en
   `~/scratch/logs/<corrida>.log`. Las corridas largas se retoman con `--resume <corrida>`.
 - Nunca buscar procesos por patrón de texto (`pkill -f`, `pgrep -f`) desde un `ssh labs004 '...'`:
   el patrón aparece también en el comando de la propia sesión y coincide con ella (pasó dos veces:
@@ -44,7 +44,10 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   `2>/dev/null` estuvo 3 horas ciego por la conexión compartida rota y no se reemplazaron 7
   corridas.)
 - Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);
-  fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas.
+  fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas. `--stop_at lab` y
+  `--no_launch_after lab` corren hasta la próxima mañana de día hábil (06:55 y 06:00): el viernes a
+  la noche significa el lunes. El fin de semana lanzar el vigilante de VPN con fecha:
+  `udesa-vpn-watch "<lunes> 07:00"`. El primero de cada mes hay mantenimiento nocturno.
 - **Nada se conecta al lab fuera de horario**: toda espera o monitor que haga `ssh labs004` tiene
   que terminar a las 07:00 en días hábiles. El 27/10 una espera siguió y a las 07:32, con la -04
   reiniciando, el lab nos asignó otra máquina (la -17) y quedamos sin acceso a `~/scratch` de la -04.

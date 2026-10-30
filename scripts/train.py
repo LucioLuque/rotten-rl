@@ -46,6 +46,7 @@ import rotten_rl.openspiel_game                   # registra el juego "podrida"
 from rotten_rl.algorithms import ALGORITHMS
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent
+from rotten_rl.lab_hours import next_time
 from rotten_rl.run_logger import RunLogger
 from rotten_rl.training import EpisodeRunner
 from rotten_rl.vector import VectorRunner
@@ -87,8 +88,8 @@ flags.DEFINE_integer("keep_checkpoints", 2, "Cuantos checkpoints completos conse
 flags.DEFINE_bool("compact_buffers", True,
                   "Guardar el info-state comprimido en los buffers (sin perdida, ~7 veces menos "
                   "RAM; ver rotten_rl/buffers.py).")
-flags.DEFINE_string("stop_at", None, "Hora local HH:MM a la que cortar guardando un checkpoint "
-                    "(p.ej. 06:55, antes del reinicio de las 07:30 del lab).")
+flags.DEFINE_string("stop_at", None, "Hora local HH:MM a la que cortar guardando un checkpoint, o lab: "
+                    "la proxima manana de dia habil (rotten_rl/lab_hours.py).")
 # --- red ---
 flags.DEFINE_list("hidden_layers_sizes", [256, 256], "Capas ocultas.")
 # --- DQN (el de NFSP y el compartido) ---
@@ -174,18 +175,6 @@ def _apply_algo_defaults(cls):
     for key, value in cls.FLAG_DEFAULTS.items():
         if not FLAGS[key].present:
             FLAGS[key].value = value
-
-
-def _deadline(stop_at):
-    """Proximo instante local HH:MM (hoy si todavia no paso; si no, manana)."""
-    if not stop_at:
-        return None
-    hh, mm = (int(x) for x in stop_at.split(":"))
-    now = datetime.datetime.now()
-    when = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    if when <= now:
-        when += datetime.timedelta(days=1)
-    return when
 
 
 def main(_):
@@ -285,7 +274,7 @@ def main(_):
         stop["why"] = signal.Signals(signum).name
     for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(sig, _on_signal)
-    deadline = _deadline(FLAGS.stop_at)
+    deadline = next_time(FLAGS.stop_at) if FLAGS.stop_at else None
     if deadline is not None:
         logging.info("Corta a las %s", deadline.strftime("%Y-%m-%d %H:%M"))
 

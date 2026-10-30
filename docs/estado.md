@@ -251,7 +251,8 @@ contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara 
 ## Próximos pasos
 
 **Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
-recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11:
+recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11 (**pasos exactos para el viernes a las 22:00 en
+`docs/reportes/2026-10-30.md`**):
 
 - Primero, sin métricas nuevas ni observación nueva: retomar `d11`, `d12` y `e70` con el código del
   commit anterior a las métricas.

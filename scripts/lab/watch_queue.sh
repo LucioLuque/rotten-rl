@@ -11,13 +11,15 @@
 #   que se rompe del lado del lab ("unknown userid") y dejaba al vigilante sin ver nada (noche del
 #   29/10: 3 horas a ciegas, 7 lugares sin reemplazo).
 # - Si falla 2 veces seguidas (~5 minutos), cierra la conexión compartida y sale con FALLA.
-# - Sale con HORA a las 06:35 (respaldo y reporte) y nunca consulta el lab entre las 06:58 y las
-#   22:00 (días hábiles: el lab cierra a las 07:00).
+# - De lunes a viernes sale con HORA a las 06:35 (respaldo y reporte) y no consulta el lab hasta
+#   las 22:00, porque cierra a las 07:00. Sábados y domingos sigue mirando todo el día.
 log=$1; known=$2; file=${3:-}
 fails=0
 while true; do
-  now=$((10#$(date +%H%M)))
-  if [ $now -ge 635 ] && [ $now -lt 2200 ]; then echo "HORA $(date +%H:%M)"; exit 0; fi
+  now=$((10#$(date +%H%M))); dow=$(date +%u)          # 1 = lunes ... 7 = domingo
+  if [ "$dow" -le 5 ] && [ $now -ge 635 ] && [ $now -lt 2200 ]; then
+    echo "HORA $(date +%H:%M)"; exit 0
+  fi
   out=$(timeout 60 ssh -o ControlPath=none -o ConnectTimeout=20 labs004 \
     "grep -c terminó ~/scratch/logs/$log; if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi" 2>&1)
   n=$(echo "$out" | sed -n 1p); f=$(echo "$out" | sed -n 2p)
