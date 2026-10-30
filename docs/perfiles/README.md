@@ -34,6 +34,17 @@ ya entran: `--eval_opponents` de `train.py` y `--agents` de `scripts/eval/tourna
 
 Código en `rotten_rl/perfiles/`; la interfaz es `scripts/play.py`.
 
+Torneo con 2 jugadores (1.000 repartos duplicados, win rate de la fila contra la columna, ±0.01):
+
+| | heuristic | arriesgado | conservador | a_perder |
+|---|---|---|---|---|
+| heuristic | — | 0.556 | 0.735 | 0.912 |
+| arriesgado | 0.444 | — | 0.687 | 0.828 |
+| conservador | 0.266 | 0.313 | — | 0.770 |
+| a_perder | 0.088 | 0.172 | 0.230 | — |
+
+Son estilos bien distintos, y ninguno le gana a la heurística.
+
 ## Imitar a una persona
 
 No hace falta que el perfil se pueda leer: alcanza con que juegue parecido, para medir modelos.
