@@ -77,9 +77,13 @@ complementan. Está en `rotten_rl/perfiles/situaciones.py`.
 ## La interfaz
 
 `scripts/play.py` y `rotten_rl/renderer.py` (Pygame). Corre sobre el estado de OpenSpiel
-(`rotten_rl/perfiles/partida.py`), así que el rival puede ser cualquier perfil o modelo. Se puede revisar
-sin ventana, guardando capturas (`render_mode="rgb_array"`, Pygame en modo `dummy`). Muestra tu lugar en
-el canto y en la baza, y por qué falta un canto.
+(`rotten_rl/perfiles/partida.py`), así que el rival puede ser cualquier perfil o modelo. Muestra tu lugar
+en el canto y en la baza, por qué falta un canto y contra quién jugás. En las situaciones, las cartas ya
+jugadas van por palo en el panel, porque no se vieron caer.
+
+`scripts/perfiles/capturas.py` juega con clicks de verdad en cada mesa y tamaño de pantalla y guarda
+capturas. Revisado el 30/10/2026 con 2 a 7 jugadores en 1920×1080, 1366×768 y 1100×650. `tests/
+test_renderer.py` controla que las cartas de la baza no se pisen.
 
 ## Cómo se mide cada entrenamiento
 

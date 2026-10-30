@@ -337,7 +337,9 @@ class PodridaPygameRenderer:
         self.hand_card_h = int(min(220, max(84, self.hand_zone_height * 0.60)))
         self.hand_card_w = int(self.hand_card_h * 0.70)
 
-        self.trick_card_h = int(max(62, min(180, th * 0.27) * crowd))
+        # Con 6 o 7 hay que meter esa cantidad de cartas entre los asientos.
+        trick_scale = 0.8 if num_players >= 6 else 1.0
+        self.trick_card_h = int(max(62, min(180, th * 0.27) * crowd * trick_scale))
         self.trick_card_w = int(self.trick_card_h * 0.70)
 
         self.fan_card_h = int(max(34, min(96, th * 0.125) * crowd))
@@ -414,6 +416,11 @@ class PodridaPygameRenderer:
         freeze_last_trick: bool = False,
         next_round_button: bool = False,
         mouse_pos: Optional[Point] = None,
+        next_label: str = "Siguiente ronda  →",
+        spot_progress: Optional[str] = None,
+        played_cards: Optional[Sequence[Card]] = None,
+        status: Optional[str] = None,
+        banner: Optional[Tuple[str, str, str]] = None,
     ) -> Optional[Any]:
         """
         Dibuja el estado actual del juego.
@@ -429,6 +436,11 @@ class PodridaPygameRenderer:
             freeze_last_trick: muestra la última baza completa en el centro.
             next_round_button: dibuja el botón "Siguiente ronda".
             mouse_pos: posición del mouse para efectos de hover.
+            next_label: texto del botón de avanzar.
+            spot_progress: "3 / 150" en una serie de situaciones sueltas.
+            played_cards: cartas ya jugadas, en el panel en vez del historial.
+            status: texto chico a la derecha del encabezado (rival, si se guarda).
+            banner: (título, detalle, texto del botón) del cartel final.
         """
         if self._closed:
             return None
@@ -452,18 +464,21 @@ class PodridaPygameRenderer:
         seats = self._seat_layout(game, perspective_idx)
 
         surface.blit(self._background(), (0, 0))
-        self._draw_header(surface, game, round_number, total_rounds, perspective_idx)
+        self._draw_header(surface, game, round_number, total_rounds, perspective_idx,
+                          spot_progress, status)
         self._draw_table(surface, game)
         self._draw_seats(surface, game, seats, reveal_all)
         self._draw_trick(surface, game, seats, freeze_last_trick)
         self._draw_hand(surface, game, perspective_idx, mouse_pos)
-        self._draw_scoreboard(surface, game, history, perspective_idx)
+        self._draw_scoreboard(surface, game, history, perspective_idx, played_cards)
         self._draw_message_bar(surface, game, message)
 
         if show_bid_buttons:
             self._draw_bid_buttons(surface, game, mouse_pos)
         if next_round_button:
-            self._draw_next_round_button(surface, mouse_pos)
+            self._draw_next_round_button(surface, mouse_pos, next_label)
+        if banner:
+            self._draw_banner(surface, banner, mouse_pos)
 
         if self.render_mode == "human":
             pygame.display.flip()
@@ -530,6 +545,8 @@ class PodridaPygameRenderer:
         round_number: Optional[int],
         total_rounds: Optional[int],
         perspective_idx: int = 0,
+        spot_progress: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> None:
         title = self._text(
             surface, "LA PODRIDA",
@@ -545,6 +562,8 @@ class PodridaPygameRenderer:
         }.get(game.phase, game.phase)
 
         chips: List[Tuple[str, str]] = []
+        if spot_progress:
+            chips.append(("Situación", spot_progress))
         if round_number is not None:
             label = f"{round_number}" + (f"/{total_rounds}" if total_rounds else "")
             chips.append(("Ronda", label))
@@ -565,6 +584,9 @@ class PodridaPygameRenderer:
         label_y = int(self.header_height * 0.22)
         value_y = int(self.header_height * 0.46)
         limit = self.width - self._px(16)
+        if status:
+            status_img = self._text(surface, status, (limit, value_y), 13, self.MUTED, align="right")
+            limit = status_img.left - self._px(20)
 
         for label, value in chips:
             color = self.TEXT
@@ -580,6 +602,63 @@ class PodridaPygameRenderer:
             self._text(surface, label.upper(), (x, label_y), 12, self.MUTED, bold=True)
             self._text(surface, value, (x, value_y), 20, color, bold=True)
             x += max(lw, vw) + self._px(30)
+
+    def _trick_slots(self, game: PodridaGame, seats: Sequence[SeatLayout]) -> Dict[int, Any]:
+        """Dónde va la carta de cada jugador. Se calcula para todos, hayan jugado o no, así una
+        carta no se mueve cuando caen las siguientes, y se separan las que se pisarían."""
+        pygame = self._require_pygame()
+        tx, ty, tw, th = self._table_rect
+        cx, cy = tx + tw // 2, ty + th // 2
+        cw, ch = self.trick_card_w, self.trick_card_h
+        obstacles = [seat.block for seat in seats if seat.visible]
+        obstacles.append(self._trump_rect())
+        slots: Dict[int, Any] = {}
+
+        for seat in seats:
+            ax, ay = seat.anchor
+            rect = pygame.Rect(0, 0, cw, ch)
+            if game.num_players == 2:    # enfrentados: lado a lado, si no se pisan
+                side = -1 if ay < cy else 1
+                rect.center = (cx + side * int(cw * 0.62), cy)
+                slots[seat.player_index] = rect
+                continue
+            # Se acerca la carta al centro hasta que deje de pisar cualquier asiento.
+            f = 0.46
+            while f >= 0.10:
+                rect.center = (int(cx + (ax - cx) * f), int(cy + (ay - cy) * f))
+                pad = self._px(7)
+                if not any(rect.colliderect(o.inflate(pad, pad)) for o in obstacles):
+                    break
+                f -= 0.02
+            slots[seat.player_index] = rect
+
+        # Debajo de cada carta va el nombre: cuenta como parte de la carta.
+        label = self._px(34)
+        gap = self._px(6)
+        items = list(slots.values())
+        for _ in range(80):
+            moved = False
+            for i, a in enumerate(items):
+                for b in items[i + 1:]:
+                    box_a = pygame.Rect(a.x, a.y, a.w, a.h + label).inflate(gap, gap)
+                    box_b = pygame.Rect(b.x, b.y, b.w, b.h + label).inflate(gap, gap)
+                    if not box_a.colliderect(box_b):
+                        continue
+                    over_x = min(box_a.right, box_b.right) - max(box_a.left, box_b.left)
+                    over_y = min(box_a.bottom, box_b.bottom) - max(box_a.top, box_b.top)
+                    moved = True
+                    # Se abren a los costados: en vertical terminarían sobre un asiento.
+                    if over_x <= over_y * 2:
+                        step = (over_x + 1) // 2 * (1 if a.centerx >= b.centerx else -1)
+                        a.x += step
+                        b.x -= step
+                    else:
+                        step = (over_y + 1) // 2 * (1 if a.centery >= b.centery else -1)
+                        a.y += step
+                        b.y -= step
+            if not moved:
+                break
+        return slots
 
     @staticmethod
     def _position_label(game: PodridaGame, player_idx: int) -> str:
@@ -834,27 +913,12 @@ class PodridaPygameRenderer:
             return
 
         by_player = {seat.player_index: seat for seat in seats}
-        obstacles = [seat.block for seat in seats if seat.visible]
-        obstacles.append(self._trump_rect())
         cw, ch = self.trick_card_w, self.trick_card_h
         lead_suit = trick[0][1].suit
+        slots = self._trick_slots(game, seats)
 
         for i, (player_idx, card) in enumerate(trick):
-            seat = by_player.get(player_idx)
-            ax, ay = seat.anchor if seat is not None else (cx, cy)
-
-            # Se acerca la carta al centro hasta que deje de pisar cualquier asiento.
-            rect = pygame.Rect(0, 0, cw, ch)
-            f = 0.46
-            while f >= 0.10:
-                rect.center = (int(cx + (ax - cx) * f), int(cy + (ay - cy) * f))
-                pad = self._px(7)
-                if not any(rect.colliderect(o.inflate(pad, pad)) for o in obstacles):
-                    break
-                f -= 0.02
-            if game.num_players == 2:    # enfrentados: lado a lado, si no se pisan
-                side = -1 if ay < cy else 1
-                rect.center = (cx + side * int(cw * 0.62), cy)
+            rect = slots.get(player_idx, pygame.Rect(cx - cw // 2, cy - ch // 2, cw, ch))
 
             is_lead = i == 0
             self._blit_card(
@@ -930,7 +994,7 @@ class PodridaPygameRenderer:
         area_w = mw - (area_x - mx) - self._px(16)
 
         if not cards:
-            self._text(surface, "sin cartas", (area_x, zone.centery), 18, self.MUTED)
+            pass
             return
 
         if is_current and game.phase == "playing":
@@ -1046,19 +1110,53 @@ class PodridaPygameRenderer:
             self.bid_hitboxes.append((rect, bid))
             x += bw + gap
 
-    def _draw_next_round_button(self, surface: Any, mouse_pos: Optional[Point]) -> None:
+    def _draw_action_button(self, surface: Any, rect: Any, label: str, name: str,
+                            mouse_pos: Optional[Point]) -> None:
         pygame = self._require_pygame()
-        mx, my, mw, mh = self._main_rect
-        rect = pygame.Rect(0, 0, self._px(240), self._px(52))
-        rect.center = (mx + mw // 2, my + mh - self.hand_zone_height - self._px(56))
         hover = mouse_pos is not None and rect.collidepoint(mouse_pos)
         pygame.draw.rect(surface, self.GOLD if hover else self.PANEL, rect, border_radius=self._px(12))
         pygame.draw.rect(surface, self.GOLD, rect, width=self._px(2), border_radius=self._px(12))
-        self._text(
-            surface, "Siguiente ronda  →", rect.center, 20,
-            self.PANEL if hover else self.GOLD, center=True, bold=True,
-        )
-        self.button_hitboxes.append((rect, "next_round"))
+        self._text(surface, label, rect.center, 20, self.PANEL if hover else self.GOLD,
+                   center=True, bold=True)
+        self.button_hitboxes.append((rect, name))
+
+    def _draw_next_round_button(self, surface: Any, mouse_pos: Optional[Point],
+                                label: str) -> None:
+        pygame = self._require_pygame()
+        mx, my, mw, mh = self._main_rect
+        rect = pygame.Rect(0, 0, self._px(260), self._px(56))
+        # La mano ya está vacía: el botón va donde estaba, sin tapar la mesa.
+        rect.center = (mx + mw // 2,
+                       my + mh - self.hand_zone_height + (self.hand_zone_height - self.message_height) // 2)
+        self._draw_action_button(surface, rect, label, "next_round", mouse_pos)
+
+    def _draw_banner(self, surface: Any, banner: Tuple[str, str, str],
+                     mouse_pos: Optional[Point]) -> None:
+        """Cartel del final, sobre la mesa."""
+        pygame = self._require_pygame()
+        title, detail, button = banner
+        mx, my, mw, mh = self._main_rect
+        panel = pygame.Rect(0, 0, min(mw - self._px(60), self._px(560)), self._px(208))
+        panel.center = (mx + mw // 2, my + (mh - self.hand_zone_height) // 2)
+        pygame.draw.rect(surface, self.PANEL, panel, border_radius=self._px(16))
+        pygame.draw.rect(surface, self.GOLD, panel, width=self._px(2), border_radius=self._px(16))
+        self._text(surface, self._ellipsize(title, 26, panel.w - self._px(40), bold=True),
+                   (panel.centerx, panel.y + self._px(44)), 26, self.GOLD, center=True, bold=True)
+        self._text(surface, self._ellipsize(detail, 16, panel.w - self._px(40)),
+                   (panel.centerx, panel.y + self._px(88)), 16, self.TEXT, center=True)
+        rect = pygame.Rect(0, 0, self._px(220), self._px(52))
+        rect.center = (panel.centerx, panel.bottom - self._px(52))
+        self._draw_action_button(surface, rect, button, "banner", mouse_pos)
+
+    def splash(self, text: str) -> None:
+        """Pantalla de espera, antes de que haya una partida."""
+        pygame = self._require_pygame()
+        surface = self._screen if self.render_mode == "human" else self._surface
+        surface.blit(self._background(), (0, 0))
+        self._text(surface, text, (self.width // 2, self.height // 2), 22, self.GOLD,
+                   center=True, bold=True)
+        if self.render_mode == "human":
+            pygame.display.flip()
 
     # ------------------------------------------------------------------
     # Marcador
@@ -1070,6 +1168,7 @@ class PodridaPygameRenderer:
         game: PodridaGame,
         history: Optional[Sequence[RoundRecord]],
         perspective_idx: int,
+        played_cards: Optional[Sequence[Card]] = None,
     ) -> None:
         pygame = self._require_pygame()
         px0 = self.width - self.panel_width
@@ -1150,15 +1249,21 @@ class PodridaPygameRenderer:
         pygame.draw.line(surface, self.PANEL_LINE, (x0, y), (x0 + inner_w, y))
         y += self._px(12)
 
+        if played_cards is not None:
+            self._draw_played_cards(surface, played_cards, game.trump_suit, x0, y)
+            return
+
         # ---------- Historial ----------
         n = game.num_players
-        self._text(surface, "HISTORIAL", (x0, y), 13, self.GOLD, bold=True)
-        self._text(surface, "canto · bazas · pts", (px0 + self.panel_width - pad, y + 1), 11,
-                   self.MUTED, align="right")
-        y += self._px(20)
-
         r_col = self._px(26)
         col_w = (inner_w - r_col) / n
+        # Si no entran canto, bazas y puntos, quedan los puntos: el verde dice si cumplió.
+        compact = col_w < self._px(66)
+        self._text(surface, "HISTORIAL", (x0, y), 13, self.GOLD, bold=True)
+        self._text(surface, "puntos · verde: cumplió" if compact else "canto · bazas · pts",
+                   (px0 + self.panel_width - pad, y + 1), 11, self.MUTED, align="right")
+        y += self._px(20)
+
         hist_size = 12 if n <= 4 else (11 if n <= 6 else 10)
         pair_dx = col_w * 0.25
         pts_dx = col_w * 0.27
@@ -1193,6 +1298,10 @@ class PodridaPygameRenderer:
                 won = record.tricks[i] if i < len(record.tricks) else 0
                 pts = record.points[i] if i < len(record.points) else 0
                 hit = bid == won
+                if compact:
+                    self._text(surface, f"+{pts}", (int(cx_col), y + 1), hist_size,
+                               self.GREEN if hit else self.MUTED, align="center")
+                    continue
                 self._text(surface, f"{bid}·{won}", (int(cx_col - pair_dx), y + 1), hist_size,
                            self.GREEN if hit else self.MUTED, align="center")
                 self._text(surface, f"+{pts}", (int(cx_col + pts_dx), y + 1), hist_size,
@@ -1206,6 +1315,23 @@ class PodridaPygameRenderer:
             cx_col = x0 + r_col + col_w * (i + 0.5)
             self._text(surface, str(player.score), (int(cx_col), totals_y - self._px(2)), 16, self.GOLD,
                        align="center", bold=True)
+
+    def _draw_played_cards(self, surface: Any, cards: Sequence[Card], trump: Optional[str],
+                           x0: int, y: int) -> None:
+        """Las cartas ya jugadas en la ronda, por palo: en una situación suelta no se vieron caer."""
+        self._text(surface, "YA JUGADAS EN ESTA RONDA", (x0, y), 13, self.GOLD, bold=True)
+        y += self._px(26)
+        for suit in sorted(self.SUIT_SYMBOLS, key=lambda s: s != trump):
+            ranks = sorted((c for c in cards if c.suit == suit), key=lambda c: -c.value)
+            color = (240, 120, 120) if suit in self.RED_SUITS else self.TEXT
+            self._text(surface, self.SUIT_SYMBOLS[suit], (x0, y), 20, color, bold=True)
+            text = "  ".join(c.rank for c in ranks) or "–"
+            self._text(surface, text, (x0 + self._px(30), y + self._px(3)), 16,
+                       self.TEXT if ranks else self.MUTED)
+            if suit == trump:
+                note = self._font(16).size(text)[0] + self._px(42)
+                self._text(surface, "triunfo", (x0 + note, y + self._px(5)), 12, self.MUTED)
+            y += self._px(32)
 
     @staticmethod
     def _projected_points(player: Any) -> int:
@@ -1426,9 +1552,9 @@ class PodridaPygameRenderer:
 
     def _card_surface(self, card: Card, w: int, h: int) -> Any:
         """
-        Cara de la carta: solo el índice (número + palo debajo) en las esquinas.
-        El centro queda en blanco: con los pips centrales, el 10 y las cartas
-        chicas se amontonaban y no se leía nada.
+        Cara de la carta: el índice (número + palo debajo) en las esquinas y un solo
+        palo grande al centro, para reconocerla de un vistazo. Con todos los pips
+        centrales, el 10 y las cartas chicas se amontonaban y no se leía nada.
         """
         key = (card.rank, card.suit, w, h)
         if key in self._card_cache:
@@ -1448,8 +1574,10 @@ class PodridaPygameRenderer:
 
         if h >= 76:
             # Carta grande: índice arriba a la izquierda y repetido invertido abajo.
-            corner = self._index_surface(card, H, color, rank_ratio=0.18, pip_ratio=0.125)
+            corner = self._index_surface(card, H, color, rank_ratio=0.18, pip_ratio=0.15)
             surf.blit(corner, (margin_x, margin_y))
+            center = self._pip_surface(card.suit, int(H * 0.32), color)
+            surf.blit(center, ((W - center.get_width()) // 2, (H - center.get_height()) // 2))
             surf.blit(
                 pygame.transform.rotate(corner, 180),
                 (W - margin_x - corner.get_width(), H - margin_y - corner.get_height()),

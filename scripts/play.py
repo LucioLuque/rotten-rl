@@ -101,8 +101,11 @@ class PodridaApp:
         self.mouse_pos = (0, 0)
         self.running = True
         self.spots = None
+        self.status = f"contra {self.rival_name}" + (f" · guardando en {args.perfil}" if self.saving else "")
         if args.situaciones:
             self.saving = True
+            self.status = f"guardando en {args.perfil}"
+            self.renderer.splash("Eligiendo las situaciones más importantes…")
             picked = pick_spots(self.pyspiel_game, args.situaciones, args.reparto_seed,
                                 skip=answered(folder))
             self.spots = SpotSession(self.pyspiel_game, picked, self.log)
@@ -135,17 +138,13 @@ class PodridaApp:
         self.finished = spots.finished
         if spots.finished:
             self.message = spots.finished_message
-            self.running = False
             return
         self.match = spots
         self.seat = spots.seat
         others = iter(PLAYER_NAMES[1:])
         for i, player in enumerate(self.game.players):
             player.name = PLAYER_NAMES[0] if i == self.seat else next(others)
-        played = [c for trick in self.game.completed_tricks for _, c in trick]
-        seen = " ".join(self.card_label(c) for c in played)
-        self.message = f"Situación {spots.index + 1} de {len(spots.spots)}" + (
-            f". Ya jugadas: {seen}" if seen else "")
+        self.message = "Cantá." if self.game.phase == "bidding" else "Elegí una carta."
 
     # ------------------------------------------------------------------
 
@@ -219,8 +218,15 @@ class PodridaApp:
     def handle_click(self, pos) -> None:
         game = self.game
 
+        button = self.renderer.button_at(pos)
+        if button == "banner":
+            if self.spots is not None:
+                self.running = False
+            else:
+                self.new_match()
+            return
         if game.phase == "done" or self.finished:
-            if self.renderer.button_at(pos) == "next_round":
+            if button == "next_round":
                 self.advance_round()
             return
 
@@ -302,7 +308,7 @@ class PodridaApp:
         if self.match.finished:
             self.finished = True
             winner = max(self.game.players, key=lambda p: p.score)
-            self.message = f"Partida terminada. Ganó {winner.name} con {winner.score} puntos. (R para jugar otra)"
+            self.message = f"Partida terminada. Ganó {winner.name} con {winner.score} puntos."
             return
         self.match.next_round()
         self.round_recorded = False
@@ -330,22 +336,43 @@ class PodridaApp:
 
     # ------------------------------------------------------------------
 
+    def banner(self):
+        if self.spots is not None:
+            if not self.spots.finished:
+                return None
+            return ("Listo", f"Respondiste {len(self.spots.spots)} situaciones. Ya quedaron guardadas.",
+                    "Cerrar")
+        if not self.finished:
+            return None
+        ranking = sorted(self.game.players, key=lambda p: -p.score)
+        won = ranking[0].name == PLAYER_NAMES[0]
+        title = "¡Ganaste!" if won else f"Ganó {ranking[0].name}"
+        return title, " · ".join(f"{p.name} {p.score}" for p in ranking), "Otra partida"
+
     def draw(self):
         game = self.game
         human_turn = self.match.human_turn and not self.autoplay and not self.frozen
+        spot = self.spots is not None
+        over = self.match.round_over and not spot
         return self.renderer.render(
             game,
             perspective_player=self.seat,
             reveal_all=self.reveal_all,
             message=self.message,
             history=self.history,
-            round_number=(self.match.state._round_ptr + 1 if self.spots is not None
+            round_number=(self.match.state._round_ptr + 1 if spot
                           else len(self.history) + (0 if self.match.round_over else 1)),
             total_rounds=len(self.pyspiel_game.ladder),
             show_bid_buttons=human_turn and game.phase == "bidding",
             freeze_last_trick=self.frozen or game.phase == "done",
-            next_round_button=game.phase == "done" and not self.finished,
+            next_round_button=over and not self.finished,
             mouse_pos=self.mouse_pos,
+            next_label="Ver resultado  →" if self.match.finished else "Siguiente ronda  →",
+            spot_progress=(f"{min(self.spots.index + 1, len(self.spots.spots))} / {len(self.spots.spots)}"
+                           if spot else None),
+            played_cards=([c for trick in game.completed_tricks for _, c in trick] if spot else None),
+            status=self.status,
+            banner=self.banner(),
         )
 
 
