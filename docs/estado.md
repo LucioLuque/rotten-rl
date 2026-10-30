@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 28/10/2026 (noche).
+Última actualización: 29/10/2026 (noche).
 
 ## Hecho
 
@@ -216,6 +216,18 @@ el respaldo). Cola `queue6`, 8 en la GPU: `z21r` (hasta 400k), lotes de 512 + ta
 jugadores y 3 semillas (`a10`–`a12`, 400k), 4 jugadores (`a40`) y 7 (`a70`) con lotes de 256 +
 tasa que baja, y `z16r2`/`z18r2` hacia 1M. En CPU, la ronda de 2 cartas exacta de 3 jugadores.
 Probado: cortar la VPN no afecta a las corridas.
+Todo terminó antes del corte (recuperado la noche del 29, otra vez en la -19): **3 jugadores
+llega a un techo de ~0.52** contra la heurística con cualquier variante (lotes de 128 a 1024, con
+o sin tasa que baja, 400k o 1M); con lotes de 256 + tasa que baja, 4 jugadores 0.45–0.46 (300k),
+5 jugadores 0.40–0.41 (300k) y 7 jugadores 0.30–0.31 (200k), todas todavía subiendo al final.
+
+### Noche del 29 al 30/10 (detalle en `docs/reportes/2026-10-29.md`)
+
+Cola `queue7`, 8 en la GPU, todo con tasa que baja: horizontes largos para 7 (`b70`–`b72`,
+375k), 5 (`b50`, 550k), 4 (`b40`, 700k) y 3 jugadores (`c10`, 900k); y la primera prueba del
+**crítico centralizado** (`--ppo_critic central`, MAPPO: el crítico ve las manos ajenas al
+entrenar) con 3 (`d10`) y 7 jugadores (`d70`), con la misma receta que `a10` y `a70`. En CPU,
+torneo de 3 jugadores entre las variantes de anoche.
 
 ## Bugs encontrados (25/10/2026)
 
@@ -248,7 +260,7 @@ Probado: cortar la VPN no afecta a las corridas.
    receta la baja hasta 0 (podría explicar el estancamiento con lotes de 32) → `--ppo_anneal_lr`;
    (2) la inicialización por defecto, cuando la receta es ortogonal con la última capa de la
    política ×0.01 → `--ppo_init orthogonal`; (3) el crítico ve solo lo del jugador (MAPPO usa uno
-   que ve todas las manos al entrenar): después. Menores: `eps` de Adam, sin KL objetivo. Aparte:
+   que ve todas las manos al entrenar): hecho el 29/10 (`--ppo_critic central`). Menores: `eps` de Adam, sin KL objetivo. Aparte:
    se evalúa con la acción más probable aunque se entrena muestreando; medir también la política
    muestreada.
 5d. ~~Validar la evaluación~~ Hecho (27/10). Sin sesgo: con jugadores idénticos da el empate
