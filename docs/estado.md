@@ -228,6 +228,11 @@ Cola `queue7`, 8 en la GPU, todo con tasa que baja: horizontes largos para 7 (`b
 **crítico centralizado** (`--ppo_critic central`, MAPPO: el crítico ve las manos ajenas al
 entrenar) con 3 (`d10`) y 7 jugadores (`d70`), con la misma receta que `a10` y `a70`. En CPU,
 torneo de 3 jugadores entre las variantes de anoche.
+Resultados: **la tasa que baja con horizonte largo mejora en todos los tamaños de mesa** (3
+jugadores 0.546 a los 900k, 4 0.485 a los 700k, 5 0.433 a los 550k, 7 0.330–0.333 a los 375k;
+`c10` le gana a todas las variantes de 3 jugadores por +2.2 puntos por partida). El crítico
+central no cambia nada por ahora (falta confirmarlo con `d11`/`d12`). Para retomar: `d11`, `d12`,
+`e70` (7 jugadores hacia 750k).
 Torneo (23:10): entre variantes con tasa que baja, las diferencias son del tamaño del ruido
 entre semillas; la tasa fija hasta 1M queda apenas arriba. **La heurística ya no mide el progreso
 con 3 jugadores** (`z18` de 400k a 1M le saca +2.5 puntos por partida a su versión anterior, pero
