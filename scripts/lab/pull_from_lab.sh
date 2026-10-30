@@ -24,10 +24,12 @@ opts=(-a --partial --timeout=60 -e "ssh")
 rsync() { command rsync "$@" || [ $? -eq 24 ]; }
 # --delete saca los checkpoints viejos que el lab ya rotó (guarda 2); 'P /*' protege las carpetas
 # de corrida, así una corrida que desaparece del lab (scratch borrado) no se borra acá.
-rsync "${opts[@]}" --delete --filter 'P /*' --exclude 'prof*' labs004:scratch/runs/ "$dest/runs/"
+# no_state.txt: corridas que no se retoman; se saltea su state/ para no ocupar disco.
+rsync "${opts[@]}" --delete --filter 'P /*' --exclude 'prof*' --exclude-from scripts/lab/no_state.txt \
+  labs004:scratch/runs/ "$dest/runs/"
 rsync "${opts[@]}" labs004:scratch/logs/ "$dest/logs/"
 rsync "${opts[@]}" --include '*.txt*' --include '*.sh' --exclude '*' labs004:scratch/ "$dest/"
 if [ "${1:-}" = "--tables" ]; then
-  rsync "${opts[@]}" --exclude '*.prev' --exclude '*.tmp' labs004:scratch/round2/ "$dest/round2/"
+  rsync "${opts[@]}" --exclude '*.prev' --exclude '*.tmp' --exclude 'n3_exact.bin' labs004:scratch/round2/ "$dest/round2/"
 fi
 echo "$(date +%H:%M:%S) copiado de $host a $dest ($(du -sh "$dest" | cut -f1))"

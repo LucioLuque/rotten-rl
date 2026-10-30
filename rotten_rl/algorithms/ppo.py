@@ -44,6 +44,8 @@ from .base import ActFn, Algorithm
 from .dqn import greedy_batch, mlp
 
 _ILLEGAL = -1e9
+# Metricas promediadas sobre los minibatches de una actualizacion.
+_STATS_MEAN = ("loss_policy", "loss_value", "entropy", "clip_frac", "approx_kl", "grad_norm")
 
 
 def _orthogonal_init(net: nn.Sequential, last_gain: float) -> None:
@@ -291,10 +293,13 @@ class SharedPPO(Algorithm):
         ret = torch.as_tensor(np.concatenate(rets), device=dev)
         hid = (torch.as_tensor(np.concatenate([np.stack(t["hid"]) for t in parts]), device=dev)
                if self.wants_hidden_hands else None)
+        old_val = torch.as_tensor(np.concatenate([t["val"] for t in parts]), device=dev,
+                                  dtype=torch.float32)
+        explained_var = float(1 - (ret - old_val).var() / (ret.var() + 1e-8))
         adv = (adv - adv.mean()) / (adv.std() + 1e-8)
 
         size = len(act)
-        stats = {"loss_policy": 0.0, "loss_value": 0.0, "entropy": 0.0, "clip_frac": 0.0}
+        stats = dict.fromkeys(_STATS_MEAN, 0.0)
         count = 0
         for _ in range(self.epochs):
             perm = np.random.permutation(size)
@@ -313,7 +318,7 @@ class SharedPPO(Algorithm):
                 loss = loss_pi + self.vf_coef * loss_v - self.ent_coef * ent
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(
+                grad_norm = nn.utils.clip_grad_norm_(
                     list(self.policy.parameters()) + list(self.value.parameters()),
                     self.max_grad_norm)
                 self.optimizer.step()
@@ -321,8 +326,12 @@ class SharedPPO(Algorithm):
                 stats["loss_value"] += float(loss_v.detach())
                 stats["entropy"] += float(ent.detach())
                 stats["clip_frac"] += float(((ratio.detach() - 1).abs() > self.clip).float().mean())
+                stats["approx_kl"] += float((old_logp[idx] - logp.detach()).mean())
+                stats["grad_norm"] += float(grad_norm)
                 count += 1
         self.last_stats = {k: v / count for k, v in stats.items()}
+        self.last_stats["explained_variance"] = explained_var
+        self.last_stats["learning_rate"] = self.optimizer.param_groups[0]["lr"]
         self.updates += 1
 
     # -- evaluar -------------------------------------------------------------------
@@ -356,7 +365,7 @@ class SharedPPO(Algorithm):
         return act
 
     def losses(self) -> Dict[str, float]:
-        out = {k: float("nan") for k in ("loss_policy", "loss_value", "entropy", "clip_frac")}
+        out = dict.fromkeys(_STATS_MEAN + ("explained_variance", "learning_rate"), float("nan"))
         out.update(self.last_stats)
         out["updates"] = float(self.updates)
         return out

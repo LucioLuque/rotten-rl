@@ -171,7 +171,8 @@ que hay ahí deja de verse. `scripts/lab/pull_from_lab.sh [--tables]` copia con 
 y, con `--tables`, las tablas de la ronda de 2 cartas. Es incremental (~14 MB/s por la VPN; la
 primera copia, 2.3 GB, tardó 3 minutos). Correrlo durante la noche y una última vez después del
 corte de las 06:55, antes de las 07:00. Para retomar en otra máquina: copiar la corrida a
-`~/scratch/runs/` y usar `--resume`.
+`~/scratch/runs/` y usar `--resume`. Las corridas de `scripts/lab/no_state.txt` no traen `state/`
+(no se retoman; las redes están en `checkpoints/`): agregar ahí las que terminen y no sigan.
 Dentro de cada corrida la copia sigue al lab (los checkpoints rotados se borran también en la
 laptop), pero una corrida que desaparece del lab no se borra de la laptop. Nada se borra solo:
 cada noche suma ~1–2 GB de corridas más las tablas de la ronda 2 (se pisan, no se acumulan);

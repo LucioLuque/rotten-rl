@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 29/10/2026 (noche).
+Última actualización: 30/10/2026.
 
 ## Hecho
 
@@ -249,6 +249,18 @@ contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara 
    (valores del paper).
 
 ## Próximos pasos
+
+**Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
+recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11:
+
+- Primero, sin métricas nuevas ni observación nueva: retomar `d11`, `d12` y `e70` con el código del
+  commit anterior a las métricas.
+- Todas las corridas siguientes llevan las métricas nuevas de PPO (`approx_kl`,
+  `explained_variance`, `grad_norm`, `learning_rate`).
+- La deducción "no tiene triunfo" en la observación no entra hasta validarla (cuántas veces aparece:
+  5.7% de las jugadas con 3 jugadores, 11.7% con 7; falta medir si aporta).
+- 2 jugadores no corre la receta actual desde el 25/10 (mejor hasta ahora: DQN `r10`–`r12`,
+  0.546–0.576, y PPO `p10`–`p12`, 0.526–0.571, dentro del ruido; esas redes solo están en la -04).
 
 1. ~~Que NFSP aprenda con 2 jugadores~~ Hecho (arreglos de reward y exploración, barridos 1–4).
 2. ~~Loop de entrenamiento propio y checkpoints~~ Hecho: `rotten_rl/training.py`

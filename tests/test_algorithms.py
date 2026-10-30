@@ -125,6 +125,11 @@ def test_ppo_aprende_con_politica_compartida():
     assert np.isfinite(algo.last_stats["loss_policy"])
     assert not torch.equal(antes, torch.cat([p.detach().flatten()
                                              for p in algo.policy.parameters()]))
+    assert {"approx_kl", "explained_variance", "grad_norm", "learning_rate"} <= set(algo.losses())
+    assert algo.last_stats["grad_norm"] > 0
+    assert algo.last_stats["learning_rate"] > 0
+    assert np.isfinite(algo.last_stats["approx_kl"])
+    assert np.isfinite(algo.last_stats["explained_variance"])
 
 
 def test_ppo_retomar_es_igual_que_de_corrido(tmp_path):
