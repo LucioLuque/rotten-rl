@@ -19,6 +19,9 @@ El algoritmo tiene que implementar:
   - `batch_step(streams, infos, masks, legals, rewards) -> acciones`: cierra el
     paso anterior de cada stream (si hay) con su reward y elige la accion.
   - `batch_end(streams, rewards)`: fin de episodio de esos streams.
+Si el algoritmo tiene `wants_hidden_hands = True` (PPO con critico
+centralizado), `batch_step` recibe ademas `hidden`: las manos de los demas
+jugadores de cada pedido (`hidden_hands_tensor`).
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ from typing import List
 
 import numpy as np
 
-from .openspiel_game import info_state_tensor
+from .openspiel_game import hidden_hands_tensor, info_state_tensor
 
 
 class VectorRunner:
@@ -76,8 +79,12 @@ class VectorRunner:
             rewards = [float(pending[g, p]) for g, p in requests]
             for g, p in requests:
                 pending[g, p] = 0.0
+            extra = {}
+            if getattr(algo, "wants_hidden_hands", False):
+                extra["hidden"] = np.stack([hidden_hands_tensor(states[g], p)
+                                            for g, p in requests])
             actions = algo.batch_step([g * n + p for g, p in requests], infos, masks, legals,
-                                      rewards)
+                                      rewards, **extra)
 
             for (g, _), action in zip(requests, actions):
                 state = states[g]

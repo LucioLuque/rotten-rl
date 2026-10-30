@@ -291,3 +291,58 @@ def test_ppo_inicializacion_ortogonal():
     assert not torch.allclose(normal, torch.full_like(normal, 1 / algo.num_actions), atol=1e-3)
     with pytest.raises(ValueError):
         _ppo(game, init="otra")
+
+
+def test_manos_ocultas_son_las_de_los_demas():
+    """hidden_hands_tensor: por posicion relativa, exactamente la mano de ese
+    jugador (y nada de la propia)."""
+    from rotten_rl.openspiel_game import HIDDEN_HANDS_SIZE, _card_id, hidden_hands_tensor
+    game = pyspiel.load_game("podrida", {"players": 4})
+    state = game.new_initial_state()
+    rng = np.random.RandomState(3)
+    vistos = 0
+    while not state.is_terminal():
+        if state.is_chance_node():
+            outcomes, probs = zip(*state.chance_outcomes())
+            state.apply_action(int(rng.choice(outcomes, p=probs)))
+            continue
+        p = state.current_player()
+        t = hidden_hands_tensor(state, p)
+        assert t.shape == (HIDDEN_HANDS_SIZE,)
+        hands = [p_.hand for p_ in state._engine.players]
+        for r in range(1, 4):
+            esperado = sorted(_card_id(c) for c in hands[(p + r) % 4])
+            assert list(np.flatnonzero(t[(r - 1) * 52:r * 52])) == esperado
+        assert not t[3 * 52:].any()                # posiciones que no existen con 4
+        vistos += 1
+        state.apply_action(int(rng.choice(state.legal_actions())))
+    assert vistos > 100
+
+
+def test_ppo_critico_central_aprende_y_se_retoma(tmp_path):
+    game = pyspiel.load_game("podrida", {"players": 3})
+    np.random.seed(0)
+    algo = _ppo(game, critic="central")
+    assert algo.value[0].in_features == game.information_state_tensor_size() + 6 * 52
+    antes = _params(algo.value).clone()
+    _entrenar_lote(game, algo, np.random.RandomState(0), 2, 4)
+    assert algo.updates == 2
+    assert np.isfinite(algo.last_stats["loss_value"])
+    assert not torch.equal(antes, _params(algo.value))
+    with pytest.raises(ValueError):
+        _ppo(game, critic="central", vector_games=1)
+
+    np.random.seed(1)
+    torch.manual_seed(1)
+    rng = np.random.RandomState(1)
+    corrido = _ppo(game, critic="central", rollout_episodes=8)
+    _entrenar_lote(game, corrido, rng, 1, 4)
+    save_checkpoint(str(tmp_path), 4, corrido, rng)
+    ret_corrido = _entrenar_lote(game, corrido, rng, 2, 4, start=4)
+    np.random.seed(99)
+    torch.manual_seed(99)
+    rng2 = np.random.RandomState(99)
+    retomado = _ppo(game, critic="central", rollout_episodes=8)
+    info = load_checkpoint(latest_checkpoint(str(tmp_path)), retomado, rng2)
+    assert _entrenar_lote(game, retomado, rng2, 2, 4, start=info["episode"]) == ret_corrido
+    assert torch.equal(_params(corrido.value), _params(retomado.value))

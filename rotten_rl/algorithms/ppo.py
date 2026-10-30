@@ -13,8 +13,11 @@ MAPPO se toman pocas epocas por lote y clipping chico (ver docs/bibliografia.md)
   --round_episodes, en cada ronda).
 - Acciones ilegales enmascaradas en el softmax. Se evalua con la accion mas
   probable.
-- El critico ve lo mismo que el jugador (critico "local"). Un critico que vea
-  todas las manos durante el entrenamiento queda para mas adelante.
+- El critico ve lo mismo que el jugador (critico "local"). Con --ppo_critic
+  central ve ademas las manos de los demas (MAPPO, Yu et al. 2022: critico
+  centralizado, politica descentralizada): estima mejor el valor de cada
+  situacion y baja la varianza de las ventajas. La politica sigue viendo solo
+  lo suyo, asi que se evalua y se juega igual. Solo con --vector_games > 1.
 - Con --vector_games K (rotten_rl/vector.py) se juegan K partidas a la vez y se
   decide en lote; cada asiento de cada partida tiene su trayectoria ("stream").
   Se actualiza al terminar un lote de partidas si ya hay --ppo_rollout_episodes.
@@ -36,7 +39,7 @@ from torch import nn
 
 from open_spiel.python import rl_agent
 
-from ..openspiel_game import info_state_tensor
+from ..openspiel_game import HIDDEN_HANDS_SIZE, info_state_tensor
 from .base import ActFn, Algorithm
 from .dqn import greedy_batch, mlp
 
@@ -89,18 +92,26 @@ class SharedPPO(Algorithm):
     FLAG_KEYS = [
         "hidden_layers_sizes", "rl_learning_rate", "discount_factor", "ppo_rollout_episodes",
         "ppo_epochs", "ppo_minibatch", "ppo_clip", "ppo_ent_coef", "ppo_vf_coef",
-        "ppo_gae_lambda", "ppo_max_grad_norm", "ppo_anneal_lr", "ppo_init", "device"]
+        "ppo_gae_lambda", "ppo_max_grad_norm", "ppo_anneal_lr", "ppo_init", "ppo_critic",
+        "device"]
     FLAG_DEFAULTS = {"rl_learning_rate": 3e-4}
 
     def __init__(self, game, *, hidden_layers_sizes, learning_rate, discount_factor,
                  rollout_episodes=32, epochs=5, minibatch=512, clip=0.2, ent_coef=0.01,
                  vf_coef=0.5, gae_lambda=0.95, max_grad_norm=0.5, anneal_episodes=0,
-                 init="default", device="cpu", vector_games=1):
+                 init="default", critic="local", device="cpu", vector_games=1):
         n = game.num_players()
         size, self.num_actions = game.information_state_tensor_size(), game.num_distinct_actions()
         self.device = torch.device(device)
         self.policy = mlp(size, hidden_layers_sizes, self.num_actions).to(self.device)
-        self.value = mlp(size, hidden_layers_sizes, 1).to(self.device)
+        if critic not in ("local", "central"):
+            raise ValueError(f"Critico desconocido: {critic!r}")
+        if critic == "central" and vector_games <= 1:
+            raise ValueError("--ppo_critic central necesita --vector_games > 1")
+        # Con critico central, VectorRunner le pasa a batch_step las manos ajenas.
+        self.wants_hidden_hands = critic == "central"
+        value_in = size + (HIDDEN_HANDS_SIZE if self.wants_hidden_hands else 0)
+        self.value = mlp(value_in, hidden_layers_sizes, 1).to(self.device)
         if init == "orthogonal":
             _orthogonal_init(self.policy, 0.01)
             _orthogonal_init(self.value, 1.0)
@@ -141,6 +152,7 @@ class SharedPPO(Algorithm):
             max_grad_norm=flags.ppo_max_grad_norm,
             anneal_episodes=flags.num_train_episodes if flags.ppo_anneal_lr else 0,
             init=flags.ppo_init,
+            critic=flags.ppo_critic,
             device=flags.device,
             vector_games=flags.vector_games,
         )
@@ -152,7 +164,7 @@ class SharedPPO(Algorithm):
         # listas paralelas de los pasos de la partida en curso y pasos ya
         # cerrados (con reward y done) de las partidas de este lote.
         self.traj = [{"obs": [], "mask": [], "act": [], "logp": [], "val": [], "rew": [],
-                      "done": []} for _ in range(self.num_streams)]
+                      "done": [], "hid": []} for _ in range(self.num_streams)]
         self.open = [False] * self.num_streams   # hay un paso esperando su reward
         self.games_in_rollout = 0
 
@@ -200,7 +212,13 @@ class SharedPPO(Algorithm):
 
     # -- partidas en lote (rotten_rl/vector.py) --------------------------------
 
-    def batch_step(self, streams, infos, masks, legals, rewards) -> np.ndarray:
+    def _value_input(self, obs: torch.Tensor, hidden) -> torch.Tensor:
+        if not self.wants_hidden_hands:
+            return obs
+        return torch.cat([obs, torch.as_tensor(hidden, device=self.device,
+                                               dtype=torch.float32)], dim=1)
+
+    def batch_step(self, streams, infos, masks, legals, rewards, hidden=None) -> np.ndarray:
         for s, r in zip(streams, rewards):
             if self.open[s]:
                 self.close_step(s, r, done=False)
@@ -210,7 +228,7 @@ class SharedPPO(Algorithm):
             dist = torch.distributions.Categorical(logits=logits, validate_args=False)
             a = dist.sample()
             logp = dist.log_prob(a).cpu().numpy()
-            v = self.value(x)[:, 0].cpu().numpy()
+            v = self.value(self._value_input(x, hidden))[:, 0].cpu().numpy()
             a = a.cpu().numpy()
         for i, s in enumerate(streams):
             t = self.traj[s]
@@ -219,6 +237,8 @@ class SharedPPO(Algorithm):
             t["act"].append(int(a[i]))
             t["logp"].append(float(logp[i]))
             t["val"].append(float(v[i]))
+            if self.wants_hidden_hands:
+                t["hid"].append(hidden[i].astype(bool))
             self.open[s] = True
         return a
 
@@ -269,6 +289,8 @@ class SharedPPO(Algorithm):
                                    dtype=torch.float32)
         adv = torch.as_tensor(np.concatenate(advs), device=dev)
         ret = torch.as_tensor(np.concatenate(rets), device=dev)
+        hid = (torch.as_tensor(np.concatenate([np.stack(t["hid"]) for t in parts]), device=dev)
+               if self.wants_hidden_hands else None)
         adv = (adv - adv.mean()) / (adv.std() + 1e-8)
 
         size = len(act)
@@ -285,7 +307,8 @@ class SharedPPO(Algorithm):
                 a = adv[idx]
                 loss_pi = -torch.min(ratio * a,
                                      torch.clamp(ratio, 1 - self.clip, 1 + self.clip) * a).mean()
-                loss_v = ((self.value(obs[idx])[:, 0] - ret[idx]) ** 2).mean()
+                v_in = self._value_input(obs[idx], None if hid is None else hid[idx])
+                loss_v = ((self.value(v_in)[:, 0] - ret[idx]) ** 2).mean()
                 ent = dist.entropy().mean()
                 loss = loss_pi + self.vf_coef * loss_v - self.ent_coef * ent
                 self.optimizer.zero_grad()

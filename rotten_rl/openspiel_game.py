@@ -572,6 +572,24 @@ def info_state_tensor(state: PodridaState_OS, player: int) -> np.ndarray:
     return _FAST_OBSERVER.tensor.copy()
 
 
+HIDDEN_HANDS_SIZE = (_MAX_PLAYERS - 1) * 52
+
+
+def hidden_hands_tensor(state: PodridaState_OS, player: int) -> np.ndarray:
+    """Las manos de los demas, vistas desde `player`: por posicion relativa
+    1..6, un flag por carta (52). Es informacion oculta: solo la usa el critico
+    centralizado de PPO durante el entrenamiento, nunca la politica."""
+    t = np.zeros(HIDDEN_HANDS_SIZE, dtype=np.float32)
+    if state._macro != "engine":
+        return t
+    players, n = state._engine.players, state._n
+    for r in range(1, n):
+        base = (r - 1) * 52
+        for c in players[(player + r) % n].hand:
+            t[base + _card_id(c)] = 1.0
+    return t
+
+
 # ----------------------------------------------------------------------
 # Registro
 # ----------------------------------------------------------------------
