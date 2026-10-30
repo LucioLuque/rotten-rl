@@ -109,6 +109,13 @@ Detalle en `docs/reportes/2026-10-29.md`.
 
 ## Pendiente
 
+- **Agrupación C** (plan del 30/10/2026): para la jugada, en vez de cada carta tirada y los cantos
+  de todos, guardar qué carta va ganando y si alguna de las mías le gana, cuántos faltan por tirar,
+  cuántos de los que ya tiraron y de los que faltan cantaron 0, 1 o 2, y cuántas cartas salieron
+  de cada palo que importa (con tope). Casi no crece con la cantidad de jugadores. Validarla con 3
+  y 4 contra B (las mismas tres medidas que exacta contra B) y, si pasa, correr **5, 6 y 7** en el
+  lab por sesiones.
+
 - Escalar a 5 y 7 jugadores: con 5 la agrupación B ya no entra en memoria junto a las corridas
   de PPO; hace falta otra agrupación o podar situaciones poco frecuentes.
 - Comparar con el agente de RL en las mismas situaciones, como en la ronda de 1 carta.
