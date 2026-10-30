@@ -242,8 +242,8 @@ contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara 
 
 Medir modelos contra formas de jugar, incluida la de Lucio, y jugarles en la interfaz, empezando por
 2 jugadores. Ya están la interfaz sobre el estado de OpenSpiel (`scripts/play.py`), el guardado de
-decisiones y los perfiles `conservador`, `arriesgado` y `a_perder`. Falta que Lucio juegue y armar
-`lucio`. Ver `docs/perfiles/README.md`.
+decisiones, los perfiles `conservador`, `arriesgado` y `a_perder`, y las situaciones elegidas
+(`--situaciones`), de las que sale el perfil de una persona. Falta que Lucio responda. Ver `docs/perfiles/README.md`.
 
 ## Bugs encontrados (25/10/2026)
 

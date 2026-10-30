@@ -117,6 +117,47 @@ class HumanMatch:
         return self.apply(self.rival(state, state.legal_actions()))
 
 
+class SpotSession:
+    """Una serie de decisiones sueltas, ya elegidas, con la misma forma que `HumanMatch`."""
+
+    finished_message = "No quedan situaciones. ¡Gracias!"
+
+    def __init__(self, game, spots, log=None):
+        self.game, self.spots, self.log = game, spots, log
+        self.index = -1
+        self.finished = False
+        self.round_over = False
+        self.next_spot()
+
+    def next_spot(self):
+        self.index += 1
+        if self.index >= len(self.spots):
+            self.finished = True
+            return
+        self.state = replay(self.game, self.spots[self.index])
+        self.seat = self.state.current_player()
+        self.turn_started = time.time()
+
+    @property
+    def engine(self):
+        return self.state._engine
+
+    @property
+    def human_turn(self):
+        return not self.finished
+
+    def apply(self, action):
+        legal = self.state.legal_actions()
+        if action not in legal:
+            return False
+        if self.log:
+            self.log.write("situacion", cartas=self.engine.cards_per_player, fase=self.engine.phase,
+                           historia=self.spots[self.index], legales=[int(a) for a in legal],
+                           accion=int(action), segundos=round(time.time() - self.turn_started, 2))
+        self.next_spot()
+        return True
+
+
 def replay(game, historia):
     """Reconstruye el estado guardado en una decisión."""
     state = game.new_initial_state()

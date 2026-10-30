@@ -46,6 +46,7 @@ from rotten_rl.algorithms.dqn import greedy_batch, mlp  # noqa: E402
 from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent  # noqa: E402
 from rotten_rl.openspiel_game import info_state_tensor  # noqa: E402
 from rotten_rl.perfiles.reglas import PROFILES  # noqa: E402
+from rotten_rl.perfiles.situaciones import LearnedProfile, load_answers  # noqa: E402
 
 _ILLEGAL = -1e9
 
@@ -69,6 +70,9 @@ def _policy_file(spec):
     # Nombre corto: el prefijo de la corrida (p.ej. x21) y el episodio (en miles si es redondo).
     short = os.path.basename(run_dir).split("_")[0]
     return path, run_dir, f"{short}@{ep // 1000}k" if ep and ep % 1000 == 0 else f"{short}@{ep}"
+
+
+_PEOPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "perfiles")
 
 
 def _network_agent(spec, game, device, rng):
@@ -122,6 +126,8 @@ def make_agent(spec, game, device, rng):
         return "random", random_opponent(rng)
     if spec in PROFILES:
         return spec, PROFILES[spec](rng)
+    if os.path.isdir(os.path.join(_PEOPLE_DIR, spec)):     # lo aprendido de una persona
+        return spec, LearnedProfile(load_answers(game, os.path.join(_PEOPLE_DIR, spec)), rng)
     return _network_agent(spec, game, device, rng)
 
 

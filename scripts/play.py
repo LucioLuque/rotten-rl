@@ -15,6 +15,7 @@ Ejecución:
     python scripts/play.py                                     # practicar contra la heurística
     python scripts/play.py --perfil lucio                      # guardando tus decisiones
     python scripts/play.py --perfil lucio --rival runs/lab/.../<corrida>   # contra un modelo
+    python scripts/play.py --perfil lucio --situaciones 150    # jugadas elegidas, una por vez
 
 Controles:
     CLICK en un botón de canto  -> cantás esa cantidad
@@ -47,7 +48,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "eval"))
 import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.engine import Card  # noqa: E402
 from rotten_rl.evaluation import heuristic_opponent  # noqa: E402
-from rotten_rl.perfiles.partida import HumanMatch, SessionLog, next_deal  # noqa: E402
+from rotten_rl.perfiles.partida import HumanMatch, SessionLog, SpotSession, next_deal  # noqa: E402
+from rotten_rl.perfiles.situaciones import pick_spots  # noqa: E402
 from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord  # noqa: E402
 from tournament import make_agent  # noqa: E402
 
@@ -98,9 +100,17 @@ class PodridaApp:
         self.reveal_all = False
         self.mouse_pos = (0, 0)
         self.running = True
+        self.spots = None
+        if args.situaciones:
+            self.saving = True
+            self.spots = SpotSession(self.pyspiel_game,
+                                     pick_spots(self.pyspiel_game, args.situaciones, args.reparto_seed),
+                                     self.log)
         self.new_match()
 
     def new_match(self) -> None:
+        if self.spots is not None:
+            return self.show_spot()
         n = self.pyspiel_game.num_players()
         self.seat = self.reparto % n         # vas rotando de asiento
         self.match = HumanMatch(self.pyspiel_game, self.rival, self.seat, self.reparto_seed,
@@ -115,6 +125,27 @@ class PodridaApp:
         self.freeze_until = 0.0
         self.next_bot_time = time.time() + BOT_DELAY
         self.message = f"Ronda 1: {self.game.cards_per_player} cartas. A cantar."
+
+    def show_spot(self) -> None:
+        """Muestra la situación que toca. Sin rival: al contestar pasa directo a la siguiente."""
+        spots = self.spots
+        self.history = []
+        self.freeze_until = 0.0
+        self.round_recorded = False
+        self.finished = spots.finished
+        if spots.finished:
+            self.message = spots.finished_message
+            self.running = False
+            return
+        self.match = spots
+        self.seat = spots.seat
+        others = iter(PLAYER_NAMES[1:])
+        for i, player in enumerate(self.game.players):
+            player.name = PLAYER_NAMES[0] if i == self.seat else next(others)
+        played = [c for trick in self.game.completed_tricks for _, c in trick]
+        seen = " ".join(self.card_label(c) for c in played)
+        self.message = f"Situación {spots.index + 1} de {len(spots.spots)}" + (
+            f". Ya jugadas: {seen}" if seen else "")
 
     # ------------------------------------------------------------------
 
@@ -222,6 +253,8 @@ class PodridaApp:
         if not self.match.apply(action_id):
             self.message = "Movimiento inválido"
             return
+        if self.spots is not None:
+            return self.show_spot()
         self.after_move(action_id, name, tricks_before)
 
     def after_move(self, action_id: int, name: str, tricks_before: int) -> None:
@@ -279,6 +312,8 @@ class PodridaApp:
 
     def step_bots(self) -> None:
         match = self.match
+        if self.spots is not None:
+            return
         if match.round_over or self.frozen or time.time() < self.next_bot_time:
             return
         if match.human_turn and not self.autoplay:
@@ -304,7 +339,8 @@ class PodridaApp:
             reveal_all=self.reveal_all,
             message=self.message,
             history=self.history,
-            round_number=len(self.history) + (0 if self.match.round_over else 1),
+            round_number=(self.match.state._round_ptr + 1 if self.spots is not None
+                          else len(self.history) + (0 if self.match.round_over else 1)),
             total_rounds=len(self.pyspiel_game.ladder),
             show_bid_buttons=human_turn and game.phase == "bidding",
             freeze_last_trick=self.frozen or game.phase == "done",
@@ -320,8 +356,13 @@ def parse_args(argv=None):
                    help="heuristic, random o una corrida (<corrida> o <corrida>@<ep>)")
     p.add_argument("--perfil", default=None, help="guardar tus decisiones para este perfil")
     p.add_argument("--reparto_seed", type=int, default=0, help="serie de repartos a usar")
+    p.add_argument("--situaciones", type=int, default=0,
+                   help="en vez de partidas, esta cantidad de jugadas elegidas (requiere --perfil)")
     p.add_argument("--render_mode", default="human", help=argparse.SUPPRESS)
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.situaciones and not args.perfil:
+        p.error("--situaciones necesita --perfil, para guardar las respuestas")
+    return args
 
 
 def main() -> None:

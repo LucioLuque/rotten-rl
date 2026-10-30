@@ -1,14 +1,15 @@
 # Perfiles
 
-Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Hecho: la interfaz
-sobre el estado de OpenSpiel, el guardado y los perfiles armados a mano. Falta: las partidas de Lucio y
-el perfil `lucio`.
+Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Hecho: la interfaz,
+el guardado, los perfiles a mano y las **situaciones elegidas**, de las que sale el perfil de una persona.
+Falta: las respuestas de Lucio.
 
 ## Jugar
 
 ```bash
 .venv/bin/python scripts/play.py                         # practicar contra la heurística
-.venv/bin/python scripts/play.py --perfil lucio          # guardando tus decisiones
+.venv/bin/python scripts/play.py --perfil lucio --situaciones 150   # jugadas elegidas, lo principal
+.venv/bin/python scripts/play.py --perfil lucio          # partidas enteras, guardando tus decisiones
 .venv/bin/python scripts/play.py --perfil lucio --jugadores 3 --rival runs/lab/labo-s004-19/runs/<corrida>
 ```
 
@@ -45,18 +46,25 @@ Torneo con 2 jugadores (1.000 repartos duplicados, win rate de la fila contra la
 
 Son estilos bien distintos, y ninguno le gana a la heurística.
 
-## Imitar a una persona
+## Aprender de una persona: situaciones elegidas
 
-No hace falta que el perfil se pueda leer: alcanza con que juegue parecido, para medir modelos.
+Lo principal son jugadas elegidas, mostradas en la pantalla del juego, una por vez; las partidas enteras
+complementan. Está en `rotten_rl/perfiles/situaciones.py`.
 
-- **Datos:** partidas jugadas en la interfaz, no un formulario. Se guarda cada decisión.
-- **Cuántos:** con 2 jugadores una partida son 62 decisiones por jugador (13 rondas, de 1 a 7 cartas y
-  vuelta), muchas forzadas. Con unas 30 partidas hay del orden de 1.000 decisiones con opciones.
-- **Modelo:** ajustar una red ya entrenada a esas decisiones (entrenamiento supervisado), en vez de
-  empezar de cero. Usa lo que ya está: `mlp`, `info_state_tensor` y los checkpoints.
-- **Validación:** guardar partidas enteras sin usarlas al ajustar y medir cuánto coincide con Lucio,
-  contra la heurística y contra el modelo sin ajustar. Partidas enteras, no decisiones sueltas, para
-  no medir sobre situaciones casi iguales a las del ajuste.
+- **Tipo de jugada:** cada decisión se reduce a lo que importa. Canto: tamaño de la ronda, posición,
+  triunfos, cartas altas y cuánto se cantó antes. Jugada: si sale o sigue, si le faltan bazas o ya
+  cumplió, si puede ganar, si hay rivales buscando y cuántas cartas quedan.
+- **La respuesta se generaliza:** no se guarda "jugó el 7♠" sino "ganó con la carta más baja que gana",
+  o "cantó uno más que la estimación". Por eso una respuesta sirve para otras manos parecidas.
+- **Qué se pregunta:** se simulan partidas, y se priorizan los tipos frecuentes en los que la decisión
+  cambia mucho el resultado de la ronda (probando cada opción). Cuotas: 40% cantos, 25% salidas, 35%
+  seguir. Los tipos más importantes se repiten con otras manos, para ver si la respuesta es consistente.
+- **Cómo juega el perfil:** la respuesta más repetida del tipo detallado, si no la del tipo general, y si
+  no sabe nada, la heurística. Entra en el torneo por su nombre (`--agents lucio,heuristic`).
+- **Validación:** `agreement` deja afuera un quinto de las respuestas y mide cuánto las predice. Con un
+  jugador simulado (la heurística respondiendo 150 situaciones) dio 82%: prueba que generaliza, no que
+  imite a Lucio. Después se compara contra una red ajustada a las mismas respuestas.
+- **Limitación conocida:** el tipo de jugada no mira cómo va la partida (puntos) ni las cartas ya jugadas.
 
 ## La interfaz
 
@@ -82,8 +90,9 @@ mismas tablas sirven para decirle a Lucio dónde pierde puntos en esas rondas.
 
 1. ~~Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.~~
 2. ~~Perfiles `conservador`, `arriesgado` y `a_perder`.~~
-3. Lucio juega contra el mejor modelo de 2 jugadores con repartos repetidos: ¿le gana?
-4. Con las partidas guardadas, ajustar `lucio` y validarlo: contra una versión de reglas fijas también.
-5. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los
+3. ~~Situaciones elegidas y perfil aprendido.~~
+4. Lucio responde las situaciones. Medir cuánto se predicen y armar `lucio`.
+5. Lucio juega contra el mejor modelo de 2 jugadores con repartos repetidos: ¿le gana?
+6. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los
    perfiles, y `tournament.py --agents` también).
-6. Después del punto 3: perfil del modelo por simulación, y un explotador entrenado contra él.
+7. Después del punto 5: perfil del modelo por simulación, y un explotador entrenado contra él.
