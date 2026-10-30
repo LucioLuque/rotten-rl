@@ -98,9 +98,17 @@ iteraciones, ~40M situaciones, ~2.9 GB; el último todavía gana 0.12 desviándo
 repartos (nada sobre nuevos). 5 jugadores agrupada: cortada a los 150M por memoria (7.4 GB y
 creciendo).
 
+## B contra exacta, 3 jugadores (29/10/2026)
+
+B (30M iteraciones, 1.2M situaciones) contra exacta (5.670M, 41M situaciones), mismos repartos:
+el valor de cada posición en equilibrio coincide a la milésima (+1.50 / +1.81 / −3.32) y contra
+la heurística las dos le sacan lo mismo (B +0.99 / +1.30 / +0.61; exacta +0.91 / +1.29 / +0.61).
+La exacta está incluso menos convergida (quien se desvía gana hasta 0.11 sobre los mismos
+repartos, contra 0.08 de B). **La agrupación B no pierde nada medible**; la exacta no se sigue.
+Detalle en `docs/reportes/2026-10-29.md`.
+
 ## Pendiente
 
-- Comparar B con la versión exacta en 3 jugadores (cuánto se pierde agrupando).
 - Escalar a 5 y 7 jugadores: con 5 la agrupación B ya no entra en memoria junto a las corridas
   de PPO; hace falta otra agrupación o podar situaciones poco frecuentes.
 - Comparar con el agente de RL en las mismas situaciones, como en la ronda de 1 carta.

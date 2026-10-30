@@ -228,6 +228,10 @@ Cola `queue7`, 8 en la GPU, todo con tasa que baja: horizontes largos para 7 (`b
 **crítico centralizado** (`--ppo_critic central`, MAPPO: el crítico ve las manos ajenas al
 entrenar) con 3 (`d10`) y 7 jugadores (`d70`), con la misma receta que `a10` y `a70`. En CPU,
 torneo de 3 jugadores entre las variantes de anoche.
+Torneo (23:10): entre variantes con tasa que baja, las diferencias son del tamaño del ruido
+entre semillas; la tasa fija hasta 1M queda apenas arriba. **La heurística ya no mide el progreso
+con 3 jugadores** (`z18` de 400k a 1M le saca +2.5 puntos por partida a su versión anterior, pero
+contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara en torneo.
 
 ## Bugs encontrados (25/10/2026)
 
@@ -285,7 +289,8 @@ torneo de 3 jugadores entre las variantes de anoche.
 5f. ~~Ronda de 2 cartas~~ Hecho para 3 jugadores (27/10): solver en C++ con MCCFR y agrupación de
    las cartas jugadas (`rotten_rl/exact/round2/`, `docs/segunda-ronda/`), verificado contra el
    motor. Converge en 8 minutos; la estrategia le saca ~1 punto por ronda a la heurística.
-   Pendiente: comparar con la versión exacta, 4 a 7 jugadores (lab, por sesiones), el agente.
+   Comparada con la exacta (29/10): la agrupación no pierde nada medible. Pendiente: 5 a 7
+   jugadores (no entra en memoria con B) y comparar con el agente.
 6. **Siguiente (noche del 27/10):** PPO, 8 a la vez: 3 jugadores con lotes de 128 (semillas 1 y 2,
    para confirmar el 0.458 de `x21`); 3 jugadores con lotes de 32 y `--ppo_anneal_lr`; 3 jugadores
    con lotes de 32 y `--ppo_init orthogonal`; 4 jugadores con lotes de 128; 7 jugadores con 3
