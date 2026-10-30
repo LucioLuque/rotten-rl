@@ -45,6 +45,7 @@ import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.algorithms.dqn import greedy_batch, mlp  # noqa: E402
 from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent  # noqa: E402
 from rotten_rl.openspiel_game import info_state_tensor  # noqa: E402
+from rotten_rl.perfiles.reglas import PROFILES  # noqa: E402
 
 _ILLEGAL = -1e9
 
@@ -119,6 +120,8 @@ def make_agent(spec, game, device, rng):
         return "heuristic", heuristic_opponent(rng)
     if spec == "random":
         return "random", random_opponent(rng)
+    if spec in PROFILES:
+        return spec, PROFILES[spec](rng)
     return _network_agent(spec, game, device, rng)
 
 

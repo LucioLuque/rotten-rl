@@ -1,15 +1,20 @@
 """
 scripts/play.py
 
-Partida jugable de La Podrida con Pygame.
+Partida jugable de La Podrida con Pygame, contra cualquier rival.
 
-Sos el jugador de abajo. Los demás son bots con una heurística simple.
+Sos el jugador de abajo. El rival puede ser la heurística o un modelo entrenado.
+Con --perfil se guarda cada decisión tuya en data/perfiles/<perfil>/, para armar
+ese perfil después (docs/perfiles/). Cada partida usa un reparto nuevo y vas
+cambiando de asiento; al guardar no se puede ver las manos ni usar el autoplay.
 
 Instalación:
     pip install -e ".[play]"   # desde la raiz del repo
 
 Ejecución:
-    python scripts/play.py
+    python scripts/play.py                                     # practicar contra la heurística
+    python scripts/play.py --perfil lucio                      # guardando tus decisiones
+    python scripts/play.py --perfil lucio --rival runs/lab/.../<corrida>   # contra un modelo
 
 Controles:
     CLICK en un botón de canto  -> cantás esa cantidad
@@ -17,9 +22,9 @@ Controles:
     CLICK en "Siguiente ronda"  -> arranca la ronda siguiente
     ESPACIO                     -> avanza (siguiente ronda / destraba la pausa)
     F11 o F                     -> pantalla completa / volver a ventana
-    A                           -> autoplay: un bot juega por vos
-    V                           -> mostrar/ocultar las manos de los rivales
-    R                           -> nueva partida
+    A                           -> autoplay: un bot juega por vos (sin --perfil)
+    V                           -> mostrar/ocultar las manos de los rivales (sin --perfil)
+    R                           -> partida nueva, con el reparto siguiente
     ESC                         -> salir
 
 La ventana se puede redimensionar arrastrando el borde o maximizando: todo el
@@ -28,149 +33,29 @@ layout se recalcula solo.
 
 from __future__ import annotations
 
-import random
+import argparse
+import os
+import sys
 import time
-from typing import List, Optional
+from typing import List
 
-from rotten_rl.engine import MAX_HAND_SIZE, Card, InvalidMoveError, PodridaGame, build_round_ladder
-from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord
+import numpy as np
+import pyspiel
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "eval"))
+import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
+from rotten_rl.engine import Card  # noqa: E402
+from rotten_rl.evaluation import heuristic_opponent  # noqa: E402
+from rotten_rl.perfiles.partida import HumanMatch, SessionLog, next_deal  # noqa: E402
+from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord  # noqa: E402
+from tournament import make_agent  # noqa: E402
 
-# ----------------------------------------------------------------------
-# Configuración
-# ----------------------------------------------------------------------
-
-NUM_PLAYERS = 7        # probado de 2 a 10; con 7 entra bien en pantalla completa
-HUMAN_INDEX = 0
-MAX_CARDS = MAX_HAND_SIZE   # escalera 1..7..1 = 13 rondas (la partida completa)
-MUST_TRUMP_WHEN_VOID = True   # obligación de fallar: sin palo de salida, va triunfo sí o sí
-PLAYER_NAMES = ["Vos", "Ana", "Beto", "Caro", "Dani", "Eze", "Fito", "Gus", "Hugo", "Ivo"]
+PLAYER_NAMES = ["Vos", "Ana", "Beto", "Caro", "Dani", "Eze", "Fito"]
 
 BOT_DELAY = 0.65       # segundos entre jugadas de bots
 TRICK_PAUSE = 1.3      # segundos que queda visible la baza completa
-
-
-# ----------------------------------------------------------------------
-# Bots
-# ----------------------------------------------------------------------
-
-def _beats(candidate: Card, best: Card, lead_suit: str, trump: Optional[str]) -> bool:
-    if trump is not None and candidate.suit == trump and best.suit != trump:
-        return True
-    if best.suit == trump and candidate.suit != trump:
-        return False
-    if candidate.suit == best.suit:
-        return candidate.value > best.value
-    return False
-
-
-def _current_best(game: PodridaGame) -> Optional[Card]:
-    if not game.current_trick:
-        return None
-    lead_suit = game.current_trick[0][1].suit
-    best = game.current_trick[0][1]
-    for _, card in game.current_trick[1:]:
-        if _beats(card, best, lead_suit, game.trump_suit):
-            best = card
-    return best
-
-
-def bot_bid(game: PodridaGame, idx: int) -> int:
-    """Estimación grosera de bazas ganables."""
-    legal = game.legal_bids(idx)
-    hand = game.players[idx].hand
-    trump = game.trump_suit
-
-    estimate = 0.0
-    for card in hand:
-        if card.suit == trump:
-            estimate += 0.85 if card.value >= 11 else 0.45
-        elif card.rank == "A":
-            estimate += 0.80
-        elif card.rank == "K":
-            estimate += 0.50
-        elif card.rank == "Q":
-            estimate += 0.25
-
-    target = int(round(estimate))
-    return min(legal, key=lambda b: (abs(b - target), b))
-
-
-def bot_play(game: PodridaGame, idx: int) -> Card:
-    legal = game.legal_cards(idx)
-    player = game.players[idx]
-    wants_trick = player.tricks_won < (player.bid or 0)
-    trump = game.trump_suit
-
-    if not game.current_trick:
-        return max(legal, key=lambda c: c.value) if wants_trick else min(legal, key=lambda c: c.value)
-
-    best = _current_best(game)
-    lead_suit = game.current_trick[0][1].suit
-    winners = [c for c in legal if best is not None and _beats(c, best, lead_suit, trump)]
-
-    if wants_trick and winners:
-        return min(winners, key=lambda c: (c.suit == trump, c.value))
-
-    losers = [c for c in legal if c not in winners]
-    pool = losers or legal
-    return min(pool, key=lambda c: (c.suit == trump, c.value))
-
-
-# ----------------------------------------------------------------------
-# Partida completa (escalera de rondas + historial)
-# ----------------------------------------------------------------------
-
-class Match:
-    def __init__(
-        self,
-        num_players: int = NUM_PLAYERS,
-        max_cards: Optional[int] = MAX_CARDS,
-        seed: Optional[int] = None,
-    ) -> None:
-        names = PLAYER_NAMES[:num_players]
-        self.game = PodridaGame(
-            num_players=num_players,
-            player_names=names,
-            seed=seed,
-            must_trump_when_void=MUST_TRUMP_WHEN_VOID,
-        )
-        self.ladder = build_round_ladder(num_players, max_cards or MAX_HAND_SIZE)
-        self.round_index = -1
-        self.history: List[RoundRecord] = []
-        self.finished = False
-
-    @property
-    def round_number(self) -> int:
-        return self.round_index + 1
-
-    @property
-    def total_rounds(self) -> int:
-        return len(self.ladder)
-
-    def start_next_round(self) -> None:
-        if self.round_index + 1 >= len(self.ladder):
-            self.finished = True
-            return
-        self.round_index += 1
-        self.game.start_round(num_cards=self.ladder[self.round_index])
-
-    def record_round(self) -> None:
-        game = self.game
-        self.history.append(
-            RoundRecord(
-                round_number=self.round_number,
-                cards_per_player=game.cards_per_player,
-                bids=[p.bid or 0 for p in game.players],
-                tricks=[p.tricks_won for p in game.players],
-                points=[p.last_round_score for p in game.players],
-                totals=[p.score for p in game.players],
-            )
-        )
-
-    def standings(self) -> str:
-        ranking = sorted(self.game.players, key=lambda p: -p.score)
-        return " · ".join(f"{p.name} {p.score}" for p in ranking)
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "perfiles")
 
 
 # ----------------------------------------------------------------------
@@ -178,7 +63,7 @@ class Match:
 # ----------------------------------------------------------------------
 
 class PodridaApp:
-    def __init__(self) -> None:
+    def __init__(self, args) -> None:
         import pygame
 
         self.pygame = pygame
@@ -194,28 +79,48 @@ class PodridaApp:
             dw, dh = info.current_w, info.current_h
 
         self.renderer = PodridaPygameRenderer(
-            render_mode="human",
+            render_mode=args.render_mode,
             width=int(dw * 0.92),
             height=int(dh * 0.88),
             resizable=True,
         )
-        self.match = Match()
-        self.match.start_next_round()
+        self.pyspiel_game = pyspiel.load_game("podrida", {"players": args.jugadores})
+        rng = np.random.RandomState()
+        self.rival_name, self.rival = make_agent(args.rival, self.pyspiel_game, "cpu", rng)
+        self.helper = heuristic_opponent(rng)
+        self.reparto_seed = args.reparto_seed
+        self.saving = args.perfil is not None
+        folder = os.path.join(DATA_DIR, args.perfil or "")
+        self.log = SessionLog(folder, args.perfil, self.rival_name) if self.saving else None
+        self.reparto = next_deal(folder, self.reparto_seed) if self.saving else 0
 
-        self.message = "Ronda 1. Cantá cuántas bazas vas a hacer."
         self.autoplay = False
         self.reveal_all = False
-        self.freeze_until = 0.0
-        self.next_bot_time = time.time() + BOT_DELAY
-        self.round_recorded = False
         self.mouse_pos = (0, 0)
         self.running = True
+        self.new_match()
+
+    def new_match(self) -> None:
+        n = self.pyspiel_game.num_players()
+        self.seat = self.reparto % n         # vas rotando de asiento
+        self.match = HumanMatch(self.pyspiel_game, self.rival, self.seat, self.reparto_seed,
+                                self.reparto, self.log)
+        self.reparto += 1
+        others = iter(PLAYER_NAMES[1:])
+        for i, player in enumerate(self.game.players):
+            player.name = PLAYER_NAMES[0] if i == self.seat else next(others)
+        self.history: List[RoundRecord] = []
+        self.finished = False
+        self.round_recorded = False
+        self.freeze_until = 0.0
+        self.next_bot_time = time.time() + BOT_DELAY
+        self.message = f"Ronda 1: {self.game.cards_per_player} cartas. A cantar."
 
     # ------------------------------------------------------------------
 
     @property
-    def game(self) -> PodridaGame:
-        return self.match.game
+    def game(self):
+        return self.match.engine
 
     @property
     def frozen(self) -> bool:
@@ -266,18 +171,15 @@ class PodridaApp:
                     self.running = False
             elif event.key in (pygame.K_F11, pygame.K_f):
                 self.renderer.toggle_fullscreen()
-            elif event.key == pygame.K_v:
+            elif event.key == pygame.K_v and not self.saving:
                 self.reveal_all = not self.reveal_all
                 self.message = "Manos rivales visibles" if self.reveal_all else "Manos rivales ocultas"
-            elif event.key == pygame.K_a:
+            elif event.key == pygame.K_a and not self.saving:
                 self.autoplay = not self.autoplay
                 self.message = "Autoplay activado: juega un bot por vos" if self.autoplay else "Autoplay pausado"
             elif event.key == pygame.K_r:
-                self.match = Match()
-                self.match.start_next_round()
-                self.round_recorded = False
-                self.freeze_until = 0.0
-                self.message = "Partida nueva."
+                self.new_match()
+                self.message = "Partida nueva. " + self.message
             elif event.key == pygame.K_SPACE:
                 self.freeze_until = 0.0
                 if self.game.phase == "done":
@@ -286,7 +188,7 @@ class PodridaApp:
     def handle_click(self, pos) -> None:
         game = self.game
 
-        if game.phase == "done" or self.match.finished:
+        if game.phase == "done" or self.finished:
             if self.renderer.button_at(pos) == "next_round":
                 self.advance_round()
             return
@@ -295,7 +197,7 @@ class PodridaApp:
             self.freeze_until = 0.0
             return
 
-        if game.current_player_index != HUMAN_INDEX:
+        if not self.match.human_turn:
             return
 
         if game.phase == "bidding":
@@ -317,12 +219,13 @@ class PodridaApp:
         name = game.players[idx].name
         tricks_before = len(game.completed_tricks)
 
-        try:
-            game.apply_action(action_id, idx)
-        except InvalidMoveError as exc:
-            self.message = f"Movimiento inválido: {exc}"
+        if not self.match.apply(action_id):
+            self.message = "Movimiento inválido"
             return
+        self.after_move(action_id, name, tricks_before)
 
+    def after_move(self, action_id: int, name: str, tricks_before: int) -> None:
+        game = self.game
         if action_id >= 52:
             self.message = f"{name} cantó {action_id - 52}"
         else:
@@ -334,64 +237,91 @@ class PodridaApp:
             self.message = f"Baza para {winner}"
             self.freeze_until = time.time() + TRICK_PAUSE
 
-        if game.phase == "done" and not self.round_recorded:
-            self.match.record_round()
+        if self.match.round_over and not self.round_recorded:
+            self.record_round()
             self.round_recorded = True
             hit = [p.name for p in game.players if p.bid == p.tricks_won]
             self.message = (
-                f"Ronda {self.match.round_number} terminada. "
-                f"Cumplieron: {', '.join(hit) if hit else 'nadie'}. {self.match.standings()}"
+                f"Ronda {len(self.history)} terminada. "
+                f"Cumplieron: {', '.join(hit) if hit else 'nadie'}. {self.standings()}"
             )
 
         self.next_bot_time = time.time() + BOT_DELAY
 
+    def record_round(self) -> None:
+        game = self.game
+        self.history.append(
+            RoundRecord(
+                round_number=len(self.history) + 1,
+                cards_per_player=game.cards_per_player,
+                bids=[p.bid or 0 for p in game.players],
+                tricks=[p.tricks_won for p in game.players],
+                points=[p.last_round_score for p in game.players],
+                totals=[p.score for p in game.players],
+            )
+        )
+
+    def standings(self) -> str:
+        ranking = sorted(self.game.players, key=lambda p: -p.score)
+        return " · ".join(f"{p.name} {p.score}" for p in ranking)
+
     def advance_round(self) -> None:
-        if self.match.round_index + 1 >= len(self.match.ladder):
-            self.match.finished = True
+        if self.match.finished:
+            self.finished = True
             winner = max(self.game.players, key=lambda p: p.score)
             self.message = f"Partida terminada. Ganó {winner.name} con {winner.score} puntos. (R para jugar otra)"
             return
-        self.match.start_next_round()
+        self.match.next_round()
         self.round_recorded = False
         self.freeze_until = 0.0
         self.next_bot_time = time.time() + BOT_DELAY
-        self.message = f"Ronda {self.match.round_number}: {self.game.cards_per_player} cartas. A cantar."
+        self.message = f"Ronda {len(self.history) + 1}: {self.game.cards_per_player} cartas. A cantar."
 
     def step_bots(self) -> None:
+        match = self.match
+        if match.round_over or self.frozen or time.time() < self.next_bot_time:
+            return
+        if match.human_turn and not self.autoplay:
+            return
+
         game = self.game
-        if game.phase not in {"bidding", "playing"} or self.frozen:
-            return
-        if time.time() < self.next_bot_time:
-            return
-
-        idx = game.current_player_index
-        if idx == HUMAN_INDEX and not self.autoplay:
-            return
-
-        if game.phase == "bidding":
-            self.apply(52 + bot_bid(game, idx))
-        else:
-            self.apply(game.card_to_id(bot_play(game, idx)))
+        name = game.players[game.current_player_index].name
+        tricks_before = len(game.completed_tricks)
+        state = match.state
+        act = self.helper if match.human_turn else self.rival
+        action = act(state, state.legal_actions())
+        match.apply(action)
+        self.after_move(action, name, tricks_before)
 
     # ------------------------------------------------------------------
 
-    def draw(self) -> None:
+    def draw(self):
         game = self.game
-        human_turn = game.current_player_index == HUMAN_INDEX and not self.autoplay and not self.frozen
-
-        self.renderer.render(
+        human_turn = self.match.human_turn and not self.autoplay and not self.frozen
+        return self.renderer.render(
             game,
-            perspective_player=HUMAN_INDEX,
+            perspective_player=self.seat,
             reveal_all=self.reveal_all,
             message=self.message,
-            history=self.match.history,
-            round_number=self.match.round_number,
-            total_rounds=self.match.total_rounds,
+            history=self.history,
+            round_number=len(self.history) + (0 if self.match.round_over else 1),
+            total_rounds=len(self.pyspiel_game.ladder),
             show_bid_buttons=human_turn and game.phase == "bidding",
             freeze_last_trick=self.frozen or game.phase == "done",
-            next_round_button=game.phase == "done" and not self.match.finished,
+            next_round_button=game.phase == "done" and not self.finished,
             mouse_pos=self.mouse_pos,
         )
+
+
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="Jugar a La Podrida contra un rival.")
+    p.add_argument("--jugadores", type=int, default=2)
+    p.add_argument("--rival", default="heuristic",
+                   help="heuristic, random o una corrida (<corrida> o <corrida>@<ep>)")
+    p.add_argument("--perfil", default=None, help="guardar tus decisiones para este perfil")
+    p.add_argument("--reparto_seed", type=int, default=0, help="serie de repartos a usar")
+    p.add_argument("--render_mode", default="human", help=argparse.SUPPRESS)
+    return p.parse_args(argv)
 
 
 def main() -> None:
@@ -400,7 +330,7 @@ def main() -> None:
     except ModuleNotFoundError as exc:
         raise SystemExit("Pygame no está instalado. Instalalo con: pip install pygame") from exc
 
-    PodridaApp().run()
+    PodridaApp(parse_args()).run()
 
 
 if __name__ == "__main__":

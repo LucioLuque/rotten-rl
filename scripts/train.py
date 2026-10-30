@@ -47,6 +47,7 @@ from rotten_rl.algorithms import ALGORITHMS
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent
 from rotten_rl.lab_hours import next_time
+from rotten_rl.perfiles.reglas import PROFILES
 from rotten_rl.run_logger import RunLogger
 from rotten_rl.training import EpisodeRunner
 from rotten_rl.vector import VectorRunner
@@ -74,7 +75,8 @@ flags.DEFINE_integer("eval_deal_seed", 1234,
                      "cada evaluacion y en todas las corridas con esta semilla. -1 = repartos "
                      "al azar, sin duplicar (como antes del 27/10/2026).")
 flags.DEFINE_list("eval_opponents", ["random", "heuristic", "past"],
-                  "Rivales de cada evaluacion: random | heuristic | past (la "
+                  "Rivales de cada evaluacion: random | heuristic | un perfil de "
+                  "rotten_rl/perfiles/reglas.py | past (la "
                   "politica de la evaluacion anterior).")
 flags.DEFINE_bool("save_eval_snapshots", True,
                   "Guardar la politica en <corrida>/checkpoints/ en cada evaluacion.")
@@ -197,7 +199,8 @@ def main(_):
     num_actions = game.num_distinct_actions()
     algo = algo_cls.from_flags(game, FLAGS)
 
-    fixed_opponents = {"random": random_opponent(rng), "heuristic": heuristic_opponent(rng)}
+    fixed_opponents = {"random": random_opponent(rng), "heuristic": heuristic_opponent(rng),
+                       **{name: make(rng) for name, make in PROFILES.items()}}
     unknown = set(FLAGS.eval_opponents) - set(fixed_opponents) - {"past"}
     if unknown:
         raise ValueError(f"Rivales de evaluacion desconocidos: {sorted(unknown)}")

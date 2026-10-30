@@ -452,7 +452,7 @@ class PodridaPygameRenderer:
         seats = self._seat_layout(game, perspective_idx)
 
         surface.blit(self._background(), (0, 0))
-        self._draw_header(surface, game, round_number, total_rounds)
+        self._draw_header(surface, game, round_number, total_rounds, perspective_idx)
         self._draw_table(surface, game)
         self._draw_seats(surface, game, seats, reveal_all)
         self._draw_trick(surface, game, seats, freeze_last_trick)
@@ -529,6 +529,7 @@ class PodridaPygameRenderer:
         game: PodridaGame,
         round_number: Optional[int],
         total_rounds: Optional[int],
+        perspective_idx: int = 0,
     ) -> None:
         title = self._text(
             surface, "LA PODRIDA",
@@ -554,6 +555,7 @@ class PodridaPygameRenderer:
         chips.append(("Fase", phase_label))
         if game.phase in {"bidding", "playing"}:
             chips.append(("Turno", game.current_player.name))
+            chips.append(("Tu lugar", self._position_label(game, perspective_idx)))
         if game.trump_suit:
             chips.append(("Triunfo", self.SUIT_SYMBOLS.get(game.trump_suit, game.trump_suit)))
         if game.phase == "playing" and game.lead_suit:
@@ -578,6 +580,16 @@ class PodridaPygameRenderer:
             self._text(surface, label.upper(), (x, label_y), 12, self.MUTED, bold=True)
             self._text(surface, value, (x, value_y), 20, color, bold=True)
             x += max(lw, vw) + self._px(30)
+
+    @staticmethod
+    def _position_label(game: PodridaGame, player_idx: int) -> str:
+        """En qué lugar canta o juega el jugador: en el canto arranca la mano; en la jugada, quien
+        sale en la baza en curso (si todavía no salió nadie, quien tiene el turno)."""
+        if game.phase == "bidding":
+            first = game.first_player_index
+        else:
+            first = game.current_trick[0][0] if game.current_trick else game.current_player_index
+        return f"{(player_idx - first) % game.num_players + 1}º de {game.num_players}"
 
     # ------------------------------------------------------------------
     # Mesa
@@ -840,6 +852,9 @@ class PodridaPygameRenderer:
                 if not any(rect.colliderect(o.inflate(pad, pad)) for o in obstacles):
                     break
                 f -= 0.02
+            if game.num_players == 2:    # enfrentados: lado a lado, si no se pisan
+                side = -1 if ay < cy else 1
+                rect.center = (cx + side * int(cw * 0.62), cy)
 
             is_lead = i == 0
             self._blit_card(
@@ -999,18 +1014,29 @@ class PodridaPygameRenderer:
             bw = max(self._px(30), (max_total - gap * len(bids)) // len(bids))
 
         total = len(bids) * bw + (len(bids) - 1) * gap
-        panel = pygame.Rect(0, 0, total + self._px(36), bh + self._px(62))
-        panel.center = (mx + mw // 2, my + mh - self.hand_zone_height - self._px(66))
+        # El último no puede hacer que los cantos sumen justo las bazas de la ronda.
+        banned = None
+        if len(bids) == game.cards_per_player:
+            banned = next(b for b in range(game.cards_per_player + 1) if b not in bids)
+        note = f"No podés cantar {banned}: sumaría {game.cards_per_player}" if banned is not None else None
+        title = "¿Cuántas bazas cantás?"
+        text_w = max(self._font(17, True).size(title)[0],
+                     self._font(14).size(note)[0] if note else 0)
+        extra = self._px(20) if note else 0
+        panel = pygame.Rect(0, 0, max(total, text_w) + self._px(36), bh + self._px(62) + extra)
+        panel.center = (mx + mw // 2, my + mh - self.hand_zone_height - self._px(66) - extra // 2)
 
         pygame.draw.rect(surface, self.PANEL, panel, border_radius=self._px(14))
         pygame.draw.rect(surface, self.GOLD, panel, width=self._px(2), border_radius=self._px(14))
         self._text(
-            surface, "¿Cuántas bazas cantás?", (panel.centerx, panel.y + self._px(13)),
+            surface, title, (panel.centerx, panel.y + self._px(13)),
             17, self.TEXT, center=True, bold=True,
         )
+        if note:
+            self._text(surface, note, (panel.centerx, panel.y + self._px(33)), 14, self.MUTED, center=True)
 
         x = panel.centerx - total // 2
-        y = panel.y + self._px(40)
+        y = panel.y + self._px(40) + extra
         for bid in bids:
             rect = pygame.Rect(x, y, bw, bh)
             hover = mouse_pos is not None and rect.collidepoint(mouse_pos)

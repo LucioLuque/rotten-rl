@@ -1,7 +1,23 @@
 # Perfiles
 
-Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Es un diseño: todavía
-no hay código.
+Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Hecho: la interfaz
+sobre el estado de OpenSpiel, el guardado y los perfiles armados a mano. Falta: las partidas de Lucio y
+el perfil `lucio`.
+
+## Jugar
+
+```bash
+.venv/bin/python scripts/play.py                         # practicar contra la heurística
+.venv/bin/python scripts/play.py --perfil lucio          # guardando tus decisiones
+.venv/bin/python scripts/play.py --perfil lucio --jugadores 3 --rival runs/lab/labo-s004-19/runs/<corrida>
+```
+
+Con `--perfil` cada decisión va a `data/perfiles/<perfil>/<fecha>.jsonl`, con la historia completa
+de la partida: alcanza para reconstruir el estado y sacar la observación que haga falta. Esos
+archivos se commitean: son datos que no se pueden regenerar. Cada partida usa el reparto siguiente de
+la serie `--reparto_seed` (se saltean los ya jugados) y se rota de asiento (`reparto % jugadores`), para
+poder darle después el mismo reparto, en el mismo asiento, a un modelo. Al guardar no se pueden ver las
+manos ni usar el autoplay. Una partida sin línea `fin` quedó abandonada.
 
 ## Qué es un perfil
 
@@ -11,12 +27,12 @@ ya entran: `--eval_opponents` de `train.py` y `--agents` de `scripts/eval/tourna
 
 | Perfil | Qué es |
 |---|---|
-| `heuristica` | La actual, movida a perfiles |
-| `conservador`, `arriesgado`, `a_perder` | Reglas escritas, cambiando cómo canta y cuándo busca bazas |
+| `heuristic` | La actual, en `rotten_rl/evaluation.py` |
+| `conservador`, `arriesgado`, `a_perder` | `rotten_rl/perfiles/reglas.py`: juegan como la heurística y cantan 70%, 130% de su estimación o lo mínimo |
 | `lucio` | Imita a Lucio, a partir de sus partidas |
 | Otras personas | Igual que `lucio`, cada una con sus partidas |
 
-Código en `rotten_rl/perfiles/`, scripts en `scripts/perfiles/`.
+Código en `rotten_rl/perfiles/`; la interfaz es `scripts/play.py`.
 
 ## Imitar a una persona
 
@@ -33,14 +49,10 @@ No hace falta que el perfil se pueda leer: alcanza con que juegue parecido, para
 
 ## La interfaz
 
-`scripts/play.py` y `rotten_rl/renderer.py` (Pygame) ya juegan una partida, pero con bots simples y
-sin guardar nada. Trabaja directo con `PodridaGame`, sin el estado de OpenSpiel que necesitan las redes.
-
-- Pasar a jugar sobre el estado de OpenSpiel, para enchufar cualquier perfil o modelo.
-- Guardar cada decisión: situación, opciones, elección y reparto.
-- Repartos repetidos: jugar los mismos repartos que jugó el modelo, para cancelar parte de la suerte.
-- Mejorar lo visual. Se puede revisar sin ventana, guardando capturas (Pygame en modo `dummy`).
-- En la laptop falta instalar Pygame: `.venv` no lo tiene (`pip install -e ".[play]"`).
+`scripts/play.py` y `rotten_rl/renderer.py` (Pygame). Corre sobre el estado de OpenSpiel
+(`rotten_rl/perfiles/partida.py`), así que el rival puede ser cualquier perfil o modelo. Se puede revisar
+sin ventana, guardando capturas (`render_mode="rgb_array"`, Pygame en modo `dummy`). Muestra tu lugar en
+el canto y en la baza, y por qué falta un canto.
 
 ## Cómo se mide cada entrenamiento
 
@@ -57,9 +69,10 @@ mismas tablas sirven para decirle a Lucio dónde pierde puntos en esas rondas.
 
 ## Orden, empezando por 2 jugadores
 
-1. Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.
-2. Mover `heuristic` a perfiles y escribir `conservador`, `arriesgado` y `a_perder`.
+1. ~~Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.~~
+2. ~~Perfiles `conservador`, `arriesgado` y `a_perder`.~~
 3. Lucio juega contra el mejor modelo de 2 jugadores con repartos repetidos: ¿le gana?
-4. Con las partidas guardadas, ajustar `lucio` y validarlo.
-5. Sumar perfiles y exacto a la evaluación de cada entrenamiento.
+4. Con las partidas guardadas, ajustar `lucio` y validarlo: contra una versión de reglas fijas también.
+5. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los
+   perfiles, y `tournament.py --agents` también).
 6. Después del punto 3: perfil del modelo por simulación, y un explotador entrenado contra él.

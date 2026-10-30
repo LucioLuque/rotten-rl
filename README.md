@@ -26,7 +26,7 @@ rotten_rl/                    paquete
 scripts/
   train.py                    entrenamiento: --algo nfsp|dqn|ppo, --vector_games, --resume, ...
   run_queue.py                cola de experimentos para el laboratorio
-  play.py                     partida jugable contra bots
+  play.py                     partida jugable contra la heurística, un perfil o un modelo
   eval/                       evaluar agentes ya entrenados
     tournament.py             torneo entre agentes (políticas guardadas, heurística, azar)
     summarize_runs.py         tabla comparativa de corridas
@@ -70,7 +70,7 @@ python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --p
 python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 3 \
     --vector_games 32 --device cuda --run_name ppo3p
 tensorboard --logdir runs
-python scripts/play.py      # jugar contra bots
+python scripts/play.py      # jugar; con --perfil guarda tus decisiones (docs/perfiles/)
 # torneo entre agentes guardados (ver el docstring para el formato de --agents)
 python scripts/eval/tournament.py --players 3 --deals 1000 --agents heuristic,runs/<corrida>
 python scripts/exact/solve_round1.py      # la ronda de 1 carta resuelta (CPU, ~30–40 min)
