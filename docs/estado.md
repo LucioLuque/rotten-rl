@@ -238,6 +238,11 @@ entre semillas; la tasa fija hasta 1M queda apenas arriba. **La heurística ya n
 con 3 jugadores** (`z18` de 400k a 1M le saca +2.5 puntos por partida a su versión anterior, pero
 contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara en torneo.
 
+## Perfiles (30/10/2026)
+
+Nuevo tema, diseñado pero sin código: medir modelos contra formas de jugar, incluida la de Lucio, y
+jugarles en la interfaz. Empieza por 2 jugadores. Ver `docs/perfiles/README.md`.
+
 ## Bugs encontrados (25/10/2026)
 
 1. **Reward perdido entre turnos.** El juego da reward al cerrar cada ronda, pero cada agente solo
