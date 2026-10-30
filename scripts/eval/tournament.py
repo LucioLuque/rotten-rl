@@ -126,7 +126,7 @@ def make_agent(spec, game, device, rng):
         return "random", random_opponent(rng)
     if spec in PROFILES:
         return spec, PROFILES[spec](rng)
-    if os.path.isdir(os.path.join(_PEOPLE_DIR, spec)):     # lo aprendido de una persona
+    if os.sep not in spec and os.path.isdir(os.path.join(_PEOPLE_DIR, spec)):   # una persona
         return spec, LearnedProfile(load_answers(game, os.path.join(_PEOPLE_DIR, spec)), rng)
     return _network_agent(spec, game, device, rng)
 
