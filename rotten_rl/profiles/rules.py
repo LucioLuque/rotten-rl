@@ -1,8 +1,8 @@
 """
-rotten_rl/perfiles/reglas.py  —  Perfiles armados a mano.
+rotten_rl/profiles/rules.py  —  Hand-written profiles.
 
-Juegan las cartas como la heurística (buscan bazas hasta cumplir el canto) y cambian cómo cantan:
-como la jugada depende del canto, cantar distinto ya da otra forma de jugar.
+They play cards like the heuristic (chasing tricks until the bid is met) and only change how they
+bid: since play depends on the bid, bidding differently already gives another way of playing.
 """
 
 import math
@@ -15,7 +15,7 @@ _BID = 52
 
 
 def _bid_profile(choose_bid):
-    """Perfil que canta con `choose_bid(estimación de bazas, cantos legales)`."""
+    """Profile that bids with `choose_bid(estimated tricks, legal bids)`."""
     def make(rng: np.random.RandomState):
         heuristic = heuristic_opponent(rng)
 
@@ -36,7 +36,7 @@ def _closest(target, bids):
 
 
 PROFILES = {
-    "conservador": _bid_profile(lambda est, bids: _closest(math.floor(est * 0.7), bids)),
-    "arriesgado": _bid_profile(lambda est, bids: _closest(math.ceil(est * 1.3), bids)),
-    "a_perder": _bid_profile(lambda est, bids: min(bids)),
+    "conservative": _bid_profile(lambda est, bids: _closest(math.floor(est * 0.7), bids)),
+    "risky": _bid_profile(lambda est, bids: _closest(math.ceil(est * 1.3), bids)),
+    "play_to_lose": _bid_profile(lambda est, bids: min(bids)),
 }

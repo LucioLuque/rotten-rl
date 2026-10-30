@@ -1,10 +1,10 @@
 """
-rotten_rl/lab_hours.py  —  Cuándo cortar según el horario del laboratorio.
+rotten_rl/lab_hours.py  —  When to stop according to the lab schedule.
 
-De lunes a viernes el acceso termina a las 07:00 y a las 07:30 se reinician las máquinas. Sábados y
-domingos no hay corte: de viernes 22:00 a lunes 07:00 se puede correr de seguido. Por eso `--stop_at
-lab` significa "la próxima mañana de día hábil": el viernes a la noche es el lunes, no el sábado.
-Un feriado no se detecta: se corta igual, que es lo seguro.
+Monday to Friday access ends at 07:00 and machines reboot at 07:30. Saturdays and Sundays have no
+cut: runs can go straight from Friday 22:00 to Monday 07:00. So `--stop_at lab` means "the next
+weekday morning": on Friday night that is Monday, not Saturday. Holidays are not detected: runs
+stop anyway, which is the safe side.
 """
 
 import datetime
@@ -14,8 +14,8 @@ LAB_LAST_LAUNCH = "06:00"
 
 
 def next_time(spec, lab_time=LAB_STOP, now=None):
-    """Próximo instante de `spec`: "HH:MM" (hoy si todavía no pasó; si no, mañana) o "lab" (la
-    hora `lab_time` de la próxima mañana de lunes a viernes)."""
+    """Next instant of `spec`: "HH:MM" (today if not past yet, else tomorrow) or "lab" (`lab_time`
+    of the next Monday-to-Friday morning)."""
     now = now or datetime.datetime.now()
     hh, mm = (int(x) for x in (lab_time if spec == "lab" else spec).split(":"))
     when = now.replace(hour=hh, minute=mm, second=0, microsecond=0)

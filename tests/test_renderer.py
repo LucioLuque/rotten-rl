@@ -7,19 +7,19 @@ pyspiel = pytest.importorskip("pyspiel")
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import rotten_rl.openspiel_game  # noqa: E402,F401
-from rotten_rl.perfiles.partida import HumanMatch  # noqa: E402
+from rotten_rl.profiles.match import HumanMatch  # noqa: E402
 from rotten_rl.renderer import PodridaPygameRenderer  # noqa: E402
 
 
-def _primero(state, legal):
+def _first(state, legal):
     return legal[0]
 
 
 @pytest.mark.parametrize("players", [2, 3, 4, 5, 6, 7])
 @pytest.mark.parametrize("size", [(1920, 1080), (1366, 768), (1100, 650)])
-def test_las_cartas_de_la_baza_no_se_pisan(players, size):
+def test_trick_cards_do_not_overlap(players, size):
     game = pyspiel.load_game("podrida", {"players": players})
-    match = HumanMatch(game, _primero, 0, 0, 0)
+    match = HumanMatch(game, _first, 0, 0, 0)
     renderer = PodridaPygameRenderer(render_mode="rgb_array", width=size[0], height=size[1])
     renderer.render(match.engine, perspective_player=0)
     seats = renderer._seat_layout(match.engine, 0)
@@ -30,9 +30,9 @@ def test_las_cartas_de_la_baza_no_se_pisan(players, size):
         assert not any(a.colliderect(s.block) for s in seats if s.visible)
 
 
-def test_el_lugar_se_cuenta_desde_quien_arranca():
+def test_position_counts_from_who_starts():
     game = pyspiel.load_game("podrida", {"players": 3})
-    match = HumanMatch(game, _primero, 0, 0, 0)
+    match = HumanMatch(game, _first, 0, 0, 0)
     eng = match.engine
     first = eng.first_player_index
     assert PodridaPygameRenderer._position_label(eng, first) == "1º de 3"

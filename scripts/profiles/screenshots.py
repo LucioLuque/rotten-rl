@@ -1,8 +1,8 @@
 """
-scripts/perfiles/capturas.py  —  Revisa la interfaz sin ventana: guarda capturas de cada mesa y
-tamaño, jugando con clicks de verdad. Sirve para validar cambios visuales (docs/perfiles/).
+scripts/profiles/screenshots.py  —  Checks the interface with no window: saves screenshots of each
+table and size, playing with real clicks. Used to validate visual changes (docs/profiles/).
 
-    python scripts/perfiles/capturas.py --salida /tmp/capturas
+    python scripts/profiles/screenshots.py --out /tmp/screenshots
 """
 
 import argparse
@@ -28,7 +28,7 @@ def shot(app, path):
 
 
 def play_match(app, rng, out, tag):
-    """Juega una partida con clicks y captura cada fase de la ronda de 7 cartas."""
+    """Plays a match with clicks and captures each phase of the 7-card round."""
     taken = set()
     while not app.finished:
         match = app.match
@@ -56,17 +56,17 @@ def play_match(app, rng, out, tag):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--salida", required=True)
+    p.add_argument("--out", required=True)
     a = p.parse_args()
-    os.makedirs(a.salida, exist_ok=True)
+    os.makedirs(a.out, exist_ok=True)
     rng = np.random.RandomState(0)
     for players in (2, 3, 5, 7):
         for width, height in SIZES:
             app = play.PodridaApp(play.parse_args(["--render_mode", "rgb_array",
-                                                   "--jugadores", str(players)]))
+                                                   "--players", str(players)]))
             app.renderer.set_size(width, height)
-            play_match(app, rng, a.salida, f"n{players}_{width}")
-            print(f"{players} jugadores, {width}x{height}: ok")
+            play_match(app, rng, a.out, f"n{players}_{width}")
+            print(f"{players} players, {width}x{height}: ok")
 
 
 if __name__ == "__main__":

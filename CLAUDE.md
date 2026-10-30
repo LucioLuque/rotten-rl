@@ -60,7 +60,9 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
 
 ## Convenciones
 
-- Código, comentarios y docs en castellano; identificadores en inglés.
+- Código en inglés: nombres de archivos y carpetas, identificadores, opciones, datos guardados y
+  comentarios. Solo los docs van en castellano, igual que los textos que se ven en el juego. El código
+  viejo todavía tiene comentarios en castellano.
 - `runs/` y `checkpoints/` no se commitean.
 - Tests con `pytest` (los de OpenSpiel se saltean si no está `pyspiel`). En la laptop hay un
   entorno en `.venv` (OpenSpiel y torch de CPU, sin GPU): `.venv/bin/python -m pytest -p no:anyio`

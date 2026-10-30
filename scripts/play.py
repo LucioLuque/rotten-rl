@@ -1,35 +1,35 @@
 """
 scripts/play.py
 
-Partida jugable de La Podrida con Pygame, contra cualquier rival.
+Playable match of La Podrida with Pygame, against any rival.
 
-Sos el jugador de abajo. El rival puede ser la heurística o un modelo entrenado.
-Con --perfil se guarda cada decisión tuya en data/perfiles/<perfil>/, para armar
-ese perfil después (docs/perfiles/). Cada partida usa un reparto nuevo y vas
-cambiando de asiento; al guardar no se puede ver las manos ni usar el autoplay.
+You are the bottom player. The rival can be the heuristic, a profile or a trained model. With
+--profile each of your decisions is saved to data/profiles/<profile>/, to build that profile later
+(docs/profiles/). Each match uses a new deal and you rotate seats; while saving, you cannot see the
+other hands or use autoplay.
 
-Instalación:
-    pip install -e ".[play]"   # desde la raiz del repo
+Install:
+    pip install -e ".[play]"   # from the repo root
 
-Ejecución:
-    python scripts/play.py                                     # practicar contra la heurística
-    python scripts/play.py --perfil lucio                      # guardando tus decisiones
-    python scripts/play.py --perfil lucio --rival runs/lab/.../<corrida>   # contra un modelo
-    python scripts/play.py --perfil lucio --situaciones 150    # jugadas elegidas, una por vez
+Run:
+    python scripts/play.py                                      # practice against the heuristic
+    python scripts/play.py --profile lucio --spots 150          # chosen plays, one at a time
+    python scripts/play.py --profile lucio                      # whole matches, saving decisions
+    python scripts/play.py --profile lucio --rival lucio        # against the learned profile
+    python scripts/play.py --profile lucio --rival runs/lab/.../<run>   # against a model
 
-Controles:
-    CLICK en un botón de canto  -> cantás esa cantidad
-    CLICK en una carta          -> la jugás (solo las legales responden)
-    CLICK en "Siguiente ronda"  -> arranca la ronda siguiente
-    ESPACIO                     -> avanza (siguiente ronda / destraba la pausa)
-    F11 o F                     -> pantalla completa / volver a ventana
-    A                           -> autoplay: un bot juega por vos (sin --perfil)
-    V                           -> mostrar/ocultar las manos de los rivales (sin --perfil)
-    R                           -> partida nueva, con el reparto siguiente
-    ESC                         -> salir
+Controls:
+    CLICK a bid button          -> bid that amount
+    CLICK a card                -> play it (only legal cards respond)
+    CLICK "Siguiente ronda"     -> start the next round
+    SPACE                       -> advance (next round / skip the pause)
+    F11 or F                    -> full screen / back to window
+    A                           -> autoplay: a bot plays for you (without --profile)
+    V                           -> show/hide rival hands (without --profile)
+    R                           -> new match, with the next deal
+    ESC                         -> quit
 
-La ventana se puede redimensionar arrastrando el borde o maximizando: todo el
-layout se recalcula solo.
+The window can be resized: the whole layout is recomputed.
 """
 
 from __future__ import annotations
@@ -48,16 +48,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "eval"))
 import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.engine import Card  # noqa: E402
 from rotten_rl.evaluation import heuristic_opponent  # noqa: E402
-from rotten_rl.perfiles.partida import HumanMatch, SessionLog, SpotSession, next_deal  # noqa: E402
-from rotten_rl.perfiles.situaciones import answered, pick_spots  # noqa: E402
+from rotten_rl.profiles.match import HumanMatch, SessionLog, SpotSession, next_deal  # noqa: E402
+from rotten_rl.profiles.spots import answered, pick_spots  # noqa: E402
 from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord  # noqa: E402
 from tournament import make_agent  # noqa: E402
 
 PLAYER_NAMES = ["Vos", "Ana", "Beto", "Caro", "Dani", "Eze", "Fito"]
 
-BOT_DELAY = 0.65       # segundos entre jugadas de bots
-TRICK_PAUSE = 1.3      # segundos que queda visible la baza completa
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "perfiles")
+BOT_DELAY = 0.65       # seconds between bot plays
+TRICK_PAUSE = 1.3      # seconds the full trick stays visible
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "profiles")
 
 
 # ----------------------------------------------------------------------
@@ -72,8 +72,8 @@ class PodridaApp:
         pygame.init()
         pygame.font.init()
 
-        # Abre ocupando casi todo el monitor. Se puede redimensionar y pasar a
-        # pantalla completa con F11: el layout se recalcula con cada cambio.
+        # Opens filling most of the monitor. It can be resized and go full screen
+        # with F11: the layout is recomputed on each change.
         try:
             dw, dh = pygame.display.get_desktop_sizes()[0]
         except Exception:
@@ -86,27 +86,27 @@ class PodridaApp:
             height=int(dh * 0.88),
             resizable=True,
         )
-        self.pyspiel_game = pyspiel.load_game("podrida", {"players": args.jugadores})
+        self.pyspiel_game = pyspiel.load_game("podrida", {"players": args.players})
         rng = np.random.RandomState()
         self.rival_name, self.rival = make_agent(args.rival, self.pyspiel_game, "cpu", rng)
         self.helper = heuristic_opponent(rng)
-        self.reparto_seed = args.reparto_seed
-        self.saving = args.perfil is not None
-        folder = os.path.join(DATA_DIR, args.perfil or "")
-        self.log = SessionLog(folder, args.perfil, self.rival_name) if self.saving else None
-        self.reparto = next_deal(folder, self.reparto_seed) if self.saving else 0
+        self.deal_seed = args.deal_seed
+        self.saving = args.profile is not None
+        folder = os.path.join(DATA_DIR, args.profile or "")
+        self.log = SessionLog(folder, args.profile, self.rival_name) if self.saving else None
+        self.deal = next_deal(folder, self.deal_seed) if self.saving else 0
 
         self.autoplay = False
         self.reveal_all = False
         self.mouse_pos = (0, 0)
         self.running = True
         self.spots = None
-        self.status = f"contra {self.rival_name}" + (f" · guardando en {args.perfil}" if self.saving else "")
-        if args.situaciones:
+        self.status = f"contra {self.rival_name}" + (f" · guardando en {args.profile}" if self.saving else "")
+        if args.spots:
             self.saving = True
-            self.status = f"guardando en {args.perfil}"
+            self.status = f"guardando en {args.profile}"
             self.renderer.splash("Eligiendo las situaciones más importantes…")
-            picked = pick_spots(self.pyspiel_game, args.situaciones, args.reparto_seed,
+            picked = pick_spots(self.pyspiel_game, args.spots, args.deal_seed,
                                 skip=answered(folder))
             self.spots = SpotSession(self.pyspiel_game, picked, self.log)
         self.new_match()
@@ -115,10 +115,10 @@ class PodridaApp:
         if self.spots is not None:
             return self.show_spot()
         n = self.pyspiel_game.num_players()
-        self.seat = self.reparto % n         # vas rotando de asiento
-        self.match = HumanMatch(self.pyspiel_game, self.rival, self.seat, self.reparto_seed,
-                                self.reparto, self.log)
-        self.reparto += 1
+        self.seat = self.deal % n         # seats rotate
+        self.match = HumanMatch(self.pyspiel_game, self.rival, self.seat, self.deal_seed,
+                                self.deal, self.log)
+        self.deal += 1
         others = iter(PLAYER_NAMES[1:])
         for i, player in enumerate(self.game.players):
             player.name = PLAYER_NAMES[0] if i == self.seat else next(others)
@@ -130,7 +130,7 @@ class PodridaApp:
         self.message = f"Ronda 1: {self.game.cards_per_player} cartas. A cantar."
 
     def show_spot(self) -> None:
-        """Muestra la situación que toca. Sin rival: al contestar pasa directo a la siguiente."""
+        """Shows the current spot. No rival: answering goes straight to the next one."""
         spots = self.spots
         self.history = []
         self.freeze_until = 0.0
@@ -377,18 +377,18 @@ class PodridaApp:
 
 
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(description="Jugar a La Podrida contra un rival.")
-    p.add_argument("--jugadores", type=int, default=2)
+    p = argparse.ArgumentParser(description="Play La Podrida against a rival.")
+    p.add_argument("--players", type=int, default=2)
     p.add_argument("--rival", default="heuristic",
-                   help="heuristic, random o una corrida (<corrida> o <corrida>@<ep>)")
-    p.add_argument("--perfil", default=None, help="guardar tus decisiones para este perfil")
-    p.add_argument("--reparto_seed", type=int, default=0, help="serie de repartos a usar")
-    p.add_argument("--situaciones", type=int, default=0,
-                   help="en vez de partidas, esta cantidad de jugadas elegidas (requiere --perfil)")
+                   help="heuristic, random, a profile or a run (<run> or <run>@<ep>)")
+    p.add_argument("--profile", default=None, help="save your decisions for this profile")
+    p.add_argument("--deal_seed", type=int, default=0, help="series of deals to use")
+    p.add_argument("--spots", type=int, default=0,
+                   help="instead of matches, this many chosen plays (needs --profile)")
     p.add_argument("--render_mode", default="human", help=argparse.SUPPRESS)
     args = p.parse_args(argv)
-    if args.situaciones and not args.perfil:
-        p.error("--situaciones necesita --perfil, para guardar las respuestas")
+    if args.spots and not args.profile:
+        p.error("--spots needs --profile, to save the answers")
     return args
 
 

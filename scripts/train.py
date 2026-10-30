@@ -47,7 +47,7 @@ from rotten_rl.algorithms import ALGORITHMS
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent
 from rotten_rl.lab_hours import next_time
-from rotten_rl.perfiles.reglas import PROFILES
+from rotten_rl.profiles.rules import PROFILES
 from rotten_rl.run_logger import RunLogger
 from rotten_rl.training import EpisodeRunner
 from rotten_rl.vector import VectorRunner
@@ -76,7 +76,7 @@ flags.DEFINE_integer("eval_deal_seed", 1234,
                      "al azar, sin duplicar (como antes del 27/10/2026).")
 flags.DEFINE_list("eval_opponents", ["random", "heuristic", "past"],
                   "Rivales de cada evaluacion: random | heuristic | un perfil de "
-                  "rotten_rl/perfiles/reglas.py | past (la "
+                  "rotten_rl/profiles/rules.py | past (la "
                   "politica de la evaluacion anterior).")
 flags.DEFINE_bool("save_eval_snapshots", True,
                   "Guardar la politica en <corrida>/checkpoints/ en cada evaluacion.")
