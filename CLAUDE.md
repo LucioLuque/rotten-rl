@@ -37,6 +37,12 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   `run_queue.count_training_processes()` para contar entrenamientos.
 - Si `ssh labs004` empieza a devolver `Cannot find current user: user: unknown userid`, la conexión
   compartida (ControlMaster) quedó rota del lado del lab: `ssh -O exit labs004` y reconectar.
+- **Vigilar una noche siempre con `scripts/lab/watch_queue.sh`**, nunca con un loop propio que
+  descarte errores: consulta con conexión propia (no la compartida), sale con `FALLA` si el lab
+  no responde ~5 minutos y con `HORA` a las 06:35. Ante `FALLA`, arreglar la conexión y relanzarlo
+  en el momento. Nunca dar por "no pasó nada" una consulta que falló. (El 29/10 un vigilante con
+  `2>/dev/null` estuvo 3 horas ciego por la conexión compartida rota y no se reemplazaron 7
+  corridas.)
 - Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);
   fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas.
 - **Nada se conecta al lab fuera de horario**: toda espera o monitor que haga `ssh labs004` tiene

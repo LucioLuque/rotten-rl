@@ -118,6 +118,22 @@ ssh -O exit labs004
 ssh labs004 hostname
 ```
 
+### Vigilar una noche: `scripts/lab/watch_queue.sh`
+
+Desde la laptop, en segundo plano. Termina cuando hay algo que atender: terminó otra corrida de la
+cola (`TERMINO <n>`), apareció un archivo esperado, como la salida de un torneo (`ARCHIVO`), son
+las 06:35 (`HORA`: respaldo y reporte) o el lab no responde (`FALLA`). Cada consulta abre su propia
+conexión (`-o ControlPath=none`), así que no la afecta que se rompa la compartida; si falla dos
+veces seguidas (~5 minutos), cierra la compartida y sale con `FALLA`, en vez de seguir como si no
+pasara nada. No consulta el lab entre las 06:58 y las 22:00.
+
+```bash
+scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md   # rutas relativas a ~/scratch
+```
+
+Lo motivó la noche del 29/10: el vigilante anterior descartaba los errores de `ssh` y, con la
+conexión compartida rota desde las ~02:10, estuvo 3 horas sin ver nada.
+
 ## Almacenamiento
 
 | Dónde | Tamaño | Persistencia | Para qué |
