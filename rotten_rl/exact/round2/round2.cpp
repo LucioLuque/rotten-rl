@@ -10,6 +10,7 @@
 //   round2 br    --n 3 --games 2000000 --load F   (cuanto gana quien se desvia)
 //   round2 dump  --n 3 --load F --save estrategia.tsv
 //   round2 trace --n 3 --games 200        (para comparar con el motor de Python)
+//   round2 serve --n 3 --load F           (consultas a la tabla por stdin)
 
 #include <algorithm>
 #include <array>
@@ -808,6 +809,60 @@ void Trace(const Args& a) {
   }
 }
 
+// Consultas a la tabla desde otro programa (scripts/exact/compare_round2_agent.py),
+// una por linea en stdin, posiciones en orden de canto:
+//   bid  <triunfo> <2n cartas: mano de cada posicion> <k> <cantos de 0..k-1>
+//   play <triunfo> <2n cartas> <k> <n cantos> <cartas jugadas por 0..k-1>
+// Responde una linea: <1 si la situacion esta en la tabla, 0 si no (uniforme)>
+// y despues pares <accion> <probabilidad> (canto, o id de carta) de la
+// estrategia promedio.
+void Serve(const Args& a, const Table& table, Abstraction abs) {
+  std::string kind;
+  while (std::cin >> kind) {
+    Deal d;
+    d.n = a.n;
+    std::cin >> d.trump;
+    d.ts = Suit(d.trump);
+    for (int p = 0; p < d.n; ++p) {
+      int x, y;
+      std::cin >> x >> y;
+      d.hand[p][0] = std::min(x, y);
+      d.hand[p][1] = std::max(x, y);
+    }
+    int k;
+    std::cin >> k;
+    St st;
+    if (kind == "bid") {
+      for (int j = 0; j < k; ++j) { std::cin >> st.bids[j]; ++st.nb; }
+      int legal[3], m = LegalBids(d.n, k, st, legal);
+      double sigma[3];
+      for (int i = 0; i < m; ++i) sigma[i] = 1.0 / m;
+      auto it = table.find(BidKey(d, k, st));
+      bool hit = it != table.end();
+      if (hit) AverageStrategy(it->second, m, sigma);
+      std::printf("%d", hit);
+      for (int i = 0; i < m; ++i) std::printf(" %d %.6f", legal[i], sigma[i]);
+    } else {
+      for (int j = 0; j < d.n; ++j) { std::cin >> st.bids[j]; ++st.nb; }
+      for (int j = 0; j < k; ++j) { std::cin >> st.play1[j]; ++st.np; }
+      int legal[2], m = LegalPlays(d, k, st, legal);
+      if (m == 1) {
+        std::printf("1 %d 1.000000", legal[0]);
+      } else {
+        int first;
+        auto it = table.find(PlayKey(d, k, st, abs, &first));
+        bool hit = it != table.end();
+        double sigma[2] = {0.5, 0.5};
+        if (hit) AverageStrategy(it->second, 2, sigma);
+        std::printf("%d %d %.6f %d %.6f", hit, d.hand[k][first], sigma[0], d.hand[k][1 - first],
+                    sigma[1]);
+      }
+    }
+    std::printf("\n");
+    std::fflush(stdout);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -819,6 +874,7 @@ int main(int argc, char** argv) {
   if (a.cmd == "eval") { Evaluate(a, s.table, abs); return 0; }
   if (a.cmd == "br") { BestResponse(a, s.table, abs); return 0; }
   if (a.cmd == "dump") { Dump(s.table, a.save); return 0; }
+  if (a.cmd == "serve") { Serve(a, s.table, abs); return 0; }
   if (a.cmd != "solve") { std::fprintf(stderr, "comando %s\n", a.cmd.c_str()); return 1; }
   auto t0 = std::chrono::steady_clock::now();
   for (long long it = 1; it <= a.iters; ++it) {
