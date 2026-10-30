@@ -51,20 +51,28 @@ Son estilos bien distintos, y ninguno le gana a la heurística.
 Lo principal son jugadas elegidas, mostradas en la pantalla del juego, una por vez; las partidas enteras
 complementan. Está en `rotten_rl/perfiles/situaciones.py`.
 
-- **Tipo de jugada:** cada decisión se reduce a lo que importa. Canto: tamaño de la ronda, posición,
-  triunfos, cartas altas y cuánto se cantó antes. Jugada: si sale o sigue, si le faltan bazas o ya
-  cumplió, si puede ganar, si hay rivales buscando y cuántas cartas quedan.
+- **Tipo de jugada:** cada decisión se reduce a lo que importa, en tres niveles. Canto: tamaño de la
+  ronda, posición y triunfos; después cartas altas y cuánto se cantó antes. Jugada: si sale o sigue,
+  si le faltan bazas y si puede ganar; después si hay rivales buscando y cuántas cartas quedan. Y en
+  el nivel más detallado, en los dos casos, cómo va la partida (ganando, parejo o perdiendo por 15
+  puntos, si es de las últimas 3 rondas); en la jugada, además, cuántos triunfos faltan salir y si
+  tiene una carta que ya no se puede superar.
 - **La respuesta se generaliza:** no se guarda "jugó el 7♠" sino "ganó con la carta más baja que gana",
   o "cantó uno más que la estimación". Por eso una respuesta sirve para otras manos parecidas.
 - **Qué se pregunta:** se simulan partidas, y se priorizan los tipos frecuentes en los que la decisión
   cambia mucho el resultado de la ronda (probando cada opción). Cuotas: 40% cantos, 25% salidas, 35%
   seguir. Los tipos más importantes se repiten con otras manos, para ver si la respuesta es consistente.
-- **Cómo juega el perfil:** la respuesta más repetida del tipo detallado, si no la del tipo general, y si
-  no sabe nada, la heurística. Entra en el torneo por su nombre (`--agents lucio,heuristic`).
+- **Cuántas:** 150 como base, lo razonable para pedirle a otra persona. Se pueden pedir más cuando
+  sea: no repite las ya respondidas (`--situaciones 100` son 100 nuevas), y por eso se puede cortar y
+  seguir después pidiendo las que faltan. Lucio puede responder más.
+- **Cómo juega el perfil:** la respuesta más repetida del tipo más detallado que tenga respuestas, y si
+  no sabe nada, la heurística. Entra en el torneo y como rival por su nombre (`--agents lucio,heuristic`,
+  `play.py --rival lucio`).
 - **Validación:** `agreement` deja afuera un quinto de las respuestas y mide cuánto las predice. Con un
   jugador simulado (la heurística respondiendo 150 situaciones) dio 82%: prueba que generaliza, no que
   imite a Lucio. Después se compara contra una red ajustada a las mismas respuestas.
-- **Limitación conocida:** el tipo de jugada no mira cómo va la partida (puntos) ni las cartas ya jugadas.
+- **Limitación conocida:** con 150 respuestas el nivel más detallado casi no se repite, así que si la
+  decisión cambia por los puntos o las cartas se va a ver mejor con más respuestas.
 
 ## La interfaz
 
@@ -91,7 +99,8 @@ mismas tablas sirven para decirle a Lucio dónde pierde puntos en esas rondas.
 1. ~~Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.~~
 2. ~~Perfiles `conservador`, `arriesgado` y `a_perder`.~~
 3. ~~Situaciones elegidas y perfil aprendido.~~
-4. Lucio responde las situaciones. Medir cuánto se predicen y armar `lucio`.
+4. Lucio responde las 150 situaciones y juega contra `lucio`. Medir cuánto se predicen; si no alcanza,
+   pedir más situaciones o partidas.
 5. Lucio juega contra el mejor modelo de 2 jugadores con repartos repetidos: ¿le gana?
 6. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los
    perfiles, y `tournament.py --agents` también).

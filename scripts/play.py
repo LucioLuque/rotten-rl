@@ -49,7 +49,7 @@ import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.engine import Card  # noqa: E402
 from rotten_rl.evaluation import heuristic_opponent  # noqa: E402
 from rotten_rl.perfiles.partida import HumanMatch, SessionLog, SpotSession, next_deal  # noqa: E402
-from rotten_rl.perfiles.situaciones import pick_spots  # noqa: E402
+from rotten_rl.perfiles.situaciones import answered, pick_spots  # noqa: E402
 from rotten_rl.renderer import PodridaPygameRenderer, RoundRecord  # noqa: E402
 from tournament import make_agent  # noqa: E402
 
@@ -103,9 +103,9 @@ class PodridaApp:
         self.spots = None
         if args.situaciones:
             self.saving = True
-            self.spots = SpotSession(self.pyspiel_game,
-                                     pick_spots(self.pyspiel_game, args.situaciones, args.reparto_seed),
-                                     self.log)
+            picked = pick_spots(self.pyspiel_game, args.situaciones, args.reparto_seed,
+                                skip=answered(folder))
+            self.spots = SpotSession(self.pyspiel_game, picked, self.log)
         self.new_match()
 
     def new_match(self) -> None:

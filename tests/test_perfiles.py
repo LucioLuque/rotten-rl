@@ -9,8 +9,8 @@ import rotten_rl.openspiel_game as og  # noqa: E402
 from rotten_rl.perfiles.partida import (HumanMatch, SessionLog, SpotSession, next_deal,  # noqa: E402
                                         replay, sample_chance)
 from rotten_rl.perfiles.reglas import PROFILES  # noqa: E402
-from rotten_rl.perfiles.situaciones import (LearnedProfile, agreement, load_answers,  # noqa: E402
-                                             pick_spots, play_options, spot_keys)
+from rotten_rl.perfiles.situaciones import (LearnedProfile, agreement, answered,  # noqa: E402
+                                             load_answers, pick_spots, play_options, spot_keys)
 
 
 def _primero(state, legal):
@@ -108,7 +108,43 @@ def test_elige_situaciones_con_opciones_reales_y_variadas():
     estados = [replay(game, h) for h in spots]
     assert all(len(s.legal_actions()) > 1 for s in estados)
     assert len({s._engine.phase for s in estados}) == 2
-    assert len({spot_keys(s)[1] for s in estados}) > 15
+    assert len({spot_keys(s)[2] for s in estados}) > 15
+
+
+def test_pedir_mas_situaciones_no_repite_las_respondidas():
+    game = pyspiel.load_game("podrida", {"players": 2})
+    primeras = pick_spots(game, 30, games=40)
+    otras = pick_spots(game, 30, games=40, skip=primeras)
+    assert not {tuple(h) for h in primeras} & {tuple(h) for h in otras}
+
+
+def test_el_tipo_de_jugada_mira_la_partida_y_las_cartas():
+    game = pyspiel.load_game("podrida", {"players": 2})
+    rng = np.random.RandomState(0)
+    vistos = set()
+    state = game.new_initial_state()
+    while not state.is_terminal():
+        if state.is_chance_node():
+            sample_chance(state, rng)
+            continue
+        general, detallado, completo = spot_keys(state)
+        assert completo[:len(detallado)] == detallado and detallado[:len(general)] == general
+        vistos.add(completo[len(detallado):])
+        state.apply_action(int(rng.choice(state.legal_actions())))
+    assert len(vistos) > 3
+
+
+def test_el_perfil_aprendido_prefiere_el_tipo_mas_detallado():
+    game = pyspiel.load_game("podrida", {"players": 2})
+    state = replay(game, pick_spots(game, 1, games=20)[0])
+    while state._engine.phase != "playing" or not play_options(state, state.legal_actions()):
+        state.apply_action(state.legal_actions()[0])
+    general, detallado, completo = spot_keys(state)
+    options = play_options(state, state.legal_actions())
+    uno, otro = (list(options) * 2)[:2]
+    profile = LearnedProfile([(general, ("otro",), ("otro", "mas"), [uno]),
+                              (general, detallado, completo, [otro])])
+    assert profile.predict(state, state.legal_actions()) == options[otro]
 
 
 def test_una_respuesta_se_generaliza_a_manos_parecidas():
@@ -152,7 +188,7 @@ def test_el_canto_se_aprende_como_diferencia_con_la_estimacion(tmp_path):
         accion = legal[0] if sesion.engine.phase == "playing" else min(legal)
         assert sesion.apply(accion)
     respuestas = load_answers(game, str(tmp_path))
-    assert len(respuestas) == 60
+    assert len(respuestas) == 60 and answered(str(tmp_path))
     profile = LearnedProfile(respuestas)
     state = replay(game, spots[0])
     assert profile(state, state.legal_actions()) in state.legal_actions()

@@ -1,14 +1,15 @@
 """
 rotten_rl/perfiles/situaciones.py  —  Aprender de una persona con jugadas elegidas, no al azar.
 
-Cada decisión se reduce a un *tipo de jugada*: lo que importa de la situación (`bid_key`, `play_key`)
-y lo que se hace en términos generales (cantar uno más que la estimación, ganar con la carta más baja
-que gana). Así una respuesta vale para todas las manos parecidas.
+Cada decisión se reduce a un *tipo de jugada*, en tres niveles de detalle (`spot_keys`): lo básico, lo
+que importa de la mano, y además cómo va la partida y qué cartas salieron. Y lo que se hace también se
+guarda en general (cantar uno más que la estimación, ganar con la carta más baja que gana). Así una
+respuesta vale para todas las manos parecidas.
 
 `pick_spots` simula partidas y elige qué preguntar: tipos frecuentes en los que la decisión cambia
-mucho el resultado de la ronda, con varias manos para los más importantes. `LearnedProfile` juega
-con lo aprendido: la respuesta más repetida en ese tipo de jugada, una versión más general del tipo
-si ese no se preguntó, y la heurística si no sabe nada.
+mucho el resultado de la ronda, con varias manos para los más importantes, sin repetir las ya
+respondidas. `LearnedProfile` juega con lo aprendido: la respuesta más repetida en el tipo más
+detallado que tenga respuestas, y la heurística si no sabe nada.
 """
 
 import json
@@ -18,10 +19,12 @@ from collections import Counter, defaultdict
 import numpy as np
 
 from ..evaluation import _beats, _card_bid_weight, _current_best, heuristic_opponent
-from .partida import sample_chance
+from .partida import replay, sample_chance
 
 _BID = 52
 _MAX_OFFSET = 2
+_CLEAR_GAP = 15       # puntos de diferencia para ir claramente ganando o perdiendo
+_FINAL_ROUNDS = 3     # últimas rondas de la partida
 
 
 def _bucket(x, top):
@@ -36,8 +39,30 @@ def bid_estimate(eng, idx):
     return sum(_card_bid_weight(c, eng.trump_suit, eng.num_players) for c in eng.players[idx].hand)
 
 
+def _match_context(state):
+    """Cómo va la partida para quien decide: puntos contra el mejor rival y si ya es el final."""
+    eng = state._engine
+    me = eng.players[eng.current_player_index]
+    best = max(p.score for p in eng.players if p is not me)
+    gap = me.score - best
+    standing = "ganando" if gap >= _CLEAR_GAP else ("perdiendo" if gap <= -_CLEAR_GAP else "parejo")
+    return standing, state._round_ptr >= len(state._ladder) - _FINAL_ROUNDS
+
+
+def _cards_context(state):
+    """Qué dicen las cartas vistas: triunfos que faltan aparecer y si tengo una carta que ya no
+    se puede superar en su palo."""
+    eng = state._engine
+    hand = eng.players[eng.current_player_index].hand
+    seen = {eng.id_to_card(a) for a in state._played_by} | set(hand) | {eng.trump_card}
+    unseen = [eng.id_to_card(a) for a in range(52) if eng.id_to_card(a) not in seen]
+    trumps_out = sum(c.suit == eng.trump_suit for c in unseen)
+    master = any(all(c.suit != u.suit or c.value > u.value for u in unseen) for c in hand)
+    return _bucket(trumps_out, 3), master
+
+
 def bid_key(state):
-    """(general, detallada) del canto."""
+    """Los tres niveles del canto."""
     eng = state._engine
     idx, n, h = eng.current_player_index, eng.num_players, eng.cards_per_player
     hand = eng.players[idx].hand
@@ -49,11 +74,12 @@ def bid_key(state):
     pressure = "poco" if said < expected else ("mucho" if said > expected else "justo")
     size = "corta" if h <= 2 else ("media" if h <= 4 else "larga")
     general = ("canto", size, _position(pos, n), _bucket(len(trumps), 3))
-    return general, general + (_bucket(highs, 2), any(c.value >= 11 for c in trumps), pressure)
+    detailed = general + (_bucket(highs, 2), any(c.value >= 11 for c in trumps), pressure)
+    return general, detailed, detailed + _match_context(state)
 
 
 def play_key(state):
-    """(general, detallada) de la jugada."""
+    """Los tres niveles de la jugada."""
     eng = state._engine
     idx, n = eng.current_player_index, eng.num_players
     me = eng.players[idx]
@@ -64,14 +90,15 @@ def play_key(state):
     has_trump = any(c.suit == eng.trump_suit for c in me.hand)
     if not trick:
         general = ("sale", goal)
-        return general, general + (rivals > 0, has_trump, _bucket(len(me.hand), 3))
+        detailed = general + (rivals > 0, has_trump, _bucket(len(me.hand), 3))
+        return general, detailed, detailed + _match_context(state) + _cards_context(state)
     lead = trick[0][1].suit
     follows = any(c.suit == lead for c in me.hand)
     best = _current_best(eng)
     can_win = any(_beats(c, best, eng.trump_suit) for c in eng.legal_cards(idx))
     general = ("sigue", goal, can_win)
-    return general, general + (rivals > 0, follows, _position(len(trick), n),
-                               _bucket(len(me.hand), 3))
+    detailed = general + (rivals > 0, follows, _position(len(trick), n), _bucket(len(me.hand), 3))
+    return general, detailed, detailed + _match_context(state) + _cards_context(state)
 
 
 def play_options(state, legal):
@@ -137,9 +164,11 @@ def _spread(state, heuristic):
     return max(scores) - min(scores) if scores else 0
 
 
-def pick_spots(game, count, seed=0, games=300, decisions_per_game=12):
+def pick_spots(game, count, seed=0, games=300, decisions_per_game=12, skip=()):
     """Elige `count` decisiones: los tipos de jugada que más importan (frecuencia y cuánto cambia
-    el resultado), repasando la lista para sumar manos distintas de los más importantes."""
+    el resultado), repasando la lista para sumar manos distintas de los más importantes. `skip`:
+    historias ya respondidas (ver `answered`), para pedir más sin repetir."""
+    skip = {tuple(h) for h in skip}
     rng = np.random.RandomState(seed)
     heuristic = heuristic_opponent(rng)
     found = defaultdict(list)
@@ -150,8 +179,9 @@ def pick_spots(game, count, seed=0, games=300, decisions_per_game=12):
                 sample_chance(state, rng)
                 continue
             legal = state.legal_actions()
-            if len(legal) > 1 and rng.uniform() < decisions_per_game / 62:
-                _, key = spot_keys(state)
+            if (len(legal) > 1 and rng.uniform() < decisions_per_game / 62
+                    and tuple(state.history()) not in skip):
+                key = spot_keys(state)[2]
                 spread = _spread(state, heuristic)
                 if spread > 0:
                     found[key].append((spread, [int(a) for a in state.history()]))
@@ -180,20 +210,28 @@ def pick_spots(game, count, seed=0, games=300, decisions_per_game=12):
     return spots
 
 
-def load_answers(game, folder):
-    """Todas las decisiones guardadas de una persona: [(general, detallada, etiquetas)]."""
-    from .partida import replay
-    answers = []
+def _saved_rows(folder):
     for fname in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
         with open(os.path.join(folder, fname)) as f:
             for line in f:
                 row = json.loads(line)
-                if row["tipo"] not in ("decision", "situacion") or len(row["legales"]) < 2:
-                    continue
-                state = replay(game, row["historia"])
-                labels = answer_labels(state, row["accion"])
-                if labels:
-                    answers.append((*spot_keys(state), labels))
+                if row["tipo"] in ("decision", "situacion"):
+                    yield row
+
+
+def answered(folder):
+    """Historias de las decisiones ya guardadas de una persona."""
+    return [row["historia"] for row in _saved_rows(folder)]
+
+
+def load_answers(game, folder):
+    """Todas las decisiones de una persona: [(general, detallada, completa, etiquetas)]."""
+    answers = []
+    for row in _saved_rows(folder):
+        if len(row["legales"]) < 2:
+            continue
+        state = replay(game, row["historia"])
+        answers.append((*spot_keys(state), answer_labels(state, row["accion"])))
     return answers
 
 
@@ -203,15 +241,14 @@ class LearnedProfile:
     def __init__(self, answers, rng=None):
         self.heuristic = heuristic_opponent(rng or np.random.RandomState(0))
         self.counts = defaultdict(Counter)
-        for general, detailed, labels in answers:
-            for key in (general, detailed):
+        for *keys, labels in answers:
+            for key in keys:
                 self.counts[key].update(labels)
 
     def predict(self, state, legal):
         """La acción aprendida, o None si no sabe nada de este tipo de jugada."""
-        general, detailed = spot_keys(state)
         eng = state._engine
-        for key in (detailed, general):
+        for key in reversed(spot_keys(state)):
             if not self.counts[key]:
                 continue
             if eng.phase == "bidding":
@@ -235,10 +272,10 @@ def agreement(answers_rows, make_profile):
     for fold in range(5):
         train = [a for i, a in enumerate(answers_rows) if i % 5 != fold]
         profile = make_profile(train)
-        for i, (general, detailed, labels) in enumerate(answers_rows):
+        for i, (*keys, labels) in enumerate(answers_rows):
             if i % 5 != fold:
                 continue
-            guess = profile.counts[detailed] or profile.counts[general]
+            guess = next((profile.counts[k] for k in reversed(keys) if profile.counts[k]), None)
             total += 1
             hits += bool(guess) and guess.most_common(1)[0][0] in labels
     return hits / max(1, total)
