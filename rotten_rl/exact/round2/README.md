@@ -13,6 +13,7 @@ make                           # build/round2 (g++ con C++17); desde Python, rou
 ./build/round2 eval  --n 3 --games 1000000 --load tabla.bin --policies avg,heur,heur
 ./build/round2 dump  --n 3 --load tabla.bin --save estrategia.tsv
 ./build/round2 trace --n 3 --games 200                          # para tests/test_round2.py
+./build/round2 serve --n 3 --load tabla.bin                       # consultas por stdin (compare_round2_agent.py)
 ```
 
 - `--abstraction b` agrupa las cartas jugadas antes en la primera baza por su relación con la
@@ -22,6 +23,10 @@ make                           # build/round2 (g++ con C++17); desde Python, rou
 - `br`: para cada posición, la mejor desviación (primero la mejor carta en cada situación,
   después el mejor canto sabiendo eso). `gain_in_sample` la mide sobre los mismos repartos con
   que la eligió (exagera por ruido); `gain_holdout`, sobre repartos nuevos (cota por abajo).
+- `serve`: lee consultas de a una por línea (`bid <triunfo> <manos> <k> <cantos previos>` o
+  `play <triunfo> <manos> <k> <todos los cantos> <cartas ya jugadas>`, posiciones en orden de
+  canto) y responde si la situación está en la tabla y las probabilidades de cada acción. Lo usa
+  `scripts/exact/compare_round2_agent.py` para poner al agente contra la tabla.
 - La tabla se guarda en binario (`--save`) y se retoma con `--load`: sirve para correrlo por
   sesiones en el lab.
 
