@@ -82,6 +82,7 @@ _GAME_TYPE = pyspiel.GameType(
         "must_trump_when_void": True,
         "reward_scheme": "raw",     # "raw" -> score/24 ; "relative" -> (score - mean_opp)/24
         "max_hand": MAX_HAND_SIZE,
+        "infer_trump_void": False,  # marcar sin triunfo a quien no siguio y tampoco fallo
     },
 )
 
@@ -151,6 +152,7 @@ class PodridaGame_OS(pyspiel.Game):
         self._must_trump = bool(params.get("must_trump_when_void", True))
         self._reward_scheme = str(params.get("reward_scheme", "raw"))
         self._max_hand = int(params.get("max_hand", MAX_HAND_SIZE))
+        self._infer_trump_void = bool(params.get("infer_trump_void", False))
 
         self._ladder = build_round_ladder(self._num_players, self._max_hand)
 
@@ -204,6 +206,7 @@ class PodridaState_OS(pyspiel.State):
         self._ladder = game.ladder
         self._reward_scheme = game._reward_scheme
         self._max_hand = game._max_hand
+        self._infer_trump_void = game._infer_trump_void
 
         # Motor de una ronda. El seed no se usa para repartir (lo hace el azar
         # de OpenSpiel); queda por compatibilidad del constructor.
@@ -228,9 +231,11 @@ class PodridaState_OS(pyspiel.State):
 
         # Historial de la ronda que usa el observer, al dia jugada a jugada (asi
         # no recorre todas las bazas en cada decision): quien jugo cada carta,
-        # (jugador, palo) que no siguio y cuantas se jugaron por palo.
+        # (jugador, palo) que no siguio, quienes se deduce que no tienen triunfo y
+        # cuantas se jugaron por palo.
         self._played_by = {}
         self._voids = set()
+        self._trump_voids = set()
         self._played_per_suit = [0] * 4
         self._trick_winner = None           # (jugador, carta) que va ganando la baza en curso
 
@@ -279,6 +284,7 @@ class PodridaState_OS(pyspiel.State):
         self._macro = "engine"
         self._played_by = {}
         self._voids = set()
+        self._trump_voids = set()
         self._played_per_suit = [0] * 4
         self._trick_winner = None
 
@@ -332,6 +338,10 @@ class PodridaState_OS(pyspiel.State):
             self._played_per_suit[suit] += 1
             if lead is not None and SUITS[suit] != lead:
                 self._voids.add((idx, _SUIT_ID[lead]))
+                # Fallar es obligatorio: si tampoco jugo triunfo, no tiene.
+                if (eng.must_trump_when_void and eng.trump_suit is not None
+                        and SUITS[suit] != eng.trump_suit):
+                    self._trump_voids.add((idx, _SUIT_ID[eng.trump_suit]))
             self._update_trick_winner(idx, action, lead)
 
         if eng.phase == "done":
@@ -433,11 +443,12 @@ class PodridaObserver_OS:
             self.dict[name] = self.tensor[idx:idx + size]
             idx += size
 
-    def set_from(self, state: PodridaState_OS, player: int):
+    def set_from(self, state: PodridaState_OS, player: int, infer_trump_void=None):
         """Arma el tensor. Junta en listas las posiciones que valen 1 (`ones`) y
         las que llevan una fraccion (`idx`, `val`) y las escribe en el tensor en
         dos operaciones de numpy: escribir elemento por elemento era la mayor
-        parte del costo."""
+        parte del costo. `infer_trump_void` pisa lo que diga el juego (un torneo
+        junta redes entrenadas con y sin esa deduccion)."""
         t = self.tensor
         t.fill(0.0)
         # El info-state solo esta bien definido en fase de juego del motor.
@@ -496,7 +507,10 @@ class PodridaObserver_OS:
 
         # 12) void_suits (si en una baza se salio con palo L y j no lo siguio, j
         #     es void en L). El historial de la ronda lo lleva el estado.
-        ones += [_OFF["void_suits"] + rel[j] * 4 + s for j, s in state._voids]
+        if infer_trump_void is None:
+            infer_trump_void = state._infer_trump_void
+        voids = state._voids | state._trump_voids if infer_trump_void else state._voids
+        ones += [_OFF["void_suits"] + rel[j] * 4 + s for j, s in voids]
         played_by = state._played_by    # card_id -> jugador que la jugo
 
         # 15) card_info (52 x 10): no vista / en mi mano / es triunfo / la jugo
@@ -560,7 +574,7 @@ class PodridaObserver_OS:
 _FAST_OBSERVER: Optional[PodridaObserver_OS] = None
 
 
-def info_state_tensor(state: PodridaState_OS, player: int) -> np.ndarray:
+def info_state_tensor(state: PodridaState_OS, player: int, infer_trump_void=None) -> np.ndarray:
     """Igual que `state.information_state_tensor(player)`, pero llamando directo
     al observer. Pedirlo por pyspiel cuesta mucho mas: copia el estado y arma
     el tensor dos veces por pedido. Devuelve una copia (float32, 808), asi que
@@ -568,7 +582,7 @@ def info_state_tensor(state: PodridaState_OS, player: int) -> np.ndarray:
     global _FAST_OBSERVER
     if _FAST_OBSERVER is None:
         _FAST_OBSERVER = PodridaObserver_OS(None, None)
-    _FAST_OBSERVER.set_from(state, player)
+    _FAST_OBSERVER.set_from(state, player, infer_trump_void)
     return _FAST_OBSERVER.tensor.copy()
 
 

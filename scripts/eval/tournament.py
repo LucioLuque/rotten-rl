@@ -85,17 +85,20 @@ def _network_agent(spec, game, device, rng):
               [int(x) for x in config["hidden_layers_sizes"]], num_actions)
     net.load_state_dict(torch.load(path, map_location="cpu"))
     net.to(device).eval()
+    # Cada red juega con la observacion con la que se entreno.
+    infer_trump_void = config.get("infer_trump_void", False)
 
     if not sample:
         def batch(states, legals):
-            return greedy_batch(net, states, legals, num_actions, device)
+            return greedy_batch(net, states, legals, num_actions, device, infer_trump_void)
     else:
         name += ":sample"
         gen = torch.Generator(device=device)
         gen.manual_seed(int(rng.randint(2 ** 31)))
 
         def batch(states, legals):
-            infos = np.stack([info_state_tensor(s, s.current_player()) for s in states])
+            infos = np.stack([info_state_tensor(s, s.current_player(), infer_trump_void)
+                              for s in states])
             mask = np.zeros((len(states), num_actions), dtype=bool)
             for i, legal in enumerate(legals):
                 mask[i, legal] = True

@@ -37,3 +37,52 @@ def test_info_state_igual_por_pyspiel():
                                       expected)
         np.testing.assert_array_equal(og.info_state_tensor(clone, player), expected)
     fixture.play(4, 0, check)
+
+
+def _jugar_con_deduccion(players, partidas, revisar):
+    """Partidas al azar con la deduccion activada, llamando a `revisar` en cada decision."""
+    game = pyspiel.load_game("podrida", {"players": players, "infer_trump_void": True})
+    rng = np.random.RandomState(players)
+    for _ in range(partidas):
+        state = game.new_initial_state()
+        while not state.is_terminal():
+            if state.is_chance_node():
+                outcomes, probs = zip(*state.chance_outcomes())
+                state.apply_action(int(rng.choice(outcomes, p=probs)))
+                continue
+            revisar(state)
+            state.apply_action(int(rng.choice(state.legal_actions())))
+
+
+@pytest.mark.parametrize("players", [3, 7])
+def test_deduccion_de_triunfo_siempre_es_cierta(players):
+    vistos = []
+
+    def revisar(state):
+        eng = state._engine
+        for j, s in state._trump_voids:
+            assert not any(og._SUIT_ID[c.suit] == s for c in eng.players[j].hand)
+            assert s == og._SUIT_ID[eng.trump_suit]
+            vistos.append(j)
+
+    _jugar_con_deduccion(players, 8, revisar)
+    assert vistos
+
+
+def test_deduccion_solo_cambia_los_palos_vacios():
+    desde = og._OFF["void_suits"]
+    hasta = desde + 7 * 4
+    distintas = []
+
+    def revisar(state):
+        p = state.current_player()
+        con = og.info_state_tensor(state, p)
+        sin = og.info_state_tensor(state, p, False)
+        assert con.shape == sin.shape == (808,)
+        np.testing.assert_array_equal(np.delete(con, range(desde, hasta)),
+                                      np.delete(sin, range(desde, hasta)))
+        assert (con[desde:hasta] >= sin[desde:hasta]).all()
+        distintas.append(not np.array_equal(con, sin))
+
+    _jugar_con_deduccion(3, 8, revisar)
+    assert any(distintas)

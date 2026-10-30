@@ -60,10 +60,12 @@ def _greedy(q_values: torch.Tensor, legal) -> int:
     return int(legal[int(torch.argmax(q_values[legal]))])
 
 
-def greedy_batch(net, states, legals, num_actions: int, device) -> np.ndarray:
+def greedy_batch(net, states, legals, num_actions: int, device,
+                 infer_trump_void=None) -> np.ndarray:
     """La accion legal de mayor salida de `net` en cada estado, en una sola
     pasada (para evaluar muchas partidas a la vez, ver evaluation.evaluate)."""
-    infos = np.stack([info_state_tensor(s, s.current_player()) for s in states])
+    infos = np.stack([info_state_tensor(s, s.current_player(), infer_trump_void)
+                      for s in states])
     mask = np.zeros((len(states), num_actions), dtype=bool)
     for i, legal in enumerate(legals):
         mask[i, legal] = True

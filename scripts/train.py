@@ -56,6 +56,8 @@ flags.DEFINE_enum("algo", "nfsp", sorted(ALGORITHMS), "Algoritmo de entrenamient
 # --- juego / evaluacion ---
 flags.DEFINE_integer("players", 2, "Cantidad de jugadores (2..7).")
 flags.DEFINE_string("reward_scheme", "raw", "raw | relative.")
+flags.DEFINE_bool("infer_trump_void", False,
+                  "Observacion: marcar sin triunfo a quien no siguio el palo y tampoco fallo.")
 flags.DEFINE_bool("round_episodes", False,
                   "Para los agentes, cada ronda es un episodio (el valor de una decision no "
                   "incluye los puntos de las rondas siguientes).")
@@ -142,7 +144,7 @@ flags.DEFINE_string("device", "cpu", "cpu | cuda (para chico casi no ayuda; ver 
 # Flags que se guardan en config.json: los comunes y los de cada algoritmo.
 _COMMON_KEYS = [
     "algo", "players", "reward_scheme", "round_episodes", "vector_games", "num_train_episodes",
-    "eval_every",
+    "infer_trump_void", "eval_every",
     "eval_games", "eval_deal_seed", "eval_opponents", "save_eval_snapshots", "log_every", "checkpoint_every",
     "checkpoint_buffers", "keep_checkpoints", "seed"]
 _ALL_KEYS = list(dict.fromkeys(_COMMON_KEYS + [k for cls in ALGORITHMS.values()
@@ -189,7 +191,8 @@ def main(_):
     rng = np.random.RandomState(FLAGS.seed)
     n = FLAGS.players
 
-    game = pyspiel.load_game("podrida", {"players": n, "reward_scheme": FLAGS.reward_scheme})
+    game = pyspiel.load_game("podrida", {"players": n, "reward_scheme": FLAGS.reward_scheme,
+                                         "infer_trump_void": FLAGS.infer_trump_void})
     info_state_size = game.information_state_tensor_size()
     num_actions = game.num_distinct_actions()
     algo = algo_cls.from_flags(game, FLAGS)

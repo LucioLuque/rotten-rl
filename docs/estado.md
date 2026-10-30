@@ -258,8 +258,11 @@ recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11 (**pa
   commit anterior a las métricas.
 - Todas las corridas siguientes llevan las métricas nuevas de PPO (`approx_kl`,
   `explained_variance`, `grad_norm`, `learning_rate`).
-- La deducción "no tiene triunfo" en la observación no entra hasta validarla (cuántas veces aparece:
-  5.7% de las jugadas con 3 jugadores, 11.7% con 7; falta medir si aporta).
+- La deducción "no tiene triunfo" (`--infer_trump_void`, apagada por defecto) se mide primero:
+  `g70`–`g72` contra `b70`–`b72`. Aparece en 5.7% de las jugadas con 3 jugadores y 11.7% con 7; falta
+  ver si aporta. Las corridas largas que dependen de ella esperan ese resultado.
+- `--resume` puede extender el horizonte (la tasa se recalcula): `e70` va a 1.5M y `h10` extiende
+  `c10` a 3M, contra `f30` de cero. Falta saber si conviene extender o empezar de cero.
 - 2 jugadores no corre la receta actual desde el 25/10 (mejor hasta ahora: DQN `r10`–`r12`,
   0.546–0.576, y PPO `p10`–`p12`, 0.526–0.571, dentro del ruido; esas redes solo están en la -04).
 

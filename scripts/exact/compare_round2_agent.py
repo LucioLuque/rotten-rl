@@ -157,7 +157,8 @@ def main():
 
     path, config, ep = load_policy(a.run)
     n = config["players"]
-    game = pyspiel.load_game("podrida", {"players": n})
+    game = pyspiel.load_game("podrida", {"players": n,
+                                         "infer_trump_void": config.get("infer_trump_void", False)})
     assert game.ladder[1] == 2
     net = mlp(game.information_state_tensor_size(),
               [int(x) for x in config["hidden_layers_sizes"]], game.num_distinct_actions())
