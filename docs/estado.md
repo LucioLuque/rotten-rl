@@ -238,12 +238,20 @@ entre semillas; la tasa fija hasta 1M queda apenas arriba. **La heurística ya n
 con 3 jugadores** (`z18` de 400k a 1M le saca +2.5 puntos por partida a su versión anterior, pero
 contra la heurística pasa de 0.50 a 0.52): desde ahora, 3 jugadores se compara en torneo.
 
+Crítico central con 3 semillas (torneo del 30/10): ventaja chica de ~0.4 puntos por partida, a ~2
+errores estándar y con semillas que se pisan; mucho menos que alargar el horizonte. Detalle en
+`docs/reportes/2026-10-30.md`.
+
+2 jugadores con la receta actual (`f20`, `f22`, 1M, 31/10): 0.73 contra la heurística (+22.5 puntos
+por partida; antes 0.55–0.58). Lotes de 256 y 512 no se distinguen y sigue subiendo.
+
 ## Perfiles (30/10/2026)
 
 Medir modelos contra formas de jugar, incluida la de Lucio, y jugarles en la interfaz, empezando por
 2 jugadores. Ya están la interfaz sobre el estado de OpenSpiel (`scripts/play.py`), el guardado de
 decisiones, los perfiles `conservative`, `risky` y `play_to_lose`, y las situaciones elegidas
-(`--spots`), de las que sale el perfil de una persona. Falta que Lucio responda. Ver `docs/profiles/README.md`.
+(`--spots`). El 31/10 Lucio las descartó (cortó a las 6 respuestas): su perfil sale de partidas enteras
+contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs/profiles/README.md`.
 
 ## Bugs encontrados (25/10/2026)
 
@@ -258,16 +266,17 @@ decisiones, los perfiles `conservative`, `risky` y `play_to_lose`, y las situaci
 ## Próximos pasos
 
 **Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
-recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11 (**pasos exactos para el viernes a las 22:00 en
-`docs/reportes/2026-10-30.md`**):
+recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11, **en curso desde el viernes
+22:22 en la -19; el sábado una reserva del aula, hasta las 17:00, cortó todo y nos pasó a la -22.
+Para retomar: "Para seguir" en `docs/reportes/2026-10-30.md`**:
 
 - Primero, sin métricas nuevas ni observación nueva: retomar `d11`, `d12` y `e70` con el código del
   commit anterior a las métricas.
 - Todas las corridas siguientes llevan las métricas nuevas de PPO (`approx_kl`,
   `explained_variance`, `grad_norm`, `learning_rate`).
-- La deducción "no tiene triunfo" (`--infer_trump_void`, apagada por defecto) se mide primero:
-  `g70`–`g72` contra `b70`–`b72`. Aparece en 5.7% de las jugadas con 3 jugadores y 11.7% con 7; falta
-  ver si aporta. Las corridas largas que dependen de ella esperan ese resultado.
+- La deducción "no tiene triunfo" (`--infer_trump_void`, apagada por defecto) se midió con `g70`–`g72`
+  contra `b70`–`b72` (31/10): no aporta con 7 jugadores (0.336 contra 0.332 vs heurística; ~0.1 puntos
+  en contra en el torneo). Recomendación: dejarla apagada; falta que Lucio lo decida y lanzar `f21`.
 - `--resume` puede extender el horizonte (la tasa se recalcula): `e70` va a 1.5M y `h10` extiende
   `c10` a 3M, contra `f30` de cero. Falta saber si conviene extender o empezar de cero.
 - 2 jugadores no corre la receta actual desde el 25/10 (mejor hasta ahora: DQN `r10`–`r12`,

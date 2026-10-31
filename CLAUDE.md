@@ -48,6 +48,18 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   `--no_launch_after lab` corren hasta la próxima mañana de día hábil (06:55 y 06:00): el viernes a
   la noche significa el lunes. El fin de semana lanzar el vigilante de VPN con fecha:
   `udesa-vpn-watch "<lunes> 07:00"`. El primero de cada mes hay mantenimiento nocturno.
+- **Mirar siempre el calendario del aula antes de planear o lanzar** (portada de
+  <https://it-ing-udesa.github.io/>; también como iCal público). El acceso "todo el día" del fin de
+  semana no vale si el aula está reservada: el lab pasa las máquinas a Windows y se pierde todo lo que
+  corre. El calendario puede estar incompleto (el 31/10 faltaba un tramo hasta las 17:00), así que
+  dejar margen y confirmarlo con Stefano Ruberto (IT) si hay dudas. Ajustar el plan y los respaldos.
+- **Respaldar siempre durante las corridas, desde el primer lanzamiento**: `scripts/lab/backup_loop.sh
+  "<hasta>"` en segundo plano (cada hora), no "más tarde". El 31/10 un reinicio sin aviso dejó ~10
+  horas de corridas en una máquina a la que no se pudo volver.
+- **Si cambia la máquina, no se puede elegir volver**: el lab fija cada usuario a una máquina y, si
+  está apagada o reiniciando al conectarse, lo mueve a otra y lo deja ahí (hasta dos días). Por eso
+  no conectarse durante un reinicio ni cerca de una reserva del aula, tampoco desde vigilantes o
+  respaldos. Para rearmar el entorno: `scripts/lab/setup_machine.sh`, que vive en `$HOME`.
 - **Nada se conecta al lab fuera de horario**: toda espera o monitor que haga `ssh labs004` tiene
   que terminar a las 07:00 en días hábiles. El 27/10 una espera siguió y a las 07:32, con la -04
   reiniciando, el lab nos asignó otra máquina (la -17) y quedamos sin acceso a `~/scratch` de la -04.

@@ -1,38 +1,53 @@
 #!/bin/bash
-# Vigila una noche de corridas desde la laptop y termina (para que Claude lo atienda) cuando pasa
-# algo: terminó otra corrida de la cola, apareció un archivo esperado (un torneo), llegó la hora
-# del respaldo, o NO SE PUEDE MIRAR el lab. Nunca se queda mirando a ciegas.
+# Watches a night of runs from the laptop and exits (so Claude attends it) when something happens:
+# another run of the queue finished, an expected file appeared (a tournament), it is backup time,
+# or the lab cannot be trusted any more. It must never keep watching blind.
 #
-#   scripts/lab/watch_queue.sh <log de la cola> <terminadas ya vistas> [archivo a esperar]
-#   p.ej.  scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md     (rutas relativas a ~/scratch)
+#   scripts/lab/watch_queue.sh <queue log> <finished runs already seen> [file to wait for]
+#   e.g.  scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md     (paths relative to ~/scratch)
 #
-# Salida (una línea): TERMINO <n> | ARCHIVO | HORA | FALLA <detalle>.
-# - Cada consulta usa su propia conexión (ControlPath=none): no depende de la conexión compartida,
-#   que se rompe del lado del lab ("unknown userid") y dejaba al vigilante sin ver nada (noche del
-#   29/10: 3 horas a ciegas, 7 lugares sin reemplazo).
-# - Si falla 2 veces seguidas (~5 minutos), cierra la conexión compartida y sale con FALLA.
-# - De lunes a viernes sale con HORA a las 06:35 (respaldo y reporte) y no consulta el lab hasta
-#   las 22:00, porque cierra a las 07:00. Sábados y domingos sigue mirando todo el día.
+# Output (one line): TERMINO <n> | ARCHIVO | HORA | NADA_CORRE | FALLA <detail>.
+# - Every query opens its own connection (ControlPath=none): it does not depend on the shared
+#   connection, which breaks on the lab side ("unknown userid"; night of 29/10: 3 blind hours).
+# - The machine is checked on every query. The first answer sets it, or WATCH_HOST if given. If it
+#   changes, or the queue log is missing, it exits with FALLA right away. Stderr is kept apart from
+#   the parsed output: on 31/10 a failed grep still printed a valid-looking "0" and the watcher saw
+#   nothing for 30 minutes after the lab moved us to another machine.
+# - No training process running: exits with NADA_CORRE.
+# - If a query fails twice in a row (~5 minutes), closes the shared connection and exits with FALLA.
+# - Monday to Friday: exits with HORA at 06:35 and does not query the lab until 22:00, because it
+#   closes at 07:00. Saturdays and Sundays it keeps watching all day.
 log=$1; known=$2; file=${3:-}
+host=${WATCH_HOST:-}
 fails=0
+err=$(mktemp)
+trap 'rm -f "$err"' EXIT
+remote="hostname
+if [ -f ~/scratch/logs/$log ]; then grep -c terminó ~/scratch/logs/$log; else echo NOLOG; fi
+if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi
+ps -eo args | awk '\$2 ~ /train[.]py\$/ {n++} END {print n+0}'"
 while true; do
-  now=$((10#$(date +%H%M))); dow=$(date +%u)          # 1 = lunes ... 7 = domingo
+  now=$((10#$(date +%H%M))); dow=$(date +%u)          # 1 = Monday ... 7 = Sunday
   if [ "$dow" -le 5 ] && [ $now -ge 635 ] && [ $now -lt 2200 ]; then
     echo "HORA $(date +%H:%M)"; exit 0
   fi
-  out=$(timeout 60 ssh -o ControlPath=none -o ConnectTimeout=20 labs004 \
-    "grep -c terminó ~/scratch/logs/$log; if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi" 2>&1)
-  n=$(echo "$out" | sed -n 1p); f=$(echo "$out" | sed -n 2p)
-  if ! [[ "$n" =~ ^[0-9]+$ ]]; then
+  out=$(timeout 60 ssh -o ControlPath=none -o ConnectTimeout=20 labs004 "$remote" 2>"$err")
+  got=$(echo "$out" | sed -n 1p); n=$(echo "$out" | sed -n 2p)
+  f=$(echo "$out" | sed -n 3p); running=$(echo "$out" | sed -n 4p)
+  if ! [[ "$running" =~ ^[0-9]+$ ]]; then
     fails=$((fails + 1))
     if [ $fails -ge 2 ]; then
       ssh -O exit labs004 >/dev/null 2>&1
-      echo "FALLA $(date +%H:%M) $(echo "$out" | tail -1)"; exit 1
+      echo "FALLA $(date +%H:%M) $(tail -1 "$err")"; exit 1
     fi
     sleep 150; continue
   fi
   fails=0
+  [ -n "$host" ] || host=$got
+  if [ "$got" != "$host" ]; then echo "FALLA $(date +%H:%M) máquina cambiada: $host -> $got"; exit 1; fi
+  if [ "$n" = "NOLOG" ]; then echo "FALLA $(date +%H:%M) no existe $log en $got"; exit 1; fi
   if [ "$n" -gt "$known" ]; then echo "TERMINO $n"; exit 0; fi
   if [ "$f" = "1" ]; then echo "ARCHIVO"; exit 0; fi
+  if [ "$running" -eq 0 ]; then echo "NADA_CORRE $(date +%H:%M) en $got"; exit 0; fi
   sleep 300
 done

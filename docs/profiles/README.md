@@ -1,16 +1,17 @@
 # Perfiles
 
 Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Hecho: la interfaz,
-el guardado, los perfiles a mano y las **situaciones elegidas**, de las que sale el perfil de una persona.
-Falta: las respuestas de Lucio.
+el guardado, los perfiles a mano y las situaciones elegidas. **El perfil de Lucio sale de partidas enteras
+contra el mejor modelo de 2 jugadores**: el 31/10 probó las situaciones, le parecieron malas y las cortó
+a las 6 respuestas (quedan guardadas y `load_answers` las suma). Falta: jugar esas partidas.
 
 ## Jugar
 
 ```bash
 .venv/bin/python scripts/play.py                         # practicar contra la heurística
-.venv/bin/python scripts/play.py --profile lucio --spots 150   # jugadas elegidas, lo principal
-.venv/bin/python scripts/play.py --profile lucio          # partidas enteras, guardando tus decisiones
-.venv/bin/python scripts/play.py --profile lucio --players 3 --rival runs/lab/labo-s004-19/runs/<corrida>
+.venv/bin/python scripts/play.py --profile lucio --rival runs/lab/<máquina>/runs/<corrida>   # lo principal
+.venv/bin/python scripts/play.py --profile lucio          # partidas enteras contra la heurística
+.venv/bin/python scripts/play.py --profile lucio --spots 150   # jugadas elegidas, descartadas para Lucio
 ```
 
 Con `--profile` cada decisión va a `data/profiles/<profile>/<fecha>.jsonl`, con la historia completa
@@ -48,8 +49,10 @@ Son estilos bien distintos, y ninguno le gana a la heurística.
 
 ## Aprender de una persona: situaciones elegidas
 
-Lo principal son jugadas elegidas, mostradas en la pantalla del juego, una por vez; las partidas enteras
-complementan. Está en `rotten_rl/profiles/spots.py`.
+Lo principal para Lucio son las partidas enteras: cada una deja ~40 decisiones, que pasan por el mismo
+tipo de jugada y la misma generalización de abajo, y el rival queda anotado en cada partida. Las jugadas
+elegidas, mostradas una por vez, siguen disponibles pero se descartaron el 31/10. Todo en
+`rotten_rl/profiles/spots.py`.
 
 - **Tipo de jugada:** cada decisión se reduce a lo que importa, en tres niveles. Canto: tamaño de la
   ronda, posición y triunfos; después cartas altas y cuánto se cantó antes. Jugada: si sale o sigue,
@@ -103,9 +106,10 @@ mismas tablas sirven para decirle a Lucio dónde pierde puntos en esas rondas.
 1. ~~Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.~~
 2. ~~Perfiles `conservative`, `risky` y `play_to_lose`.~~
 3. ~~Situaciones elegidas y perfil aprendido.~~
-4. Lucio responde las 150 situaciones y juega contra `lucio`. Medir cuánto se predicen; si no alcanza,
-   pedir más situaciones o partidas.
-5. Lucio juega contra el mejor modelo de 2 jugadores con repartos repetidos: ¿le gana?
+4. Lucio juega partidas enteras contra el mejor modelo de 2 jugadores, con repartos repetidos: ¿le
+   gana? Las redes buenas (`f20`, `f22`, 0.73 contra la heurística) están en la -19; en la laptop solo
+   hay las de 25k (`f21`, `f23`, `f25`, 0.56).
+5. Con esas decisiones, medir cuánto se predicen (`agreement`) y jugar contra `lucio`.
 6. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los
    perfiles, y `tournament.py --agents` también).
-7. Después del punto 5: perfil del modelo por simulación, y un explotador entrenado contra él.
+7. Después del punto 4: perfil del modelo por simulación, y un explotador entrenado contra él.

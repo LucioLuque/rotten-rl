@@ -25,6 +25,15 @@ no en la laptop. Documentación oficial: <https://it-ing-udesa.github.io/>. Prob
 
 Además, el primero de cada mes hay mantenimiento nocturno.
 
+**Antes de cada noche o fin de semana, mirar el calendario de ocupación del aula** en la portada de la
+[documentación oficial](https://it-ing-udesa.github.io/). Si el aula está reservada, las máquinas se
+reinician a Windows y **se pierde todo lo que esté corriendo**, aunque sea fin de semana; el acceso
+remoto vuelve cuando terminan la reserva y el reinicio a Linux. El síntoma es el de las
+[preguntas frecuentes](https://it-ing-udesa.github.io/08-preguntas-frecuentes.html): la clave se acepta
+y la conexión se cierra enseguida. El calendario puede estar incompleto: el sábado 31/10/2026
+marcaba hasta las 13:00, y la reserva era hasta las 17:00 (lo confirmó Stefano Ruberto, de IT). El
+próximo sábado marcado es el 5/12, de 08:00 a 13:00.
+
 ## Conectarse
 
 ### 1. VPN
@@ -86,6 +95,13 @@ ssh <usuario>@labs004.udesa.edu.ar
   la máquina de siempre (labo-s004-04) se reiniciaba, cayó en la labo-s004-17, y desde ahí el lab
   nos asigna esa. Por eso no conectarse nunca fuera de horario (después de las 07:00 en días
   hábiles), tampoco desde esperas o monitores automáticos.
+- **Por qué cambia** (Stefano Ruberto, de IT, 29/10/2026): cada usuario queda fijado a una máquina, y
+  si esa máquina no está disponible, por ejemplo apagada, el lab lo mueve a otra. El encendido remoto
+  (wake-on-lan) todavía no funciona, así que una máquina apagada queda así hasta que alguien la prende.
+- **Conectarse mientras la máquina reinicia cambia la asignación**: el lab nos manda a otra disponible y
+  nos deja fijados ahí; volver puede tardar hasta dos días (31/10: -19 a -01 a -22, durante el
+  reinicio a Windows). Rearmar el entorno con `scripts/lab/setup_machine.sh` (`~/rotten-rl` está en
+  el `$HOME` compartido) y subir los checkpoints desde la laptop.
 - **Máximo 2 conexiones simultáneas por usuario** (`ssh`, `scp`, `rsync` cuentan cada uno).
 
 Para entrar sin contraseña y que todas las sesiones compartan una sola conexión:
@@ -134,6 +150,23 @@ scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md   # rutas relativas a ~/scr
 
 Lo motivó la noche del 29/10: el vigilante anterior descartaba los errores de `ssh` y, con la
 conexión compartida rota desde las ~02:10, estuvo 3 horas sin ver nada.
+
+Desde el 31/10 cada consulta verifica también la máquina y el log, y cuenta los entrenamientos: sale
+con `FALLA` si cambió la máquina o falta el log, y con `NADA_CORRE` si no hay entrenamientos. Lo motivó
+esa mañana: con el log ausente, `grep` fallaba pero la consulta devolvía igual un `0` válido, y el
+vigilante siguió 30 minutos sin notar que estábamos en otra máquina. Se dio cuenta Lucio.
+
+### Respaldar durante las corridas: `scripts/lab/backup_loop.sh`
+
+Lanzarlo en segundo plano desde el primer lanzamiento, junto con el vigilante:
+
+```bash
+scripts/lab/backup_loop.sh "2026-11-02 07:00"        # cada 60 minutos, o el segundo argumento
+```
+
+Trae el último checkpoint de cada corrida: el anterior se borra recién cuando llegó entero el nuevo. Al terminar una corrida, si no se va a seguir entrenando, agregarla a `scripts/lab/no_state.txt` y borrar su `state/`. Corre `pull_from_lab.sh` en la laptop, hace el respaldo de las 06:45 en días hábiles y no se conecta
+fuera de horario. Solo termina con `FIN` o con
+`FALLA`, y anota cada respaldo en `runs/lab/backup.log`.
 
 ## Almacenamiento
 

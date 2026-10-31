@@ -47,3 +47,5 @@
 /z73_ppo7p_b128_s0_20261028-023737/state/
 /z74_ppo7p_b128_s1_20261028-042437/state/
 /z75_ppo7p_b128_s2_20261028-042607/state/
+/d11_ppo3p_b512_anneal_400k_central_s1_20261030-052026/state/
+/d12_ppo3p_b512_anneal_400k_central_s2_20261030-052026/state/

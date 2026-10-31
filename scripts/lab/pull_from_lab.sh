@@ -22,11 +22,27 @@ opts=(-a --partial --timeout=60 -e "ssh")
 # Código 24 = archivos que desaparecieron durante la copia (checkpoints que una corrida rotó): no
 # es un error.
 rsync() { command rsync "$@" || [ $? -eq 24 ]; }
-# --delete saca los checkpoints viejos que el lab ya rotó (guarda 2); 'P /*' protege las carpetas
-# de corrida, así una corrida que desaparece del lab (scratch borrado) no se borra acá.
-# no_state.txt: corridas que no se retoman; se saltea su state/ para no ocupar disco.
-rsync "${opts[@]}" --delete --filter 'P /*' --exclude 'prof*' --exclude-from scripts/lab/no_state.txt \
-  labs004:scratch/runs/ "$dest/runs/"
+# Only the newest checkpoint of each run comes to the laptop: the older ones the lab keeps are
+# excluded by name. --delete-after removes the previous copy once the new one has arrived, so a cut
+# in the middle leaves the old one. Checkpoints are renamed from .tmp when complete, so *.tmp is
+# skipped. 'P /*' protects the run folders: a run that disappears from the lab (scratch wiped) is
+# not deleted here. no_state.txt: runs that will not resume, whose state/ is skipped.
+older=$(mktemp)
+trap 'rm -f "$older"' EXIT
+timeout 40 ssh labs004 'cd ~/scratch/runs && ls -d */state/ckpt_ep* 2>/dev/null' | grep -v '[.]tmp$' \
+  | sort -V | awk -F/ '{ if ($1 == run) print "/" prev "/"; run = $1; prev = $0 }' > "$older" || true
+rsync "${opts[@]}" --delete --delete-after --filter 'P /*' --exclude 'prof*' --exclude '*.tmp' \
+  --exclude-from "$older" --exclude-from scripts/lab/no_state.txt labs004:scratch/runs/ "$dest/runs/"
+# The older copies stay out of --delete because they are excluded: drop them here, keeping the
+# newest complete one of each run.
+for state in "$dest"/runs/*/state; do
+  [ -d "$state" ] || continue
+  newest=$(ls -d "$state"/ckpt_ep* 2>/dev/null | grep -v '[.]tmp$' | sort -V \
+    | while read -r c; do if [ -f "$c/meta.pt" ]; then echo "$c"; fi; done | tail -1 || true)
+  [ -n "$newest" ] || continue
+  # grep exits 1 when the newest is the only one: nothing to drop.
+  ls -d "$state"/ckpt_ep* | { grep -vxF "$newest" || true; } | xargs -r rm -rf
+done
 rsync "${opts[@]}" labs004:scratch/logs/ "$dest/logs/"
 rsync "${opts[@]}" --include '*.txt*' --include '*.sh' --exclude '*' labs004:scratch/ "$dest/"
 if [ "${1:-}" = "--tables" ]; then
