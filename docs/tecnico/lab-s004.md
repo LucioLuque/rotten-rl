@@ -26,7 +26,7 @@ precaución):
 |---|---|
 | Evento del calendario | Cortar 30 minutos antes de que empiece; volver 30 minutos después de que termine |
 | Evento que termina a las 21:00 o más tarde | Volver a las 22:20 (o 30 minutos después, si es más tarde) |
-| Reinicio de las 07:30, lunes a viernes | No se sabe si sigue: se trata como un evento (cortar 07:00, volver 08:00). Cuando se reinician se **pierde todo lo que esté corriendo**, incluido `tmux` |
+| Reinicio de las 07:30, lunes a viernes | Sigue pasando (el 4/11/2026 la -13 arrancó a las 07:31): se trata como un evento (cortar 07:00, volver 08:00). Cuando se reinician se **pierde todo lo que esté corriendo**, incluido `tmux` |
 
 Esto lo calcula `rotten_rl/lab_hours.py` a partir del iCal público del aula (lo descarga y lo guarda en
 `~/.cache/rotten-rl/lab_calendar.ics`, o en `$XDG_CACHE_HOME`; si no puede, usa esa copia). Lo usan

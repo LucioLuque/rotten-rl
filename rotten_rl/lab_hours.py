@@ -4,7 +4,7 @@ rotten_rl/lab_hours.py  —  When the lab can be used, from the room calendar.
 The lab can be used at any time (day, night, weekends) except around room events. Around each
 event of the public calendar the lab is closed from 30 minutes before it starts until 30 minutes
 after it ends; if it ends at 21:00 or later, until 22:20. On weekdays the 07:30 reboot is treated
-as an event (closed 07:00 to 08:00), because it is not known if it still happens.
+as an event (closed 07:00 to 08:00), because it still happens (seen on 4/11/2026: the -13 booted at 07:31).
 
 `--stop_at lab` means "5 minutes before the lab closes" and `--no_launch_after lab` "1 hour before".
 Both are refreshed from the calendar every 30 minutes (`Deadline`), so an event added during a run

@@ -47,7 +47,7 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
 - Horario (desde el 3/11/2026): a cualquier hora, de día también, salvo alrededor de los eventos del
   calendario del aula: cortar 30 minutos antes de que empiecen y volver 30 minutos después (si
   terminan a las 21:00 o más tarde, a las 22:20). El reinicio de las 07:30 de lunes a viernes se
-  trata como un evento (07:00 a 08:00) hasta saber si sigue. Lo calcula `rotten_rl/lab_hours.py`
+  trata como un evento (07:00 a 08:00): sigue pasando (el 4/11 la -13 arrancó a las 07:31). Lo calcula `rotten_rl/lab_hours.py`
   (`env -u PYTHONPATH python3 -m rotten_rl.lab_hours` muestra la ventana); `--stop_at lab` y
   `--no_launch_after lab` cortan 5 minutos y 1 hora antes de que cierre. Lanzar el vigilante de VPN
   con esa hora: `udesa-vpn-watch "$(env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes)"`.
