@@ -276,8 +276,20 @@ Detalle en "Relanzado en la labo-s004-22" de `docs/reportes/2026-10-30.md`**.
 2.15.0, CUDA visible, 94 tests pasan y 1 se saltea). A las 23:21 se relanzó `queue9` ahí, desde
 los respaldos de la -01 (`docs/reportes/2026-11-03.md`). Desde el 3/11 el lab se usa también de
 día, fuera de los eventos del calendario (`docs/tecnico/lab-s004.md`, "Horarios"). De la -22 no se
-respaldó nada (`runs/lab/labo-s004-22/` está vacía). Lo último que se puede retomar es lo de
-`queue9` en la -01 (`runs/lab/labo-s004-01/`, sábado 31/10 08:46). Pasos que siguen:
+respaldó nada (`runs/lab/labo-s004-22/` está vacía).
+
+**Al 4/11 12:30** (`docs/reportes/2026-11-03.md` y `2026-11-04.md`): todo en la -13, cortado con
+checkpoint y respaldado en `runs/lab/labo-s004-13/`. El reinicio de las 07:30 sigue pasando. Para
+retomar: `~/scratch/queue10.txt` con `--resume` de `f21`, `f26`, `f30`, `f31`, `f32`, `e70s`, `e71`
+y `e72`. Conclusiones nuevas:
+- **Crítico central (`d73`–`d75`, 7 jugadores): no aporta** (0.337 contra ~0.33 de `b70`–`b72`).
+  Seguir con el local.
+- **2 jugadores:** `f23`/`f25` (1M, semilla 1) repiten a `f20`/`f22` (~0.74). Torneo a las 09:35:
+  `f21` con 1.375M apenas le saca +0.3/+0.8 a las de 1M, pero después siguió subiendo contra la
+  heurística (0.767 a los 1.86M): repetir el torneo más adelante antes de hablar de meseta.
+- **7 jugadores:** `e70s` sube despacio (0.331 a los 690k); `e71`/`e72` (de cero a 1.5M) van parejas.
+
+Pasos que siguen:
 
 - Primero, sin métricas nuevas ni observación nueva: retomar `d11`, `d12` y `e70` con el código del
   commit anterior a las métricas.
