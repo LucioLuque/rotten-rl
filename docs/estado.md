@@ -273,7 +273,9 @@ recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11, **en
 Detalle en "Relanzado en la labo-s004-22" de `docs/reportes/2026-10-30.md`**.
 **El martes 3/11 a las 22:52 la conexión volvió a andar, pero en otra máquina, la -13** (sin
 `tmux`, sin nada de `queue9`). La -13 sale a internet; `setup_machine.sh` armó el entorno (torch
-2.15.0, CUDA visible, 94 tests pasan y 1 se saltea). Todavía no se lanzó nada. De la -22 no se
+2.15.0, CUDA visible, 94 tests pasan y 1 se saltea). A las 23:21 se relanzó `queue9` ahí, desde
+los respaldos de la -01 (`docs/reportes/2026-11-03.md`). Desde el 3/11 el lab se usa también de
+día, fuera de los eventos del calendario (`docs/tecnico/lab-s004.md`, "Horarios"). De la -22 no se
 respaldó nada (`runs/lab/labo-s004-22/` está vacía). Lo último que se puede retomar es lo de
 `queue9` en la -01 (`runs/lab/labo-s004-01/`, sábado 31/10 08:46). Pasos que siguen:
 
