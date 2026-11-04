@@ -19,7 +19,8 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   `docs/tecnico/lab-s004.md`.
 - La VPN la levanta Claude, sin pedírsela al usuario: `~/.local/bin/udesa-vpn-connect` (~3 s, no
   pide nada) y después `setsid nohup ~/.local/bin/udesa-vpn-watch > /dev/null 2>&1 &`, que la
-  reconecta si se cae y corre hasta las 07:00 (detalle en `NOTAS_LOCALES.md`, fuera de git). Con
+  reconecta si se cae y corre hasta la hora que se le pase (por defecto 07:00; pasarle cuándo cierra
+  el lab, ver abajo; detalle en `NOTAS_LOCALES.md`, fuera de git). Con
   la VPN arriba, `ssh labs004` entra sin contraseña (alias en `~/.ssh/config` de la laptop).
 - Cada noche ver `hostname`: el lab puede asignar otra máquina (-04 hasta el 27/10, -17 el 27,
   -19 el 28). Si cambió, armar el entorno de cero (`docs/tecnico/lab-s004.md`, "Entorno") y subir
@@ -39,15 +40,18 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   compartida (ControlMaster) quedó rota del lado del lab: `ssh -O exit labs004` y reconectar.
 - **Vigilar una noche siempre con `scripts/lab/watch_queue.sh`**, nunca con un loop propio que
   descarte errores: consulta con conexión propia (no la compartida), sale con `FALLA` si el lab
-  no responde ~5 minutos y con `HORA` a las 06:35. Ante `FALLA`, arreglar la conexión y relanzarlo
+  no responde ~5 minutos y con `HORA` 25 minutos antes de que cierre el lab. Ante `FALLA`, arreglar la conexión y relanzarlo
   en el momento. Nunca dar por "no pasó nada" una consulta que falló. (El 29/10 un vigilante con
   `2>/dev/null` estuvo 3 horas ciego por la conexión compartida rota y no se reemplazaron 7
   corridas.)
-- Horario remoto: lunes a viernes de 22:00 a 07:00 (reinicio 07:30, se pierde todo lo que corre);
-  fines de semana y feriados todo el día. Máximo 2 conexiones simultáneas. `--stop_at lab` y
-  `--no_launch_after lab` corren hasta la próxima mañana de día hábil (06:55 y 06:00): el viernes a
-  la noche significa el lunes. El fin de semana lanzar el vigilante de VPN con fecha:
-  `udesa-vpn-watch "<lunes> 07:00"`. El primero de cada mes hay mantenimiento nocturno.
+- Horario (desde el 3/11/2026): a cualquier hora, de día también, salvo alrededor de los eventos del
+  calendario del aula: cortar 30 minutos antes de que empiecen y volver 30 minutos después (si
+  terminan a las 21:00 o más tarde, a las 22:20). El reinicio de las 07:30 de lunes a viernes se
+  trata como un evento (07:00 a 08:00) hasta saber si sigue. Lo calcula `rotten_rl/lab_hours.py`
+  (`env -u PYTHONPATH python3 -m rotten_rl.lab_hours` muestra la ventana); `--stop_at lab` y
+  `--no_launch_after lab` cortan 5 minutos y 1 hora antes de que cierre. Lanzar el vigilante de VPN
+  con esa hora: `udesa-vpn-watch "$(env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes)"`.
+  Máximo 2 conexiones simultáneas. El primero de cada mes hay mantenimiento nocturno.
 - **Mirar siempre el calendario del aula antes de planear o lanzar** (portada de
   <https://it-ing-udesa.github.io/>; también como iCal público). El acceso "todo el día" del fin de
   semana no vale si el aula está reservada: el lab pasa las máquinas a Windows y se pierde todo lo que
@@ -60,8 +64,8 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   está apagada o reiniciando al conectarse, lo mueve a otra y lo deja ahí (hasta dos días). Por eso
   no conectarse durante un reinicio ni cerca de una reserva del aula, tampoco desde vigilantes o
   respaldos. Para rearmar el entorno: `scripts/lab/setup_machine.sh`, que vive en `$HOME`.
-- **Nada se conecta al lab fuera de horario**: toda espera o monitor que haga `ssh labs004` tiene
-  que terminar a las 07:00 en días hábiles. El 27/10 una espera siguió y a las 07:32, con la -04
+- **Nada se conecta al lab con el lab cerrado**: toda espera o monitor que haga `ssh labs004` tiene
+  que terminar antes de que cierre (`lab_hours closes`). El 27/10 una espera siguió y a las 07:32, con la -04
   reiniciando, el lab nos asignó otra máquina (la -17) y quedamos sin acceso a `~/scratch` de la -04.
 
 ## En el laboratorio

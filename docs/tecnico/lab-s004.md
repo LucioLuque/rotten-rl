@@ -18,12 +18,29 @@ no en la laptop. Documentación oficial: <https://it-ing-udesa.github.io/>. Prob
 
 ## Horarios
 
-| Cuándo | Acceso remoto |
-|---|---|
-| Lunes a viernes | 22:00 a 07:00. A las 07:30 se reinician las máquinas y **se pierde todo lo que esté corriendo**, incluido `tmux`. |
-| Sábados, domingos y feriados | Todo el día (de viernes 22:00 a lunes 07:30 son ~57 h seguidas) |
+**Desde el 3/11/2026 se puede usar a cualquier hora, de día también, mientras no haya un evento en el
+calendario del aula.** Reglas (los márgenes de 30 minutos los recomendó el lab; el resto, por
+precaución):
 
-Además, el primero de cada mes hay mantenimiento nocturno.
+| Qué | Ventana |
+|---|---|
+| Evento del calendario | Cortar 30 minutos antes de que empiece; volver 30 minutos después de que termine |
+| Evento que termina a las 21:00 o más tarde | Volver a las 22:20 (o 30 minutos después, si es más tarde) |
+| Reinicio de las 07:30, lunes a viernes | No se sabe si sigue: se trata como un evento (cortar 07:00, volver 08:00). Cuando se reinician se **pierde todo lo que esté corriendo**, incluido `tmux` |
+
+Esto lo calcula `rotten_rl/lab_hours.py` a partir del iCal público del aula (lo descarga y lo guarda en
+`~/.cache/rotten-rl/lab_calendar.ics`, o en `$XDG_CACHE_HOME`; si no puede, usa esa copia). Lo usan
+`--stop_at lab` y `--no_launch_after lab` (5 minutos y 1 hora antes de que cierre, recalculado
+cada 30 minutos), el vigilante y el respaldo. Para ver la ventana actual:
+
+```bash
+python -m rotten_rl.lab_hours            # state, closes, stop, last_launch, reopens
+python -m rotten_rl.lab_hours closes     # un campo solo, para scripts
+```
+
+En la laptop, con `env -u PYTHONPATH` adelante (el `PYTHONPATH` de ROS rompe `pytest` y algunos
+imports). Si una máquina no sale a internet (la -22 no salía), copiarle el `.ics` a esa ruta. Además,
+el primero de cada mes hay mantenimiento nocturno: no lo trae el calendario, mirarlo a mano.
 
 **Antes de cada noche o fin de semana, mirar el calendario de ocupación del aula** en la portada de la
 [documentación oficial](https://it-ing-udesa.github.io/). Si el aula está reservada, las máquinas se
@@ -93,8 +110,8 @@ ssh <usuario>@labs004.udesa.edu.ar
   documentación oficial, cada conexión va a la misma máquina, así que `~/scratch` se conserva entre
   sesiones. **Pero la asignación puede cambiar**: el 27/10/2026 una conexión a las 07:32, mientras
   la máquina de siempre (labo-s004-04) se reiniciaba, cayó en la labo-s004-17, y desde ahí el lab
-  nos asigna esa. Por eso no conectarse nunca fuera de horario (después de las 07:00 en días
-  hábiles), tampoco desde esperas o monitores automáticos.
+  nos asigna esa. Por eso no conectarse nunca con el lab cerrado (ver "Horarios"), tampoco desde
+  esperas o monitores automáticos.
 - **Por qué cambia** (Stefano Ruberto, de IT, 29/10/2026): cada usuario queda fijado a una máquina, y
   si esa máquina no está disponible, por ejemplo apagada, el lab lo mueve a otra. El encendido remoto
   (wake-on-lan) todavía no funciona, así que una máquina apagada queda así hasta que alguien la prende.
@@ -138,11 +155,11 @@ ssh labs004 hostname
 
 Desde la laptop, en segundo plano. Termina cuando hay algo que atender: terminó otra corrida de la
 cola (`TERMINO <n>`), apareció un archivo esperado, como la salida de un torneo (`ARCHIVO`), son
-las 06:35 (`HORA`: respaldo y reporte) o el lab no responde (`FALLA`). Cada consulta abre su propia
+faltan 25 minutos para que cierre el lab (`HORA`: respaldo y reporte) o el lab no responde (`FALLA`). Cada consulta abre su propia
 conexión (`-o ControlPath=none`), así que no la afecta que se rompa la compartida; si falla dos
 veces seguidas (~5 minutos), cierra la compartida y sale con `FALLA`, en vez de seguir como si no
-pasara nada. De lunes a viernes no consulta el lab entre las 06:35 y las 22:00; sábados y domingos
-mira todo el día.
+pasara nada. Con el lab cerrado no lo consulta: sale con `HORA` enseguida. Si no puede leer el
+calendario (ni la copia), sale con `FALLA`.
 
 ```bash
 scripts/lab/watch_queue.sh queue7.log 3 torneo_3p.md   # rutas relativas a ~/scratch
@@ -161,11 +178,11 @@ vigilante siguió 30 minutos sin notar que estábamos en otra máquina. Se dio c
 Lanzarlo en segundo plano desde el primer lanzamiento, junto con el vigilante:
 
 ```bash
-scripts/lab/backup_loop.sh "2026-11-02 07:00"        # cada 60 minutos, o el segundo argumento
+scripts/lab/backup_loop.sh "$(env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes)"   # cada 60 minutos, o el segundo argumento
 ```
 
-Trae el último checkpoint de cada corrida: el anterior se borra recién cuando llegó entero el nuevo. Al terminar una corrida, si no se va a seguir entrenando, agregarla a `scripts/lab/no_state.txt` y borrar su `state/`. Corre `pull_from_lab.sh` en la laptop, hace el respaldo de las 06:45 en días hábiles y no se conecta
-fuera de horario. Solo termina con `FIN` o con
+Trae el último checkpoint de cada corrida: el anterior se borra recién cuando llegó entero el nuevo. Al terminar una corrida, si no se va a seguir entrenando, agregarla a `scripts/lab/no_state.txt` y borrar su `state/`. Corre `pull_from_lab.sh` en la laptop, hace un último respaldo 15 minutos antes de que cierre el lab y no
+se conecta desde 10 minutos antes hasta que vuelve a abrir. Solo termina con `FIN` o con
 `FALLA`, y anota cada respaldo en `runs/lab/backup.log`.
 
 ## Almacenamiento
@@ -203,8 +220,8 @@ Se instala `open_spiel` 2.0.2, que ya trae `pytorch/nfsp.py`, y torch con CUDA
 que hay ahí deja de verse. `scripts/lab/pull_from_lab.sh [--tables]` copia con `rsync` a
 `runs/lab/<máquina>/` las corridas (CSVs, snapshots y checkpoints completos), los logs, las colas
 y, con `--tables`, las tablas de la ronda de 2 cartas. Es incremental (~14 MB/s por la VPN; la
-primera copia, 2.3 GB, tardó 3 minutos). Correrlo durante la noche y una última vez después del
-corte de las 06:55, antes de las 07:00. Para retomar en otra máquina: copiar la corrida a
+primera copia, 2.3 GB, tardó 3 minutos). Correrlo durante la corrida y una última vez después del
+corte (`--stop_at lab`, 5 minutos antes de que cierre el lab). Para retomar en otra máquina: copiar la corrida a
 `~/scratch/runs/` y usar `--resume`. Las corridas de `scripts/lab/no_state.txt` no traen `state/`
 (no se retoman; las redes están en `checkpoints/`): agregar ahí las que terminen y no sigan.
 Dentro de cada corrida la copia sigue al lab (los checkpoints rotados se borran también en la
@@ -229,9 +246,9 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.p
 - Cada `--checkpoint_every` partidas (10.000 por defecto) se guarda el estado completo en
   `<corrida>/state/ckpt_ep<N>/` (redes, optimizadores, contadores, buffers y RNGs). Se conservan los
   últimos `--keep_checkpoints` (2).
-- `--stop_at lab` corta a las 06:55 de la próxima mañana de día hábil guardando un checkpoint,
-  antes del corte de SSH de las 07:00 y del reinicio de las 07:30 (el viernes a la noche significa
-  el lunes; `--stop_at HH:MM` corta a esa hora sin mirar el día, y un feriado no se detecta). También corta prolijo con `SIGTERM`, `SIGHUP` o `Ctrl+C`:
+- `--stop_at lab` corta guardando un checkpoint 5 minutos antes de que cierre el lab según el
+  calendario (ver "Horarios"), y lo vuelve a leer cada 30 minutos por si agregan un evento.
+  `--stop_at HH:MM` corta a esa hora sin mirar el día, y `--stop_at "YYYY-MM-DD HH:MM"` en esa fecha. También corta prolijo con `SIGTERM`, `SIGHUP` o `Ctrl+C`:
   termina la partida en curso, guarda y sale.
 - Para seguir otra noche:
   ```bash

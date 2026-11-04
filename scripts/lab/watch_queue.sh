@@ -15,8 +15,9 @@
 #   nothing for 30 minutes after the lab moved us to another machine.
 # - No training process running: exits with NADA_CORRE.
 # - If a query fails twice in a row (~5 minutes), closes the shared connection and exits with FALLA.
-# - Monday to Friday: exits with HORA at 06:35 and does not query the lab until 22:00, because it
-#   closes at 07:00. Saturdays and Sundays it keeps watching all day.
+# - Exits with HORA 25 minutes before the lab closes (rotten_rl/lab_hours.py: room calendar with its
+#   margins, weekday reboot at 07:30), or right away if it is closed: it never queries a closed lab.
+#   If the calendar cannot be read (not even the cache), exits with FALLA.
 log=$1; known=$2; file=${3:-}
 host=${WATCH_HOST:-}
 fails=0
@@ -26,10 +27,12 @@ remote="hostname
 if [ -f ~/scratch/logs/$log ]; then grep -c terminó ~/scratch/logs/$log; else echo NOLOG; fi
 if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi
 ps -eo args | awk '\$2 ~ /train[.]py\$/ {n++} END {print n+0}'"
+repo=$(cd "$(dirname "$0")/../.." && pwd)
 while true; do
-  now=$((10#$(date +%H%M))); dow=$(date +%u)          # 1 = Monday ... 7 = Sunday
-  if [ "$dow" -le 5 ] && [ $now -ge 635 ] && [ $now -lt 2200 ]; then
-    echo "HORA $(date +%H:%M)"; exit 0
+  closes=$(cd "$repo" && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>"$err") \
+    || { echo "FALLA $(date +%H:%M) calendario: $(tail -1 "$err")"; exit 1; }
+  if [ "$closes" = "-" ] || [ "$(date +%s)" -ge $(($(date -d "$closes" +%s) - 25 * 60)) ]; then
+    echo "HORA $(date +%H:%M) (cierra $closes)"; exit 0
   fi
   out=$(timeout 60 ssh -o ControlPath=none -o ConnectTimeout=20 labs004 "$remote" 2>"$err")
   got=$(echo "$out" | sed -n 1p); n=$(echo "$out" | sed -n 2p)

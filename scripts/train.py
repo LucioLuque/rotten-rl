@@ -46,7 +46,7 @@ import rotten_rl.openspiel_game                   # registra el juego "podrida"
 from rotten_rl.algorithms import ALGORITHMS
 from rotten_rl.checkpoint import latest_checkpoint, load_checkpoint, save_checkpoint
 from rotten_rl.evaluation import evaluate, random_opponent, heuristic_opponent
-from rotten_rl.lab_hours import next_time
+from rotten_rl.lab_hours import Deadline
 from rotten_rl.profiles.rules import PROFILES
 from rotten_rl.run_logger import RunLogger
 from rotten_rl.training import EpisodeRunner
@@ -92,8 +92,9 @@ flags.DEFINE_integer("keep_checkpoints", 2, "Cuantos checkpoints completos conse
 flags.DEFINE_bool("compact_buffers", True,
                   "Guardar el info-state comprimido en los buffers (sin perdida, ~7 veces menos "
                   "RAM; ver rotten_rl/buffers.py).")
-flags.DEFINE_string("stop_at", None, "Hora local HH:MM a la que cortar guardando un checkpoint, o lab: "
-                    "la proxima manana de dia habil (rotten_rl/lab_hours.py).")
+flags.DEFINE_string("stop_at", None, "Cuando cortar guardando un checkpoint: HH:MM, 'YYYY-MM-DD HH:MM' o "
+                    "lab (5 minutos antes de que cierre el lab segun el calendario del aula; "
+                    "rotten_rl/lab_hours.py).")
 # --- red ---
 flags.DEFINE_list("hidden_layers_sizes", [256, 256], "Capas ocultas.")
 # --- DQN (el de NFSP y el compartido) ---
@@ -280,9 +281,9 @@ def main(_):
         stop["why"] = signal.Signals(signum).name
     for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(sig, _on_signal)
-    deadline = next_time(FLAGS.stop_at) if FLAGS.stop_at else None
+    deadline = Deadline(FLAGS.stop_at) if FLAGS.stop_at else None
     if deadline is not None:
-        logging.info("Corta a las %s", deadline.strftime("%Y-%m-%d %H:%M"))
+        logging.info("Corta a las %s", deadline.when.strftime("%Y-%m-%d %H:%M"))
 
     if start_ep == 0:
         run_eval(0)               # baseline (redes sin entrenar ~ jugador aleatorio)
@@ -325,8 +326,10 @@ def main(_):
         if ep % FLAGS.eval_every == 0:
             last_metrics = run_eval(ep)
 
-        if deadline is not None and datetime.datetime.now() >= deadline:
+        if deadline is not None and deadline.reached():
             stop["why"] = f"--stop_at {FLAGS.stop_at}"
+        if deadline is not None and deadline.changed:
+            logging.info("Calendario del lab: ahora corta a las %s", deadline.when.strftime("%Y-%m-%d %H:%M"))
         if stop["why"] is not None:
             checkpoint(ep)
             log.close()

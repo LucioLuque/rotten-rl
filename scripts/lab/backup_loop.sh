@@ -6,27 +6,32 @@
 #   scripts/lab/backup_loop.sh <until "YYYY-MM-DD HH:MM"> [minutes between backups, 60 by default]
 #
 # Output (one line, it only exits for these): FIN | FALLA <detail>.
-# - Weekdays: no backups from 06:50 to 22:00, because the lab closes at 07:00. The last one is at 06:45.
+# - No backups from 10 minutes before the lab closes until it reopens (rotten_rl/lab_hours.py: room
+#   calendar with its margins, weekday reboot at 07:30). One last backup 15 minutes before it closes.
 # - If a backup fails twice in a row it exits with FALLA.
 cd "$(dirname "$0")"
 until_epoch=$(date -d "$1" +%s) || exit 2
 every=$((${2:-60} * 60))
 last=0; last_slot=""; fails=0
 while [ "$(date +%s)" -lt "$until_epoch" ]; do
-  now=$((10#$(date +%H%M))); dow=$(date +%u)          # 1 = Monday ... 7 = Sunday
-  today=$(date +%F); epoch=$(date +%s)
+  epoch=$(date +%s)
   closed=0; slot=0; due=0
-  if [ "$dow" -le 5 ]; then
-    if [ $now -ge 650 ] && [ $now -lt 2200 ]; then closed=1; fi
-    if [ $now -ge 645 ] && [ $now -lt 650 ]; then slot=1; fi
+  if ! closes=$(cd ../.. && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>&1); then
+    echo "FALLA $(date +%H:%M) calendario: $(echo "$closes" | tail -1)"; exit 1
   fi
-  if [ $slot -eq 1 ] && [ "$last_slot" != "$today" ]; then due=1; fi
+  if [ "$closes" = "-" ]; then
+    closed=1
+  else
+    left=$(($(date -d "$closes" +%s) - epoch))
+    if [ $left -lt 600 ]; then closed=1; elif [ $left -lt 900 ]; then slot=1; fi
+  fi
+  if [ $slot -eq 1 ] && [ "$last_slot" != "$closes" ]; then due=1; fi
   [ $((epoch - last)) -ge "$every" ] && due=1
   if [ $closed -eq 0 ] && [ $due -eq 1 ]; then
     if output=$(./pull_from_lab.sh 2>&1); then
       echo "$output" | tail -1 >> ../../runs/lab/backup.log
       last=$(date +%s); fails=0
-      if [ $slot -eq 1 ]; then last_slot=$today; fi
+      if [ $slot -eq 1 ]; then last_slot=$closes; fi
     else
       fails=$((fails + 1))
       if [ $fails -ge 2 ]; then echo "FALLA $(date +%H:%M) $(echo "$output" | tail -1)"; exit 1; fi

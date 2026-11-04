@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 30/10/2026.
+Última actualización: 31/10/2026.
 
 ## Hecho
 
@@ -268,7 +268,14 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 **Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
 recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11, **en curso desde el viernes
 22:22 en la -19; el sábado una reserva del aula, hasta las 17:00, cortó todo y nos pasó a la -22.
-Para retomar: "Para seguir" en `docs/reportes/2026-10-30.md`**:
+`queue9` se relanzó ahí el sábado a las 18:00, pero desde las 18:00:30 el lab rechaza las conexiones
+(`Permission denied` desde `172.18.145.22`): sin vigilante ni respaldo, y sin saber si sigue corriendo.
+Detalle en "Relanzado en la labo-s004-22" de `docs/reportes/2026-10-30.md`**.
+**El martes 3/11 a las 22:52 la conexión volvió a andar, pero en otra máquina, la -13** (sin
+`tmux`, sin nada de `queue9`). La -13 sale a internet; `setup_machine.sh` armó el entorno (torch
+2.15.0, CUDA visible, 94 tests pasan y 1 se saltea). Todavía no se lanzó nada. De la -22 no se
+respaldó nada (`runs/lab/labo-s004-22/` está vacía). Lo último que se puede retomar es lo de
+`queue9` en la -01 (`runs/lab/labo-s004-01/`, sábado 31/10 08:46). Pasos que siguen:
 
 - Primero, sin métricas nuevas ni observación nueva: retomar `d11`, `d12` y `e70` con el código del
   commit anterior a las métricas.
