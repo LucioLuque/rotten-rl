@@ -119,3 +119,17 @@ PyTorch a 1M; entre ellas +0.2). **Aprende igual o algo mejor, unas 30 veces má
 
 Siguiente: `j30` (3 jugadores, 3M, receta de `f30`) para validar con más jugadores; las mediciones
 con la GPU libre a las 15:00.
+
+## Etapa 4: usarlo como `train.py` (6/11/2026)
+
+- `scripts/jax_engine/train_ppo.py` loguea y evalúa igual que `train.py`: `RunLogger` (mismos CSV
+  `eval_<rival>_overall/by_h/by_seat`, `train.csv`, TensorBoard) y evaluación contra `random`,
+  `heuristic` y `past` (la versión de la evaluación anterior, jugando su mejor jugada, como
+  `frozen_act` del PPO de PyTorch). Acepta `--runs_dir`, `--run_name`, `--stop_at` y `--resume`.
+- `scripts/run_queue.py --script scripts/jax_engine/train_ppo.py --python ~/scratch/work/venvs/jax/bin/python`
+  lanza corridas de JAX desde la cola; a esas les deja la GPU visible y les pone
+  `XLA_PYTHON_CLIENT_PREALLOCATE=false`.
+- `scripts/jax_engine/profile_ppo.py`: cuánto tarda cada parte de una actualización (juego,
+  observación, redes, GAE, pasadas por minibatches). En el procesador de la laptop (2 jugadores, 128
+  partidas): las pasadas de actualización son el 89%, jugar con la red el 11% y el juego más la
+  observación ~2%. En la GPU puede repartirse distinto: se mide a las 15:00.

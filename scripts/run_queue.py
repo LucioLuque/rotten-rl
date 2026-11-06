@@ -26,6 +26,11 @@ hay menos que ese limite; el limite se puede cambiar en caliente escribiendo un
 numero en <queue>.max_total. Las corridas se lanzan en su propia sesion: si la
 cola o su tmux mueren, siguen corriendo (y Ctrl+C en la cola no las corta).
 
+Con PPO en JAX (otro entorno de Python; usa la GPU sin reservarla entera):
+    python scripts/run_queue.py --queue ~/scratch/queue_jax.txt --parallel 2 \
+        --script scripts/jax_engine/train_ppo.py --python ~/scratch/work/venvs/jax/bin/python \
+        --stop_at lab --no_launch_after lab
+
 Ejemplo (en el lab, dentro de tmux):
     python scripts/run_queue.py --queue ~/scratch/queue.txt --parallel 10 --max_total 11 \
         --stop_at lab --no_launch_after lab
@@ -117,6 +122,9 @@ def main():
                         "Se puede cambiar en caliente escribiendo un numero en <queue>.max_total")
     p.add_argument("--script", default="scripts/train.py",
                    help="script de entrenamiento, relativo al repo")
+    p.add_argument("--python", default=sys.executable,
+                   help="interprete para el script (p.ej. ~/scratch/work/venvs/jax/bin/python "
+                        "con --script scripts/jax_engine/train_ppo.py)")
     p.add_argument("--runs_dir", default=os.path.expanduser("~/scratch/runs"))
     p.add_argument("--logs_dir", default=os.path.expanduser("~/scratch/logs"))
     p.add_argument("--stop_at", default=None, help="HH:MM, 'YYYY-MM-DD HH:MM' o lab (5 minutos antes de que cierre el lab segun el calendario), se le pasa a cada corrida")
@@ -140,6 +148,9 @@ def main():
     # identicos). Las que piden --device cuda la ven.
     env = dict(os.environ, OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
     cpu_env = dict(env, CUDA_VISIBLE_DEVICES="")
+    jax_runs = os.path.basename(a.script) == "train_ppo.py"
+    if jax_runs:
+        env["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
     running = {}
 
     def log(msg):
@@ -165,14 +176,15 @@ def main():
 
         while can_launch and pending and room():
             name, args = pending.pop(0)
-            cmd = [sys.executable, os.path.join(repo, a.script),
+            cmd = [os.path.expanduser(a.python), os.path.join(repo, a.script),
                    "--runs_dir", a.runs_dir, "--run_name", name]
             if a.stop_at:
                 cmd += ["--stop_at", a.stop_at]
             cmd += args
             with open(os.path.join(a.logs_dir, f"{name}.log"), "w") as out:
                 # Sesion propia: si la cola (o su tmux) muere, las corridas siguen.
-                gpu = _wants_gpu(args)
+                # Las corridas de JAX usan siempre la GPU, sin reservarla entera (comparten).
+                gpu = jax_runs or _wants_gpu(args)
                 running[name] = subprocess.Popen(cmd, cwd=repo, env=env if gpu else cpu_env,
                                                  stdout=out,
                                                  stderr=subprocess.STDOUT,

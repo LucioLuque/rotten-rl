@@ -18,6 +18,10 @@ log=~/scratch/logs/jax_bench.log
     python scripts/jax_engine/bench_game.py --players $n --seconds 3 --repeats 5 \
       --batches 1024,4096,16384
   done
+  for n in 2 3 7; do
+    echo "== where the time goes in one PPO update, $n players, 512 matches"
+    python scripts/jax_engine/profile_ppo.py --players $n --rollout_games 512 --repeats 3
+  done
   for n in 2 7; do
     for b in 512 2048; do
       echo "== PPO training speed, $n players, $b matches per update"

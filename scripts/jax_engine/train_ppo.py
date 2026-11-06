@@ -1,20 +1,26 @@
 """
-scripts/jax_engine/train_ppo.py  —  Train PPO entirely in JAX (stage 3 prototype).
+scripts/jax_engine/train_ppo.py  —  Train PPO entirely in JAX on the GPU.
 
 Same recipe as `scripts/train.py --algo ppo --round_episodes --ppo_anneal_lr` (see
-rotten_rl/jax_engine/ppo.py). Every `--eval_every` games the policy is saved as
-<run>/checkpoints/policy_ep<N>.pt (a PyTorch state_dict) and evaluated against the heuristic with
-the usual evaluation (rotten_rl/evaluation.py: duplicate deals, same --eval_deal_seed as train.py),
-so the run can be compared in tournaments with the PyTorch ones. The whole training state is saved
-in <run>/state/ckpt.pkl every --checkpoint_every games and when it stops (--stop_at, SIGTERM, Ctrl+C);
---resume <run> continues it (with --games, extending the horizon).
+rotten_rl/jax_engine/ppo.py), ~30 times faster per run. Logging and evaluation are those of
+train.py: every --eval_every games the policy is saved as <run>/checkpoints/policy_ep<N>.pt (a
+PyTorch state_dict) and evaluated against random, the heuristic and its previous snapshot ("past",
+greedy) with rotten_rl/evaluation.py (duplicate deals, --eval_deal_seed), written with RunLogger
+(eval_<opponent>_overall/by_h/by_seat/... CSVs, train.csv, TensorBoard). So the runs work with
+tournaments, play.py and the backups like any other.
+
+The whole training state goes to <run>/state/ckpt.pkl every --checkpoint_every games and when it
+stops (--stop_at, SIGTERM/SIGHUP, Ctrl+C); --resume <run> continues it (with --games, extending the
+horizon). Accepts --runs_dir, --run_name and --stop_at like train.py, so run_queue.py can launch it.
+
+On the lab it runs from its own venv (~/scratch/work/venvs/jax). Next to PyTorch runs, set
+XLA_PYTHON_CLIENT_PREALLOCATE=false (run_queue.py does it).
 
     python scripts/jax_engine/train_ppo.py --players 2 --games 1000000 --rollout_games 512 \
-        --run_name j23 --runs_dir ~/scratch/runs
+        --run_name j23 --runs_dir ~/scratch/runs --stop_at lab
 """
 
 import argparse
-import csv
 import json
 import os
 import pickle
@@ -30,29 +36,27 @@ import numpy as np  # noqa: E402
 from rotten_rl.jax_engine import ppo  # noqa: E402
 from rotten_rl.lab_hours import Deadline  # noqa: E402
 
+CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "epochs",
+               "minibatch", "reward_scheme", "seed")
+EVAL_OPPONENTS = ("random", "heuristic", "past")
 
-def evaluate_vs_heuristic(params, players, games, deal_seed, hidden):
-    import pyspiel
-    import torch
-    import rotten_rl.openspiel_game  # noqa: F401
-    from rotten_rl.algorithms.dqn import greedy_batch, mlp
-    from rotten_rl.evaluation import evaluate, heuristic_opponent
-    game = pyspiel.load_game("podrida", {"players": players})
+
+def torch_policy(params, hidden):
+    from rotten_rl.algorithms.dqn import mlp
     net = mlp(808, list(hidden), 60)
     net.load_state_dict(ppo.to_torch_state_dict(params))
-    net.eval()
+    return net.eval()
+
+
+def greedy_act(net):
+    """An evaluation agent that plays the most probable legal action, deciding in batches."""
+    import torch
+    from rotten_rl.algorithms.dqn import greedy_batch
 
     def act(state, legal):
         return int(act.batch([state], [legal])[0])
     act.batch = lambda states, legals: greedy_batch(net, states, legals, 60, torch.device("cpu"))
-    rng = np.random.RandomState(0)
-    m = evaluate(game, act, heuristic_opponent(rng), players, games, rng, parallel=True,
-                 deal_seed=deal_seed)
-    return m["overall"]
-
-
-CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "epochs",
-               "minibatch", "reward_scheme", "seed")
+    return act
 
 
 def save_checkpoint(run_dir, ts):
@@ -101,30 +105,70 @@ def main():
             if k == "games" and "--games" in sys.argv:
                 continue                     # extending the horizon is allowed (the lr follows it)
             setattr(a, k, saved["jax_args"][k])
-    else:
-        run_dir = os.path.join(os.path.expanduser(a.runs_dir),
-                               f"{a.run_name}_{time.strftime('%Y%m%d-%H%M%S')}")
-        os.makedirs(os.path.join(run_dir, "checkpoints"))
     hidden = tuple(int(x) for x in str(a.hidden).split(","))
     cfg = ppo.Config(num_players=a.players, hidden=hidden, learning_rate=a.learning_rate,
                      rollout_games=a.rollout_games, epochs=a.epochs, minibatch=a.minibatch,
                      total_games=a.games, reward_scheme=a.reward_scheme)
-    with open(os.path.join(run_dir, "config.json"), "w") as f:
-        json.dump({"algo": "ppo", "engine": "jax", "players": a.players,
-                   "hidden_layers_sizes": [str(h) for h in hidden], "num_train_episodes": a.games,
-                   "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
-                   "ppo_minibatch": a.minibatch, "rl_learning_rate": a.learning_rate,
-                   "reward_scheme": a.reward_scheme, "round_episodes": True, "ppo_anneal_lr": True,
-                   "seed": a.seed, "jax_args": {k: getattr(a, k) for k in CONFIG_KEYS}}, f, indent=1)
-    print(f"JAX {jax.__version__} on {jax.devices()}; run in {run_dir}", flush=True)
+    config = {"algo": "ppo", "engine": "jax", "players": a.players,
+              "hidden_layers_sizes": [str(h) for h in hidden], "num_train_episodes": a.games,
+              "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
+              "ppo_minibatch": a.minibatch, "rl_learning_rate": a.learning_rate,
+              "reward_scheme": a.reward_scheme, "round_episodes": True, "ppo_anneal_lr": True,
+              "eval_games": a.eval_games, "eval_deal_seed": a.eval_deal_seed, "seed": a.seed,
+              "jax_args": {k: getattr(a, k) for k in CONFIG_KEYS}}
 
+    import pyspiel
     import torch
+    import rotten_rl.openspiel_game  # noqa: F401  registers "podrida"
+    from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent
+    from rotten_rl.run_logger import RunLogger
+
     if a.resume:
         ts = load_checkpoint(run_dir)
-        print(f"resuming at game {int(ts.games_done)}", flush=True)
+        log = RunLogger(run_dir=run_dir, config=config, resume_after=int(ts.games_done))
     else:
         ts = ppo.init(jax.random.PRNGKey(a.seed), cfg)
-    update = ppo.make_update(cfg)
+        log = RunLogger(base_dir=os.path.expanduser(a.runs_dir), run_name=a.run_name, config=config)
+        run_dir = log.run_dir
+    snap_dir = os.path.join(run_dir, "checkpoints")
+    os.makedirs(snap_dir, exist_ok=True)
+    print(f"JAX {jax.__version__} on {jax.devices()}; run in {run_dir}"
+          + (f"; resuming at game {int(ts.games_done)}" if a.resume else ""), flush=True)
+
+    game = pyspiel.load_game("podrida", {"players": a.players, "reward_scheme": a.reward_scheme})
+    rng = np.random.RandomState(a.seed)
+    fixed = {"random": random_opponent(rng), "heuristic": heuristic_opponent(rng)}
+    past = {"net": None}
+    if a.resume:                             # the snapshot of the last evaluation is "past"
+        snaps = [int(f[len("policy_ep"):-3]) for f in os.listdir(snap_dir) if f.startswith("policy_ep")]
+        snaps = [e for e in snaps if e <= int(ts.games_done)]
+        if snaps:
+            net = torch_policy(ts.policy, hidden)
+            net.load_state_dict(torch.load(os.path.join(snap_dir, f"policy_ep{max(snaps)}.pt")))
+            past["net"] = net.eval()
+
+    def save_and_eval(games):
+        torch.save(ppo.to_torch_state_dict(ts.policy), os.path.join(snap_dir, f"policy_ep{games}.pt"))
+        net = torch_policy(ts.policy, hidden)
+        if not a.no_eval:
+            t0 = time.perf_counter()
+            for name in EVAL_OPPONENTS:
+                if name == "past":
+                    if past["net"] is None:
+                        continue
+                    opponent = greedy_act(past["net"])
+                else:
+                    opponent = fixed[name]
+                m = evaluate(game, greedy_act(net), opponent, a.players, a.eval_games, rng,
+                             parallel=True, deal_seed=None if a.eval_deal_seed < 0 else a.eval_deal_seed)
+                log.log_eval(games, m, opponent=name)
+                o = m["overall"]
+                print(f"[{games}] EVAL vs {name:9s} | win={o['win_rate']:.3f}±{o['win_rate_se']:.3f} "
+                      f"(empate={1 / a.players:.3f}) diff={o['mean_score_diff']:+.2f}±"
+                      f"{o['mean_score_diff_se']:.2f} exact_bid={o['exact_bid_rate']:.3f}", flush=True)
+            print(f"[{games}] eval took {time.perf_counter() - t0:.0f} s", flush=True)
+        past["net"] = net
+
     deadline = Deadline(a.stop_at) if a.stop_at else None
     if deadline is not None:
         print(f"stops at {deadline.when:%Y-%m-%d %H:%M}", flush=True)
@@ -135,32 +179,7 @@ def main():
     for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(sig, on_signal)
 
-    mode = "a" if a.resume else "w"
-    train_log = open(os.path.join(run_dir, "train.csv"), mode, newline="")
-    eval_log = open(os.path.join(run_dir, "eval_heuristic_overall.csv"), mode, newline="")
-    writers = {}
-
-    def write(log, key, row):
-        if key not in writers:
-            writers[key] = csv.DictWriter(log, fieldnames=list(row))
-            if not a.resume:
-                writers[key].writeheader()
-        writers[key].writerow(row)
-        log.flush()
-
-    def save_and_eval(games):
-        torch.save(ppo.to_torch_state_dict(ts.policy),
-                   os.path.join(run_dir, "checkpoints", f"policy_ep{games}.pt"))
-        if a.no_eval:
-            return
-        t0 = time.perf_counter()
-        o = evaluate_vs_heuristic(ts.policy, a.players, a.eval_games, a.eval_deal_seed, hidden)
-        write(eval_log, "eval", {"episode": games, **{k: o[k] for k in (
-            "win_rate", "win_rate_se", "mean_score_diff", "mean_score_diff_se", "exact_bid_rate")}})
-        print(f"[{games}] EVAL vs heuristic | win={o['win_rate']:.3f}±{o['win_rate_se']:.3f} "
-              f"diff={o['mean_score_diff']:+.2f}±{o['mean_score_diff_se']:.2f} "
-              f"exact_bid={o['exact_bid_rate']:.3f} ({time.perf_counter() - t0:.0f} s)", flush=True)
-
+    update = ppo.make_update(cfg)
     games = start_games = int(ts.games_done)
     if games == 0:
         save_and_eval(0)
@@ -171,11 +190,11 @@ def main():
         ts, stats = update(ts)
         games = int(ts.games_done)
         stats = {k: float(v) for k, v in stats.items()}
-        write(train_log, "train", {"episode": games, "seconds": round(time.perf_counter() - start, 1),
-                                   **stats})
+        reward = stats.pop("reward_seat0")
+        stats["games_per_second"] = (games - start_games) / (time.perf_counter() - start)
+        log.log_train(games, reward, stats)
         if games >= next_eval or games >= a.games:
-            rate = (games - start_games) / (time.perf_counter() - start)
-            print(f"[{games}] {rate:,.0f} games/s | ent={stats['entropy']:.3f} "
+            print(f"[{games}] {stats['games_per_second']:,.0f} games/s | ent={stats['entropy']:.3f} "
                   f"kl={stats['approx_kl']:.4f} ev={stats['explained_variance']:.3f} "
                   f"lr={stats['learning_rate']:.2e}", flush=True)
             save_and_eval(games)
@@ -186,10 +205,13 @@ def main():
             save_checkpoint(run_dir, ts)
             next_ckpt += a.checkpoint_every
         if stop["why"]:
-            print(f"stopped at game {games} ({stop['why']}). To continue: --resume {run_dir}",
+            log.close()
+            print(f"Cortado en el episodio {games} ({stop['why']}). Para seguir: --resume {run_dir}",
                   flush=True)
             return
-    print(f"done: {run_dir}", flush=True)
+    log.close()
+    print(f"Listo. Resultados en {run_dir}", flush=True)
+
 
 if __name__ == "__main__":
     main()
