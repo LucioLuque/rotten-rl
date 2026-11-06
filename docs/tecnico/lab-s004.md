@@ -224,6 +224,10 @@ primera copia, 2.3 GB, tardó 3 minutos). Correrlo durante la corrida y una últ
 corte (`--stop_at lab`, 5 minutos antes de que cierre el lab). Para retomar en otra máquina: copiar la corrida a
 `~/scratch/runs/` y usar `--resume`. Las corridas de `scripts/lab/no_state.txt` no traen `state/`
 (no se retoman; las redes están en `checkpoints/`): agregar ahí las que terminen y no sigan.
+Las redes (`checkpoints/policy_ep<N>.pt`, una por evaluación, ~3 MB cada una) llegan raleadas: una
+cada 250k partidas y la última de cada corrida (`scripts/lab/thin_policies.sh`; el lab las guarda
+todas). El entrenamiento no las lee; solo los torneos y `play.py`. Para ralear una carpeta a mano:
+`scripts/lab/thin_policies.sh runs/lab/<máquina>/runs [--dry-run]`.
 Dentro de cada corrida la copia sigue al lab (los checkpoints rotados se borran también en la
 laptop), pero una corrida que desaparece del lab no se borra de la laptop. Nada se borra solo:
 cada noche suma ~1–2 GB de corridas más las tablas de la ronda 2 (se pisan, no se acumulan);

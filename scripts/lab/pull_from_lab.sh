@@ -27,12 +27,19 @@ rsync() { command rsync "$@" || [ $? -eq 24 ]; }
 # in the middle leaves the old one. Checkpoints are renamed from .tmp when complete, so *.tmp is
 # skipped. 'P /*' protects the run folders: a run that disappears from the lab (scratch wiped) is
 # not deleted here. no_state.txt: runs that will not resume, whose state/ is skipped.
-older=$(mktemp)
-trap 'rm -f "$older"' EXIT
+# Policies (checkpoints/policy_ep<N>.pt) are thinned the same way: only one every 250k episodes and
+# the newest of each run come (thin_policies.sh); the lab keeps them all.
+older=$(mktemp); thinned=$(mktemp)
+trap 'rm -f "$older" "$thinned"' EXIT
 timeout 40 ssh labs004 'cd ~/scratch/runs && ls -d */state/ckpt_ep* 2>/dev/null' | grep -v '[.]tmp$' \
   | sort -V | awk -F/ '{ if ($1 == run) print "/" prev "/"; run = $1; prev = $0 }' > "$older" || true
+timeout 40 ssh labs004 'cd ~/scratch/runs && ls -d */checkpoints/policy_ep*.pt 2>/dev/null' \
+  | scripts/lab/thin_policies.sh --filter > "$thinned" || true
 rsync "${opts[@]}" --delete --delete-after --filter 'P /*' --exclude 'prof*' --exclude '*.tmp' \
-  --exclude-from "$older" --exclude-from scripts/lab/no_state.txt labs004:scratch/runs/ "$dest/runs/"
+  --exclude-from "$older" --exclude-from "$thinned" --exclude-from scripts/lab/no_state.txt \
+  labs004:scratch/runs/ "$dest/runs/"
+# The previous "newest" policy of a run stays here (excluded files are not deleted): thin it here.
+scripts/lab/thin_policies.sh "$dest/runs"
 # The older copies stay out of --delete because they are excluded: drop them here, keeping the
 # newest complete one of each run.
 for state in "$dest"/runs/*/state; do
