@@ -51,9 +51,6 @@
 /d12_ppo3p_b512_anneal_400k_central_s2_20261030-052026/state/
 /f23_ppo2p_b512_anneal_1M_s1_20261031-084602/state/
 /f25_ppo2p_b256_anneal_1M_s1_20261031-084602/state/
-/f26_ppo2p_b512_anneal_3M_s1_20261104-102741/state/
-/f30_ppo3p_b512_anneal_3M_s0_20261031-084602/state/
-/e70_ppo7p_b256_anneal_750k_s0_20261030-052026/state/
 /d73_ppo7p_b256_anneal_375k_central_s0_20261103-232108/state/
 /d74_ppo7p_b256_anneal_375k_central_s1_20261103-232108/state/
 /d75_ppo7p_b256_anneal_375k_central_s2_20261103-232108/state/
