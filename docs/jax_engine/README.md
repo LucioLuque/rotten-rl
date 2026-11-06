@@ -81,7 +81,9 @@ menor: los minibatches que sobran de cada pasada (el resto de dividir por 512) n
 Las redes se guardan como `state_dict` de PyTorch en `<corrida>/checkpoints/policy_ep<N>.pt` con un
 `config.json` (`"engine": "jax"`): la evaluación, los torneos y `play.py` las cargan como a cualquier
 corrida. Cada `--eval_every` partidas evalúa contra la heurística con la evaluación de siempre
-(duplicada, `--eval_deal_seed 1234`). Falta: `--resume`, `--stop_at`, el crítico central.
+(duplicada, `--eval_deal_seed 1234`). Guarda el estado completo en `<corrida>/state/ckpt.pkl` cada
+`--checkpoint_every` partidas y al cortar (`--stop_at lab`, SIGTERM o Ctrl+C); `--resume <corrida>`
+sigue (con `--games`, extiende el horizonte). Falta: el crítico central y evaluar contra `past`.
 
 **Validación:** `tests/test_jax_ppo.py`: las ventajas coinciden con una reimplementación literal de
 las del PPO de PyTorch (trayectoria por asiento, reward en la última decisión de la ronda), y la red
@@ -90,3 +92,10 @@ win rate contra la heurística en 2.048 partidas.
 
 **En el lab:** el entorno `~/scratch/work/venvs/jax` tiene además `optax`, `open_spiel` y torch de
 CPU (para evaluar; la GPU la usa solo JAX).
+
+## Medición en la GPU del lab
+
+`scripts/jax_engine/lab_bench.sh` (con la GPU libre): bazas, partidas completas de 2, 3 y 7
+jugadores y velocidad de entrenamiento de PPO (2 y 7 jugadores, lotes de 512 y 2.048 partidas). Deja
+todo en `~/scratch/logs/jax_bench.log`. Planeado para el viernes 6/11 a las 15:00, cortando las
+corridas antes del evento de la tarde.
