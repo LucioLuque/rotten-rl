@@ -5,7 +5,9 @@ jugada, compilado con `jax.jit` y corriendo en paralelo con `jax.vmap`. El objet
 juego y PPO enteros en la GPU. Plan y motivo en `docs/tecnico/optimizacion.md` ("Elegido para hacer")
 y avance en `docs/jax_engine/README.md`.
 
-- `tricks.py`: fase de bazas (etapa 1). Mismas reglas que `rotten_rl/engine.py`: seguir el palo, si
+- `game.py`: la partida completa (etapa 2): escalera, canto, bazas, puntaje, rewards y la
+  observación de 808, igual al juego "podrida" de pyspiel (`tests/test_jax_game.py`).
+- `tricks.py`: fase de bazas sola (etapa 1). Mismas reglas que `rotten_rl/engine.py`: seguir el palo, si
   no se tiene fallar con triunfo, si tampoco cualquiera; gana el triunfo más alto o, si no hay, la
   más alta del palo de salida.
 
