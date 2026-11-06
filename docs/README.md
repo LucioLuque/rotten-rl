@@ -11,4 +11,5 @@
 | Perfiles de juego (conservador, Lucio, otras personas), interfaz y cómo medir contra ellos | `profiles/` |
 | Cómo correr en el laboratorio S004 (VPN, SSH, horarios, velocidad) | `tecnico/lab-s004.md` |
 | Dónde se va el tiempo y qué queda por optimizar | `tecnico/optimizacion.md` |
+| El juego y PPO en JAX para correr todo en la GPU: avance y mediciones | `jax_engine/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |
