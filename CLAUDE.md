@@ -32,7 +32,7 @@ implementa la interfaz de `base.py` (evaluación, logging, checkpoints y cola so
   redes; sin GPU visible torch no reserva VRAM ni ~90 MB de RAM por corrida) y dentro de
   `tmux`, con `--runs_dir ~/scratch/runs`, `--stop_at lab` y el log en
   `~/scratch/logs/<corrida>.log`. Las corridas largas se retoman con `--resume <corrida>`.
-- Nunca buscar procesos por patrón de texto (`pkill -f`, `pgrep -f`) desde un `ssh labs004 '...'`:
+- Nunca buscar procesos por patrón de texto (`pkill -f`, `pgrep -f`) desde un `ssh labs004 '...'` (ni en la laptop):
   el patrón aparece también en el comando de la propia sesión y coincide con ella (pasó dos veces:
   un `pkill` mató la sesión y un `pgrep` dejó una espera infinita). Usar el PID, o
   `run_queue.count_training_processes()` para contar entrenamientos.
