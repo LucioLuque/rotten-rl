@@ -265,6 +265,11 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
+**6/11/2026 noche: varias semillas por proceso y evaluación en la GPU** (`docs/jax_engine/README.md`,
+etapa 5): 4 semillas en un proceso dan ×1,75 partidas/s en total y la evaluación tarda 0,4 s. Fin de
+semana: `queue14` en la -13, 4 semillas por pregunta, una pregunta a la vez (detalle en
+`docs/reportes/2026-11-06.md`).
+
 **6/11/2026: el juego y PPO ya corren en JAX y están validados** (`docs/jax_engine/README.md`): `j23`
 repite a `f23` (2 jugadores, 1M) en 12 minutos en vez de 5 horas y le gana +1.1 en torneo. Falta
 validar 3 y 7 jugadores (`j30`) y medir con la GPU libre. **Decidido (6/11/2026): pasar el juego y PPO a JAX para entrenar todo en la GPU.** Plan por

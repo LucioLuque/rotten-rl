@@ -66,7 +66,19 @@ eso la validación jugada por jugada contra el motor actual es obligatoria. Inst
 lab (cuota de 2 GB del home: todo en `~/scratch`). Reproducibilidad: el azar de JAX es distinto, así
 que las corridas nuevas no van a dar idénticas a las viejas.
 
-## Pendiente
+## Después de JAX (6/11/2026)
+
+Medido con la GPU libre (`docs/jax_engine/README.md`, etapa 5): el 88% de cada actualización son
+las pasadas por minilotes; con 2 o más semillas por proceso la GPU está al máximo de cálculo
+(~36 TFLOPS). Varios procesos en la GPU no suman; varias semillas en un proceso sí (×1,8). Lo que
+queda, de mayor a menor:
+
+1. **bf16 en las redes** (multiplicaciones en 16 bits): hasta ~2 veces. Validar contra una corrida
+   en 32 bits, como `j23` contra `f23`.
+2. **Menos cálculo por partida**: minilotes más grandes (2.048: ×1,76 con una semilla), menos
+   épocas o redes más chicas. Cambia la receta: probar con varias semillas si aprende igual.
+
+## Pendiente (antes de JAX)
 
 1. **Simular el juego más rápido.** Es lo que más pesa ahora en el juego. `legal_action_ids` se
    calcula dos veces por paso (para validar en `apply_action` y para pyspiel), `public_state` se

@@ -97,8 +97,13 @@ CPU (para evaluar; la GPU la usa solo JAX).
 
 `scripts/jax_engine/lab_bench.sh` (con la GPU libre): bazas, partidas completas de 2, 3 y 7
 jugadores y velocidad de entrenamiento de PPO (2 y 7 jugadores, lotes de 512 y 2.048 partidas). Deja
-todo en `~/scratch/logs/jax_bench.log`. Planeado para el viernes 6/11 a las 15:00, cortando las
-corridas antes del evento de la tarde.
+todo en `~/scratch/logs/jax_bench.log`. Medido el 6/11 a las 19:57 en la -13 (RTX 4090):
+
+- Partidas completas: 16M a 88M decisiones por segundo según el lote (400 a 2.200 veces pyspiel);
+  con la red decidiendo, 10M a 31M.
+- Una actualización de PPO (512 partidas, `scripts/jax_engine/profile_ppo.py`), igual en 2, 3 y 7
+  jugadores: juego ~3%, observación ~2-3%, redes jugando ~5%, GAE ~1%, **pasadas por minilotes
+  ~88%**. 2 jugadores: 135 ms, 3.800 partidas/s; 3: 200 ms, 2.560/s; 7: 459 ms, 1.115/s.
 
 ## Validación en el lab: `j23` contra `f23` (6/11/2026)
 
@@ -133,3 +138,32 @@ con la GPU libre a las 15:00.
   observación, redes, GAE, pasadas por minibatches). En el procesador de la laptop (2 jugadores, 128
   partidas): las pasadas de actualización son el 89%, jugar con la red el 11% y el juego más la
   observación ~2%. En la GPU puede repartirse distinto: se mide a las 15:00.
+
+## Etapa 5: varias semillas por proceso y evaluación en la GPU (6/11/2026)
+
+- **Varias corridas en paralelo no suman**: 6 procesos de 2 jugadores daban ~570 partidas/s cada
+  uno, ~3.400 en total, lo mismo que uno solo (3.627): la GPU los atiende por turnos.
+- **Varias semillas en un proceso sí** (`--seeds 0,1,2,3`, `ppo.make_update(cfg, multi_seed=True)`:
+  vmap sobre una pila de estados; cada semilla tiene sus redes, su Adam, sus partidas y su azar, y da
+  exactamente lo mismo que sola, ver `tests/test_jax_ppo.py`). `scripts/jax_engine/bench_seeds.py`,
+  partidas/s en total con la GPU libre:
+
+  | Semillas | 2 jugadores | 3 jugadores | 7 jugadores (lotes de 256) |
+  |---|---|---|---|
+  | 1 | 3.627 | 2.435 | 984 |
+  | 2 | 5.995 | 4.072 | 1.608 |
+  | 4 | 6.418 | 4.301 | 1.784 |
+  | 8 | 6.793 | 4.536 | 1.924 |
+  | 16 | 6.996 | 4.671 | 1.987 |
+
+  Con 2 semillas la GPU ya está calculando al máximo (~36 TFLOPS en las pasadas por minilotes), por
+  eso más casi no agregan; 32 no entran en memoria con 3 y 7 jugadores. Usamos 4 (4 repeticiones por
+  pregunta). Minilotes de 2.048 con una semilla: 6.390/s (cambia la receta: 4 veces menos pasos).
+- **Evaluación en la GPU** (`rotten_rl/jax_engine/evaluate.py`, por defecto en `train_ppo.py`;
+  `--eval_engine pyspiel` vuelve a la de antes). Misma evaluación duplicada y mismo dict que
+  `rotten_rl/evaluation.py`; la heurística elige exactamente lo mismo que la de Python en todas las
+  jugadas (2, 3, 5 y 7 jugadores) y las métricas coinciden dentro del error con las de pyspiel
+  (`tests/test_jax_evaluate.py`). Los repartos salen de JAX, no son los de pyspiel. Tarda 0,4 s
+  para 4 semillas contra 3 rivales (antes ~20 s por corrida en 2 jugadores y 72 s en 7).
+- Corrida real de 4 semillas de 2 jugadores con evaluación cada 25k: 5.900 partidas/s en total.
+- Próxima palanca: las redes en bf16 (hasta ~2 veces, hay que validar que aprenda igual).
