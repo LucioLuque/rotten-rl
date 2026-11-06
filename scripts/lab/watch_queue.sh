@@ -26,7 +26,7 @@ trap 'rm -f "$err"' EXIT
 remote="hostname
 if [ -f ~/scratch/logs/$log ]; then grep -c terminó ~/scratch/logs/$log; else echo NOLOG; fi
 if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi
-ps -eo args | awk '\$2 ~ /train[.]py\$/ {n++} END {print n+0}'"
+ps -eo args | awk '\$2 ~ /train(_ppo)?[.]py\$/ {n++} END {print n+0}'"
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 while true; do
   closes=$(cd "$repo" && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>"$err") \

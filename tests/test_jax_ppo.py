@@ -68,3 +68,24 @@ def test_update_runs_and_exports():
     x = np.random.RandomState(0).rand(3, 808).astype(np.float32)
     np.testing.assert_allclose(net(torch.as_tensor(x)).detach().numpy(),
                                np.asarray(ppo.mlp(ts.policy, x)), rtol=1e-4, atol=1e-5)
+
+
+def test_multi_seed_update_matches_single_seeds():
+    """Training seeds 0 and 1 stacked in one vmapped step gives what each seed gives alone."""
+    cfg = ppo.Config(num_players=2, hidden=(32,), rollout_games=4, minibatch=62, total_games=100)
+    single = ppo.make_update(cfg)
+    multi = ppo.make_update(cfg, multi_seed=True)
+    stacked = ppo.init_seeds([0, 1], cfg)
+    alone = [ppo.init(jax.random.PRNGKey(s), cfg) for s in (0, 1)]
+    for _ in range(2):
+        stacked, stats = multi(stacked)
+        alone = [single(ts)[0] for ts in alone]
+    assert stats["entropy"].shape == (2,)
+    for i, ts in enumerate(alone):
+        got = ppo.unstack(stacked, i)
+        assert int(got.games_done) == int(ts.games_done) == 8
+        for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)
+    leaves0 = jax.tree_util.tree_leaves(ppo.unstack(stacked, 0).policy)
+    leaves1 = jax.tree_util.tree_leaves(ppo.unstack(stacked, 1).policy)
+    assert not np.allclose(np.asarray(leaves0[0]), np.asarray(leaves1[0]))

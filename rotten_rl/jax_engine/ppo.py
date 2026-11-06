@@ -61,6 +61,13 @@ def to_torch_state_dict(params):
     return out
 
 
+def from_torch_state_dict(state_dict):
+    """The inverse of `to_torch_state_dict`: a saved policy back to JAX params."""
+    n = len(state_dict) // 2
+    return [(jnp.asarray(state_dict[f"{2 * i}.weight"].numpy().T),
+             jnp.asarray(state_dict[f"{2 * i}.bias"].numpy())) for i in range(n)]
+
+
 # ---------------------------------------------------------------------------------------------
 
 class Config(NamedTuple):
@@ -194,8 +201,23 @@ def _loss(params, batch, cfg):
     return loss, stats
 
 
-def make_update(cfg):
-    """One compiled step: play a batch of matches and run every PPO minibatch update on it."""
+def init_seeds(seeds, cfg):
+    """One TrainState per seed, stacked on a leading axis (for `make_update(cfg, multi_seed=True)`).
+    Seed s starts exactly as `init(jax.random.PRNGKey(s), cfg)`."""
+    keys = jnp.stack([jax.random.PRNGKey(int(s)) for s in seeds])
+    return jax.vmap(lambda k: init(k, cfg))(keys)
+
+
+def unstack(tree, i):
+    """The i-th seed of a stacked TrainState (or any stacked tree)."""
+    return jax.tree_util.tree_map(lambda x: x[i], tree)
+
+
+def make_update(cfg, multi_seed=False):
+    """One compiled step: play a batch of matches and run every PPO minibatch update on it.
+    With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
+    once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
+    The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free."""
     opt = make_optimizer(cfg)
     T, B = match_length(cfg.num_players), cfg.rollout_games
     size = T * B
@@ -237,4 +259,4 @@ def make_update(cfg):
         new = TrainState(params[0], params[1], opt_state, ts.games_done + B, key)
         return new, stats
 
-    return jax.jit(update)
+    return jax.jit(jax.vmap(update) if multi_seed else update)
