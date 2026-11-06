@@ -265,7 +265,9 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-**Decidido (6/11/2026): pasar el juego y PPO a JAX para entrenar todo en la GPU.** Plan por
+**6/11/2026: el juego y PPO ya corren en JAX y están validados** (`docs/jax_engine/README.md`): `j23`
+repite a `f23` (2 jugadores, 1M) en 12 minutos en vez de 5 horas y le gana +1.1 en torneo. Falta
+validar 3 y 7 jugadores (`j30`) y medir con la GPU libre. **Decidido (6/11/2026): pasar el juego y PPO a JAX para entrenar todo en la GPU.** Plan por
 etapas en `docs/tecnico/optimizacion.md`, "Elegido para hacer". Empezar por la prueba chica (bazas
 con 2 jugadores, medir partidas por segundo) y seguir solo si da más de ~10 veces.
 

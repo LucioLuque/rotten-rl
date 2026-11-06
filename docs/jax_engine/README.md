@@ -99,3 +99,23 @@ CPU (para evaluar; la GPU la usa solo JAX).
 jugadores y velocidad de entrenamiento de PPO (2 y 7 jugadores, lotes de 512 y 2.048 partidas). Deja
 todo en `~/scratch/logs/jax_bench.log`. Planeado para el viernes 6/11 a las 15:00, cortando las
 corridas antes del evento de la tarde.
+
+## Validación en el lab: `j23` contra `f23` (6/11/2026)
+
+`j23_jaxppo2p_b512_anneal_1M_s1`: PPO en JAX con la receta de `f23` (2 jugadores, lotes de 512, 1M,
+semilla 1), compartiendo la GPU con 7 corridas de PyTorch. **1M partidas en 12 minutos** (~1.600
+partidas por segundo; `f23` tardó más de 5 horas, ~50 por segundo con 8 corridas en la GPU).
+
+| Partidas | `j23` (JAX) vs heurística | `f23` (PyTorch) |
+|---|---|---|
+| 25k | 0.578 (+5.4) | 0.558 (+6.1) |
+| 250k | 0.646 (+14.1) | 0.658 (+13.9) |
+| 500k | 0.696 (+18.0) | 0.693 (+17.4) |
+| 750k | 0.720 (+21.0) | 0.716 (+21.3) |
+| 1M | 0.738 (+23.9) | 0.738 (+23.7) |
+
+Torneo (2.000 repartos): `j23` le saca +1.1 ± 0.4 puntos por partida a `f23` y a `f25` (las dos de
+PyTorch a 1M; entre ellas +0.2). **Aprende igual o algo mejor, unas 30 veces más rápido por corrida.**
+
+Siguiente: `j30` (3 jugadores, 3M, receta de `f30`) para validar con más jugadores; las mediciones
+con la GPU libre a las 15:00.
