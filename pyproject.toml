@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 play = ["pygame"]
 dev = ["pytest"]
-jax = ["jax"]          # CPU; on the lab GPU: "jax[cuda12]" in its own venv
+jax = ["jax", "optax"]   # CPU; on the lab GPU: "jax[cuda12]" in its own venv
 
 [tool.setuptools.packages.find]
 include = ["rotten_rl*"]

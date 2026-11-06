@@ -63,3 +63,30 @@ returns. Se comprobó que el test detecta un error metido a propósito en la obs
 
 Con la red, la laptop sola ya iguala a las ~40.000 decisiones por segundo del lab entero con 8
 corridas (sin la actualización de PPO, que falta). Falta medir en la GPU.
+
+## Etapa 3: PPO en JAX (6/11/2026)
+
+`rotten_rl/jax_engine/ppo.py` y `scripts/jax_engine/train_ppo.py`. La misma receta que las corridas
+actuales (`--algo ppo --round_episodes --ppo_anneal_lr`, reward "relative"): una red de política y
+una de valor compartidas por todos los asientos, self-play, acciones ilegales enmascaradas, GAE(0.95)
+por asiento con cada ronda como episodio (el reward de la ronda en la última decisión de cada uno),
+ventajas normalizadas, clipping 0.2, entropía 0.01, crítico con peso 0.5 sin recortar, gradiente
+recortado a 0.5, Adam con la tasa bajando linealmente a 0 y la inicialización por defecto de PyTorch.
+
+Lo que cambia es cómo corre: el lote de `--rollout_games` partidas se juega entero a la vez (todas
+las partidas de n jugadores tienen la misma cantidad de decisiones, así terminan juntas), y jugar,
+calcular ventajas y todas las pasadas por minibatches son una sola función compilada. Diferencia
+menor: los minibatches que sobran de cada pasada (el resto de dividir por 512) no se usan.
+
+Las redes se guardan como `state_dict` de PyTorch en `<corrida>/checkpoints/policy_ep<N>.pt` con un
+`config.json` (`"engine": "jax"`): la evaluación, los torneos y `play.py` las cargan como a cualquier
+corrida. Cada `--eval_every` partidas evalúa contra la heurística con la evaluación de siempre
+(duplicada, `--eval_deal_seed 1234`). Falta: `--resume`, `--stop_at`, el crítico central.
+
+**Validación:** `tests/test_jax_ppo.py`: las ventajas coinciden con una reimplementación literal de
+las del PPO de PyTorch (trayectoria por asiento, reward en la última decisión de la ronda), y la red
+exportada da en PyTorch lo mismo que en JAX. Prueba en la laptop: con 2 jugadores, de 0.19 a 0.45 de
+win rate contra la heurística en 2.048 partidas.
+
+**En el lab:** el entorno `~/scratch/work/venvs/jax` tiene además `optax`, `open_spiel` y torch de
+CPU (para evaluar; la GPU la usa solo JAX).
