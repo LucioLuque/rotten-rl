@@ -27,6 +27,45 @@ El 27/10 se aceleró el armado de la observación (medido en la laptop, sin la r
 completa (simulación más observación) bajó ~8–10%: ahora la simulación pesa más que la
 observación (~50–60 µs contra ~25–33 por decisión en la laptop).
 
+## Elegido para hacer (6/11/2026): todo en la GPU con JAX
+
+Decisión de Lucio: el próximo salto de velocidad va por **JAX**, por encima de C++ (punto 7) y de
+Numba. Motivo: hoy la GPU marca 99% pero rinde poco, porque cada paso es una llamada chica (32
+partidas) que es casi toda latencia, y la mitad del tiempo es Python en el procesador (simular y
+armar la observación jugada por jugada). Con 8 corridas: ~220 partidas por segundo en total, y no
+sube con más corridas. 7 jugadores es lo más lento (~44k partidas por hora por corrida).
+
+**Qué es:** el juego entero (reparto, canto con la restricción del último, bazas con la obligación de
+seguir palo, triunfo, escalera de rondas, puntaje y la observación de 808 valores) escrito como
+operaciones sobre arreglos, sin `if` de Python por jugada, compilado con `jax.jit` y corriendo miles
+de partidas a la vez con `jax.vmap` (p. ej. 4.096 en vez de 32). PPO también en JAX, así el loop
+completo (jugar, juntar, actualizar) queda en la GPU sin pasar por Python ni por el procesador.
+Referencias: **pgx** (juegos de mesa y cartas en JAX, misma idea; no tiene Oh Hell) y **PureJaxRL**
+(PPO entero en JAX, con aceleraciones de órdenes de magnitud en entornos simples). Cuánto rinde con
+La Podrida no se sabe hasta medirlo.
+
+**Plan, por etapas, decidiendo con números en cada una:**
+
+1. **Prueba chica (1–2 días, en la laptop, sin frenar las corridas).** Solo la fase de bazas con 2
+   jugadores en JAX (sin canto, observación mínima). Medir partidas por segundo contra el motor actual
+   en la GPU del lab. Seguir si da más de ~10 veces.
+2. **Motor completo** en `rotten_rl/jax/` (carpeta propia, con su README): todas las reglas y la
+   observación, para 2 a 7 jugadores con relleno (como hoy). Validar que dé **idéntico** al motor
+   actual: `tests/test_rules.py` y las observaciones de referencia (`tests/data/info_states.npz`),
+   más partidas al azar comparadas jugada por jugada contra `engine.py`.
+3. **PPO en JAX** (estilo PureJaxRL: rollouts con `vmap`, GAE y actualización compiladas), con los
+   mismos flags que el PPO de hoy (`--ppo_anneal_lr`, lotes, red 512×512, crítico local). Validar
+   que aprenda igual: repetir una corrida conocida (p. ej. `f23`, 2 jugadores, 1M) y comparar la
+   curva contra la heurística y con un torneo.
+4. **Integrar** como `--algo ppo_jax` (o un `scripts/train_jax.py`) con lo común: checkpoints,
+   `--resume`, `--stop_at lab`, CSVs y evaluación. Las redes tienen que poder jugarse en `play.py` y
+   en los torneos (convertir a PyTorch o cargar desde JAX).
+
+Riesgos: escribir las reglas "sin `if`" (con máscaras) es más difícil y más fácil de equivocar; por
+eso la validación jugada por jugada contra el motor actual es obligatoria. Instalar JAX con CUDA en el
+lab (cuota de 2 GB del home: todo en `~/scratch`). Reproducibilidad: el azar de JAX es distinto, así
+que las corridas nuevas no van a dar idénticas a las viejas.
+
 ## Pendiente
 
 1. **Simular el juego más rápido.** Es lo que más pesa ahora en el juego. `legal_action_ids` se
@@ -52,7 +91,7 @@ observación (~50–60 µs contra ~25–33 por decisión en la laptop).
    redes de 512.
 6. **NFSP en lote.** NFSP (el de OpenSpiel) sigue jugando de a una partida. Solo si vuelve a ser
    un algoritmo principal.
-7. **El juego en C++.** Python sirvió para entender y armar el juego; para velocidad no hay
+7. **El juego en C++.** (Se eligió JAX en su lugar, ver arriba.) Python sirvió para entender y armar el juego; para velocidad no hay
    razón para quedarse ahí. Cuánto rinde depende de para qué:
    - **Entrenamiento con la red en la GPU**: el juego (simulación más observación) es ~35% del
      tiempo con 3 jugadores, así que con C++ iría ~1.5 veces más rápido (la mitad del tiempo es la

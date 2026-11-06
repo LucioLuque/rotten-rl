@@ -265,6 +265,10 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
+**Decidido (6/11/2026): pasar el juego y PPO a JAX para entrenar todo en la GPU.** Plan por
+etapas en `docs/tecnico/optimizacion.md`, "Elegido para hacer". Empezar por la prueba chica (bazas
+con 2 jugadores, medir partidas por segundo) y seguir solo si da más de ~10 veces.
+
 **Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
 recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11, **en curso desde el viernes
 22:22 en la -19; el sábado una reserva del aula, hasta las 17:00, cortó todo y nos pasó a la -22.
