@@ -75,6 +75,48 @@ def bench_jax(players, hand_size, batch, repeats):
     return repeats * batch * players * hand_size / elapsed
 
 
+def play_with_network(key, num_games, num_players, hand_size, params):
+    """Like tricks.play_random_rounds, but every move first runs a policy MLP of the training size
+    (808 -> 512 -> 512 -> 60) on a stand-in observation: estimates the cost of deciding on the GPU.
+    The real observation is stage 2."""
+    import jax.numpy as jnp
+    k_deal, k_play = jax.random.split(key)
+    states = jax.vmap(lambda k: tricks.deal(k, num_players, hand_size))(jax.random.split(k_deal, num_games))
+
+    def policy(obs):
+        h = jax.nn.relu(obs @ params[0] + params[1])
+        h = jax.nn.relu(h @ params[2] + params[3])
+        return h @ params[4] + params[5]
+
+    def body(i, carry):
+        states, key = carry
+        key, sub = jax.random.split(key)
+        obs = jnp.concatenate([states.hands.reshape(num_games, -1).astype(jnp.float32),
+                               jnp.zeros((num_games, 808 - 52 * num_players), jnp.float32)], axis=1)
+        logits = policy(obs)[:, :52]
+        mask = jax.vmap(tricks.legal_mask)(states)
+        cards = jax.random.categorical(sub, jnp.where(mask, logits, -jnp.inf)).astype(jnp.int32)
+        return jax.vmap(tricks.step)(states, cards), key
+
+    states, _ = jax.lax.fori_loop(0, num_players * hand_size, body, (states, k_play))
+    return states.tricks_won
+
+
+def bench_jax_network(players, hand_size, batch, repeats):
+    import jax.numpy as jnp
+    keys = jax.random.split(jax.random.PRNGKey(42), 3)
+    sizes = [(808, 512), (512, 512), (512, 60)]
+    params = []
+    for k, (i, o) in zip(keys, sizes):
+        params += [jax.random.normal(k, (i, o)) * 0.03, jnp.zeros(o)]
+    run = jax.jit(play_with_network, static_argnums=(1, 2, 3))
+    run(jax.random.PRNGKey(0), batch, players, hand_size, params).block_until_ready()
+    t0 = time.perf_counter()
+    for i in range(repeats):
+        run(jax.random.PRNGKey(i + 1), batch, players, hand_size, params).block_until_ready()
+    return repeats * batch * players * hand_size / (time.perf_counter() - t0)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--players", type=int, default=2)
@@ -96,6 +138,10 @@ def main():
         rate = bench_jax(a.players, a.hand_size, batch, a.repeats)
         print(f"  jax, {batch:>6} at once   {rate:>12,.0f}   x{rate / base:.1f} vs engine.py"
               + (f", x{rate / spiel:.1f} vs pyspiel" if spiel else ""))
+    print("with a policy network of the training size deciding every move (jax):")
+    for batch in (int(b) for b in a.batches.split(",")):
+        rate = bench_jax_network(a.players, a.hand_size, batch, a.repeats)
+        print(f"  jax+net, {batch:>6} at once {rate:>11,.0f}   x{rate / base:.1f} vs engine.py")
 
 
 if __name__ == "__main__":

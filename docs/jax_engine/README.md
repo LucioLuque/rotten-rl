@@ -22,6 +22,16 @@ azar; solo simulación, sin observación ni red):
 | Laptop, procesador (8 núcleos) | ~50.000 (`engine.py` y el wrapper de pyspiel, igual) | ~260.000 con 1.024 partidas a la vez; ~350.000 con 65.536 (6–7 veces) |
 | Lab, GPU (RTX 4090) | pendiente | pendiente: medir con la GPU libre, antes de relanzar a las 18:20 |
 
+Con una red del tamaño de la de PPO (808 → 512 → 512 → 60) decidiendo cada jugada sobre una
+observación de relleno: en el procesador de la laptop ~53.000 jugadas por segundo, igual que el motor
+actual sin red: ahí la red es todo el costo. Lo que importa es la GPU.
+
+**Contra qué comparar en la GPU:** el entrenamiento real hoy, con 8 corridas compartiendo la 4090,
+hace ~220 partidas de 3 jugadores por segundo (26/10), unas 186 decisiones cada una (147 cartas y
+39 cantos): **~40.000 decisiones por segundo** en total, con red y observación. Para ganar 10 veces,
+JAX con red en la GPU tiene que pasar las ~400.000 (todavía sin observación real ni actualización de
+PPO, que suman costo).
+
 El wrapper de pyspiel juega la escalera completa (rondas de 1 a 7 cartas), no solo de 7: la
 comparación es aproximada.
 
