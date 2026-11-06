@@ -228,6 +228,9 @@ Las redes (`checkpoints/policy_ep<N>.pt`, una por evaluación, ~3 MB cada una) l
 cada 250k partidas y la última de cada corrida (`scripts/lab/thin_policies.sh`; el lab las guarda
 todas). El entrenamiento no las lee; solo los torneos y `play.py`. Para ralear una carpeta a mano:
 `scripts/lab/thin_policies.sh runs/lab/<máquina>/runs [--dry-run]`.
+De las corridas de recetas ya superadas (las de `labo-s004-17/` y `-19/`: `z*`, `a*`, `b*`, `c10`, `d1*`,
+`d40`, `d70`) queda solo la red final y, si es otra, la mejor contra la heurística entre las que
+quedaban (6/11/2026).
 Dentro de cada corrida la copia sigue al lab (los checkpoints rotados se borran también en la
 laptop), pero una corrida que desaparece del lab no se borra de la laptop. Nada se borra solo:
 cada noche suma ~1–2 GB de corridas más las tablas de la ronda 2 (se pisan, no se acumulan);
