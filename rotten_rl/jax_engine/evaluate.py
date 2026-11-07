@@ -8,6 +8,8 @@ probable legal action, like train.py's greedy_batch). Opponents:
   - "random":    a uniformly random legal action
   - "heuristic": `heuristic_action`, the same rules as evaluation.heuristic_opponent
   - "past":      another policy network, greedy (pass its params as `opponent_params`)
+`match(agent, opponent, ...)` does the same between any two agents (networks greedy or sampling,
+the heuristic, random): scripts/jax_engine/tournament.py uses it.
 
 It returns the same dict as evaluation.evaluate (overall with standard errors over deals, by_h,
 win_rate_by_seat, calibration, calibration_by_h, per_deal), so RunLogger.log_eval writes the same
@@ -81,14 +83,29 @@ def heuristic_action(state):
     return jnp.where(state.phase == jg.BIDDING, bid, play).astype(jnp.int32)
 
 
-def _greedy(params, obs, mask):
-    return jnp.argmax(jnp.where(mask, mlp(params, obs), ILLEGAL), axis=-1).astype(jnp.int32)
+# Kinds of agent: "greedy" (a network playing its most probable legal action), "sample" (a network
+# sampling from its softmax, as PPO trains), "heuristic" and "random". Networks need params.
+AGENT_KINDS = ("greedy", "sample", "heuristic", "random")
 
 
-@partial(jax.jit, static_argnames=("num_players", "num_deals", "opponent", "reward_scheme"))
-def _play(policy, opponent_params, key, deal_key, num_players, num_deals, opponent, reward_scheme):
-    """Plays every evaluation match. Returns, per match: final scores [G, n], the evaluated seat's
-    return, and its bid and points in each round [13, G]."""
+def _act(kind, params, obs, mask, states, key):
+    if kind == "random":
+        return jax.random.categorical(key, jnp.where(mask, 0.0, -jnp.inf)).astype(jnp.int32)
+    if kind == "heuristic":
+        return jax.vmap(heuristic_action)(states)
+    logits = jnp.where(mask, mlp(params, obs), ILLEGAL)
+    if kind == "sample":
+        return jax.random.categorical(key, logits).astype(jnp.int32)
+    return jnp.argmax(logits, axis=-1).astype(jnp.int32)
+
+
+@partial(jax.jit, static_argnames=("num_players", "num_deals", "kind", "opponent_kind",
+                                   "reward_scheme"))
+def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, opponent_kind,
+          reward_scheme):
+    """Plays every evaluation match: the evaluated agent (`kind`, `params`) in one seat, the
+    opponent in the others. Returns, per match: final scores [G, n], the evaluated seat's return,
+    and its bid and points in each round [13, G]."""
     n = num_players
     G = num_deals * n
     deal = jnp.arange(G) // n
@@ -103,13 +120,8 @@ def _play(policy, opponent_params, key, deal_key, num_players, num_deals, oppone
         key, sub = jax.random.split(key)
         obs = jax.vmap(jg.observation)(states, states.current)
         mask = jax.vmap(jg.legal_mask)(states)
-        mine = _greedy(policy, obs, mask)
-        if opponent == "random":
-            theirs = jax.random.categorical(sub, jnp.where(mask, 0.0, -jnp.inf)).astype(jnp.int32)
-        elif opponent == "heuristic":
-            theirs = jax.vmap(heuristic_action)(states)
-        else:
-            theirs = _greedy(opponent_params, obs, mask)
+        mine = _act(kind, params, obs, mask, states, jax.random.fold_in(sub, 1))
+        theirs = _act(opponent_kind, opponent_params, obs, mask, states, sub)
         action = jnp.where(states.current == seat, mine, theirs)
         bid = states.bids[idx, seat]
         new, rewards = step(states, action)
@@ -128,12 +140,26 @@ def evaluate(policy, opponent, num_players, num_games, deal_seed=1234, opponent_
     "heuristic" or "past" with `opponent_params`). Same result dict as evaluation.evaluate."""
     n = num_players
     num_deals = max(1, num_games // n)
-    G = num_deals * n
+    opponent_kind = {"random": "random", "heuristic": "heuristic", "past": "greedy"}[opponent]
+    if opponent != "past":
+        opponent_params = None
+    return match(("greedy", policy), (opponent_kind, opponent_params), n, num_deals, deal_seed,
+                 key, reward_scheme)
+
+
+def match(agent, opponent, num_players, num_deals, deal_seed, key=None, reward_scheme="relative"):
+    """Duplicate evaluation between any two agents, each a (kind, params) pair (see AGENT_KINDS;
+    params None for "heuristic" and "random"): `num_deals` deals, each played once with `agent` in
+    every seat and `opponent` in the others. Same result dict as evaluation.evaluate."""
+    for kind, params in (agent, opponent):
+        if kind not in AGENT_KINDS or (params is None) != (kind in ("heuristic", "random")):
+            raise ValueError(f"bad agent: {kind} with params {params is not None}")
     key = jax.random.PRNGKey(0) if key is None else key
     scores, ret, bids, points = jax.device_get(_play(
-        policy, opponent_params if opponent == "past" else policy, key,
-        jax.random.PRNGKey(deal_seed), n, num_deals, opponent, reward_scheme))
-    return summarize(np.asarray(scores), np.asarray(ret), np.asarray(bids), np.asarray(points), n)
+        agent[1], opponent[1], key, jax.random.PRNGKey(deal_seed), num_players, num_deals,
+        agent[0], opponent[0], reward_scheme))
+    return summarize(np.asarray(scores), np.asarray(ret), np.asarray(bids), np.asarray(points),
+                     num_players)
 
 
 def summarize(scores, ret, bids, points, n):

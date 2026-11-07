@@ -89,3 +89,21 @@ def test_duplicate_deals_cancel_out():
     m = je.evaluate(params, "past", n, 90, opponent_params=params)
     assert np.allclose(m["per_deal"]["diff"], 0.0)
     assert m["overall"]["win_rate"] == pytest.approx(1 / n)
+
+
+def test_match_any_agents():
+    """evaluate.match between any two agents: the heuristic against itself ties every deal, a
+    network against itself too, and "past" in evaluate is a greedy network in match."""
+    n = 3
+    params = ppo.init_mlp(jax.random.PRNGKey(5), [jg.OBS_SIZE, 32, jg.NUM_ACTIONS])
+    h = je.match(("heuristic", None), ("heuristic", None), n, 20, 3)
+    assert np.allclose(h["per_deal"]["diff"], 0.0)
+    a = je.match(("greedy", params), ("greedy", params), n, 20, 3)
+    assert np.allclose(a["per_deal"]["diff"], 0.0)
+    b = je.evaluate(params, "heuristic", n, 60, deal_seed=3)
+    c = je.match(("greedy", params), ("heuristic", None), n, 20, 3)
+    assert b["overall"] == c["overall"]
+    s = je.match(("sample", params), ("random", None), n, 20, 3)
+    assert 0.0 <= s["overall"]["win_rate"] <= 1.0
+    with pytest.raises(ValueError):
+        je.match(("greedy", None), ("heuristic", None), n, 20, 3)

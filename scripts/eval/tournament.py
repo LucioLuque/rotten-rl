@@ -34,11 +34,9 @@ Ejemplo (en el lab):
 """
 
 import argparse
-import glob
 import json
 import multiprocessing
 import os
-import re
 import sys
 import time
 
@@ -53,37 +51,9 @@ from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent  
 from rotten_rl.openspiel_game import info_state_tensor  # noqa: E402
 from rotten_rl.profiles.rules import PROFILES  # noqa: E402
 from rotten_rl.profiles.spots import LearnedProfile, load_answers  # noqa: E402
+from rotten_rl.tournament_report import mirror, policy_file, report  # noqa: E402
 
 _ILLEGAL = -1e9
-
-
-def _policy_file(spec):
-    """(archivo .pt, directorio de la corrida, nombre corto) de un agente de red."""
-    run_ep = re.fullmatch(r"(.+)@(\d+)", spec)
-    if spec.endswith(".pt"):
-        path = os.path.expanduser(spec)
-        run_dir = os.path.dirname(os.path.dirname(path))
-    else:
-        run_dir = os.path.expanduser(run_ep.group(1) if run_ep else spec).rstrip("/")
-        if run_ep:
-            path = os.path.join(run_dir, "checkpoints", f"policy_ep{run_ep.group(2)}.pt")
-        else:
-            snaps = glob.glob(os.path.join(run_dir, "checkpoints", "policy_ep*.pt"))
-            if not snaps:
-                raise ValueError(f"No hay politicas guardadas en {run_dir}/checkpoints")
-            path = max(snaps, key=lambda p: int(re.search(r"policy_ep(\d+)", p).group(1)))
-    ep = int(re.search(r"policy_ep(\d+)", path).group(1))
-    # Nombre corto: el prefijo de la corrida (p.ej. x21) y el episodio (en miles si es redondo).
-    short = os.path.basename(run_dir).split("_")[0]
-    # Seeds trained together (train_ppo.py --seeds) share the prefix: add the seed (h20s1).
-    try:
-        with open(os.path.join(run_dir, "config.json")) as f:
-            cfg = json.load(f)
-        if len(cfg.get("seeds_together", [])) > 1:
-            short += f"s{cfg['seed']}"
-    except OSError:
-        pass
-    return path, run_dir, f"{short}@{ep // 1000}k" if ep and ep % 1000 == 0 else f"{short}@{ep}"
 
 
 _PEOPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "profiles")
@@ -92,7 +62,7 @@ _PEOPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "profi
 def _network_agent(spec, game, device, rng):
     sample = spec.endswith(":sample")
     spec = spec[:-len(":sample")] if sample else spec
-    path, run_dir, name = _policy_file(spec)
+    path, run_dir, name = policy_file(spec)
     with open(os.path.join(run_dir, "config.json")) as f:
         config = json.load(f)
     if config.get("algo") not in ("dqn", "ppo"):
@@ -159,28 +129,11 @@ def _play_pair(pair):
     return i, j, o, time.time() - t
 
 
-def _mirror(o):
-    """With 2 players, j against i: the same games seen from the other side."""
-    return {"win_rate": 1.0 - o["win_rate"], "win_rate_se": o["win_rate_se"],
-            "mean_score_diff": -o["mean_score_diff"],
-            "mean_score_diff_se": o["mean_score_diff_se"], "mirrored": True}
-
-
 def _deterministic(spec):
     spec = spec.strip()
     return spec == "heuristic" or not (spec == "random" or spec.endswith(":sample")
                                        or spec in PROFILES or os.sep not in spec
                                        and os.path.isdir(os.path.join(_PEOPLE_DIR, spec)))
-
-
-def _table(names, cell):
-    width = max(len(n) for n in names) + 2
-    lines = ["| fila vs columna | " + " | ".join(names) + " |",
-             "|---|" + "---|" * len(names)]
-    for i, a in enumerate(names):
-        lines.append(f"| {a:{width}s} | " + " | ".join(
-            "—" if i == j else cell(i, j) for j in range(len(names))) + " |")
-    return lines
 
 
 def main():
@@ -210,13 +163,13 @@ def main():
     torch.set_num_threads(1)
     specs = [s.strip() for s in a.agents.split(",")]
     k = len(agents)
-    mirror = n == 2
+    skip_mirror = n == 2
     pairs = [(i, j) for i in range(k) for j in range(k) if i != j and not (
-        mirror and i > j and _deterministic(specs[i]) and _deterministic(specs[j]))]
+        skip_mirror and i > j and _deterministic(specs[i]) and _deterministic(specs[j]))]
     results = {}
     t0 = time.time()
 
-    def report(i, j, o, dt):
+    def show(i, j, o, dt):
         results[(i, j)] = o
         print(f"{names[i]} vs {names[j]}: diff {o['mean_score_diff']:+.2f} "
               f"±{o['mean_score_diff_se']:.2f}, win {o['win_rate']:.3f} "
@@ -225,45 +178,18 @@ def main():
     if a.workers > 1 and a.device == "cpu":         # CUDA does not survive a fork
         with multiprocessing.get_context("fork").Pool(a.workers) as pool:
             for i, j, o, dt in pool.imap_unordered(_play_pair, pairs):
-                report(i, j, o, dt)
+                show(i, j, o, dt)
     else:
         for pair in pairs:
-            report(*_play_pair(pair))
+            show(*_play_pair(pair))
     for i in range(k):
         for j in range(k):
             if i != j and (i, j) not in results:
-                results[(i, j)] = _mirror(results[(j, i)])
+                results[(i, j)] = mirror(results[(j, i)])
     print(f"{len(pairs)} enfrentamientos jugados en {time.time() - t0:.0f} s "
           f"({a.workers} procesos)", flush=True)
 
-    k = len(agents)
-    lines = [f"# Torneo, {n} jugadores", "",
-             f"{a.deals} repartos por enfrentamiento (semilla {a.deal_seed}), cada uno con el "
-             f"agente de la fila en cada asiento y el de la columna en los otros {n - 1}. "
-             f"Empate: diferencia 0, win rate {1 / n:.3f}.", "",
-             "## Diferencia de puntaje por partida (± error estándar)", ""]
-    lines += _table(names, lambda i, j: "{:+.2f} ± {:.2f}".format(
-        results[(i, j)]["mean_score_diff"], results[(i, j)]["mean_score_diff_se"]))
-    lines += ["", "## Win rate (± error estándar)", ""]
-    lines += _table(names, lambda i, j: "{:.3f} ± {:.3f}".format(
-        results[(i, j)]["win_rate"], results[(i, j)]["win_rate_se"]))
-    lines += ["", "## Ranking (diferencia promedio contra el resto)", ""]
-    avg = {i: np.mean([results[(i, j)]["mean_score_diff"] for j in range(k) if j != i])
-           for i in range(k)}
-    for pos, i in enumerate(sorted(avg, key=avg.get, reverse=True), 1):
-        lines.append(f"{pos}. {names[i]}: {avg[i]:+.2f}")
-    text = "\n".join(lines) + "\n"
-    print("\n" + text)
-    if a.out:
-        out = os.path.expanduser(a.out)
-        with open(out, "w") as f:
-            f.write(text)
-        with open(os.path.splitext(out)[0] + ".json", "w") as f:
-            json.dump({"players": n, "deals": a.deals, "deal_seed": a.deal_seed,
-                       "agents": names,
-                       "results": {f"{names[i]} vs {names[j]}": o
-                                   for (i, j), o in results.items()}}, f, indent=1)
-
+    report(names, results, n, a.deals, a.deal_seed, a.out)
 
 if __name__ == "__main__":
     main()

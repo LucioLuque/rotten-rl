@@ -14,6 +14,13 @@ Se lanza como
 
 (sin CUDA_VISIBLE_DEVICES= si la corrida pide --device cuda).
 
+Una linea puede correr otro script (p.ej. un torneo entre dos entrenamientos) con
+`--script <ruta>` como primer flag: se lanza como `<python> <ruta> <resto de los
+flags>`, sin --runs_dir, --run_name ni --stop_at, y ocupa un lugar de --parallel
+como una corrida (con --parallel 1, corre entre la anterior y la siguiente):
+
+    t_m26_o23 --script scripts/jax_engine/tournament.py --players 2 --agents ... --out ...
+
 La cola se relee en cada vuelta: se pueden agregar lineas mientras corre. Los
 nombres ya lanzados se anotan en <queue>.started, asi que reiniciar la cola no
 repite experimentos. No lanza nada nuevo despues de --no_launch_after; hasta
@@ -176,11 +183,14 @@ def main():
 
         while can_launch and pending and room():
             name, args = pending.pop(0)
-            cmd = [os.path.expanduser(a.python), os.path.join(repo, a.script),
-                   "--runs_dir", a.runs_dir, "--run_name", name]
-            if a.stop_at:
-                cmd += ["--stop_at", a.stop_at]
-            cmd += args
+            if args[:1] == ["--script"]:                 # another script (e.g. a tournament)
+                cmd = [os.path.expanduser(a.python), os.path.join(repo, args[1]), *args[2:]]
+            else:
+                cmd = [os.path.expanduser(a.python), os.path.join(repo, a.script),
+                       "--runs_dir", a.runs_dir, "--run_name", name]
+                if a.stop_at:
+                    cmd += ["--stop_at", a.stop_at]
+                cmd += args
             with open(os.path.join(a.logs_dir, f"{name}.log"), "w") as out:
                 # Sesion propia: si la cola (o su tmux) muere, las corridas siguen.
                 # Las corridas de JAX usan siempre la GPU, sin reservarla entera (comparten).
