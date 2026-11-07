@@ -126,3 +126,8 @@ Detalle en `docs/reportes/2026-10-29.md`.
 
 - Escalar a 5 y 7 jugadores: con 5 la agrupación B ya no entra en memoria junto a las corridas
   de PPO; hace falta otra agrupación o podar situaciones poco frecuentes.
+- ¿JAX en la GPU? (7/11/2026) Para el MCCFR actual, no: la tabla crece con cada situación nueva y
+  cada iteración recorre su propio camino, y el límite con 5 jugadores fue la memoria, no el tiempo.
+  Si la agrupación C deja un número fijo de situaciones que se puedan numerar, un CFR denso
+  (todas las situaciones a la vez) en la GPU podría ser ×10–100 más rápido: evaluarlo después de C.
+  Prioridad baja: el agente ya juega la ronda 2 casi en equilibrio con 3 y 4 jugadores.

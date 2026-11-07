@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 31/10/2026.
+Última actualización: 7/11/2026.
 
 ## Hecho
 
@@ -264,6 +264,39 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
    (valores del paper).
 
 ## Próximos pasos
+
+**Estado al 7/11/2026 19:30** (detalle en `docs/reportes/2026-11-06.md`):
+
+- Todo se entrena en JAX en la GPU (`scripts/jax_engine/train_ppo.py`), 4 semillas por proceso,
+  una corrida a la vez. Los torneos también van en JAX (`scripts/jax_engine/tournament.py`, segundos
+  en vez de horas) y corren en la cola entre una corrida y la siguiente (líneas `--script`). pyspiel
+  queda para `play.py`, el entrenamiento viejo en PyTorch, `rotten_rl/exact/` y como referencia de
+  los tests.
+- **Receta nueva: minilote 1024 y 2 épocas** (antes 512 y 5). Más rápida (~×2,3) y mejor con las
+  mismas partidas: con 2 jugadores, 3M de la nueva le ganan a 12M de la vieja; con 7, 1,5M de la
+  nueva le ganan a 6M de la vieja. 1 época pierde mucho (−5,4); minilote 512 o 2048 da igual. bf16
+  no sirve en la 4090 (+7%, JAX ya usa TF32).
+- Mejores hasta ahora: 2 jugadores `n21` (6M, 3 ép.; +1,9 a `m24`, +1,6 a `h22`); 3 jugadores
+  `n31` (6M, 3 ép.; +18,7 contra la heurística, +0,3 a `h32`); 7 jugadores `o71` (3M, 2 ép.;
+  +13,6 contra la heurística). Duplicar las partidas sigue rindiendo con la receta nueva.
+- Red de 1024×1024 (`o23`, 2 jugadores, 3M): +0,58 a la de 512 (15/16) pero ×2,15 más lenta; a
+  igual tiempo rinde más duplicar partidas (+1,9). Por ahora no.
+- En cola (`queue14`, -13): `o72` 7p 6M, `o32` 3p 12M, `o22` 2p 12M, `o73` 7p 12M, `o33` 3p 24M,
+  cada una con su torneo. El lab cierra el lunes 9/11 07:00 (lunes a miércoles podrían ser
+  feriados: Lucio lo confirma).
+
+Fases que siguen:
+
+1. Terminar el horizonte con la receta nueva en 2, 3 y 7 (la cola de arriba) hasta ver la meseta.
+2. Con eso, 4, 5 y 6 jugadores con la receta nueva (prioridad acordada el 30/10).
+3. Pendientes de la receta, a igual tiempo de cómputo: tasa de aprendizaje (1e-4, 1e-3), lotes de
+   partidas (`--rollout_games`), red más grande cuando las partidas dejen de rendir.
+4. Un modelo para varias cantidades de jugadores; PSRO para robustez.
+5. Ronda de 2 cartas con 5–7 jugadores (`rotten_rl/exact/round2/`): primero la agrupación C en
+   C++ (validada con 3 y 4 contra B); JAX no sirve para el MCCFR actual (tabla que crece, recorrido
+   en árbol: el límite es la memoria), pero si la agrupación C deja un número fijo de situaciones,
+   un CFR denso en la GPU podría ser ×10–100. La ronda de 1 carta ya está resuelta (en JAX sería más
+   rápida, pero no hace falta). Para cuando lleguemos a 5–7 jugadores.
 
 **6/11/2026 noche: varias semillas por proceso y evaluación en la GPU** (`docs/jax_engine/README.md`,
 etapa 5): 4 semillas en un proceso dan ×1,75 partidas/s en total y la evaluación tarda 0,4 s. Fin de
