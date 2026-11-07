@@ -35,6 +35,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -83,8 +84,10 @@ def main():
     for s in a.agents.split(","):
         s = s.strip()
         if "*" in s:
-            suffix = ":sample" if s.endswith(":sample") else ""
-            found = sorted(glob.glob(os.path.expanduser(s[:len(s) - len(suffix)])))
+            # The pattern is the run folder: keep @<ep> and :sample for every run it matches.
+            m = re.fullmatch(r"(.+?)((?:@\d+)?(?::sample)?)", s)
+            pattern, suffix = m.group(1), m.group(2)
+            found = sorted(glob.glob(os.path.expanduser(pattern)))
             if not found:
                 raise ValueError(f"{s}: no hay corridas")
             specs += [f + suffix for f in found]
