@@ -26,6 +26,7 @@ def main():
     p.add_argument("--players", type=int, default=2)
     p.add_argument("--rollout_games", type=int, default=512)
     p.add_argument("--minibatch", type=int, default=512)
+    p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--hidden", default="512,512")
     p.add_argument("--seeds", default="1,2,4,8,16", help="numbers of seeds to try")
     p.add_argument("--repeats", type=int, default=3)
@@ -36,10 +37,10 @@ def main():
     if a.precision:
         jax.config.update("jax_default_matmul_precision", a.precision)
     cfg = ppo.Config(num_players=a.players, hidden=tuple(int(x) for x in a.hidden.split(",")),
-                     rollout_games=a.rollout_games, minibatch=a.minibatch,
+                     rollout_games=a.rollout_games, minibatch=a.minibatch, epochs=a.epochs,
                      dtype=a.dtype)
     print(f"JAX {jax.__version__} on {jax.devices()}; {a.players} players, {a.rollout_games} matches "
-          f"per update and seed, minibatch {a.minibatch}, net {a.hidden}, {a.dtype}, "
+          f"per update and seed, minibatch {a.minibatch}, {a.epochs} epochs, net {a.hidden}, {a.dtype}, "
           f"precision {a.precision or 'default'}", flush=True)
     update = ppo.make_update(cfg, multi_seed=True)
     base = None
