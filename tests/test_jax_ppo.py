@@ -89,3 +89,20 @@ def test_multi_seed_update_matches_single_seeds():
     leaves0 = jax.tree_util.tree_leaves(ppo.unstack(stacked, 0).policy)
     leaves1 = jax.tree_util.tree_leaves(ppo.unstack(stacked, 1).policy)
     assert not np.allclose(np.asarray(leaves0[0]), np.asarray(leaves1[0]))
+
+
+def test_bfloat16_matmuls():
+    """With dtype bfloat16 the network gives about the float32 output, the weights stay float32
+    and a short training runs."""
+    params = ppo.init_mlp(jax.random.PRNGKey(1), [808, 64, 64, 60])
+    x = (np.random.RandomState(0).rand(16, 808) < 0.1).astype(np.float32)
+    full = np.asarray(ppo.mlp(params, x))
+    half = ppo.mlp(params, x, jax.numpy.bfloat16)
+    assert half.dtype == np.float32
+    np.testing.assert_allclose(np.asarray(half), full, atol=0.02 * np.abs(full).max())
+    cfg = ppo.Config(num_players=2, hidden=(32, 32), rollout_games=8, minibatch=64, epochs=2,
+                     total_games=64, dtype="bfloat16")
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    ts, stats = ppo.make_update(cfg)(ts)
+    assert all(np.isfinite(float(v)) for v in stats.values())
+    assert all(leaf.dtype == np.float32 for leaf in jax.tree_util.tree_leaves(ts.policy))

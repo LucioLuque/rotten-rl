@@ -44,7 +44,8 @@ from rotten_rl.jax_engine import ppo  # noqa: E402
 from rotten_rl.lab_hours import Deadline  # noqa: E402
 
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "epochs",
-               "minibatch", "reward_scheme", "seed")
+               "minibatch", "reward_scheme", "dtype", "seed")
+CONFIG_DEFAULTS = {"dtype": "float32"}          # for runs saved before the key existed
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -126,6 +127,8 @@ def main():
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--minibatch", type=int, default=512)
     p.add_argument("--reward_scheme", default="relative")
+    p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
+                   help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--seeds", default=None,
                    help="several seeds trained together, e.g. 0,1,2,3 (one run folder each)")
@@ -152,9 +155,10 @@ def main():
         for k in CONFIG_KEYS:
             if k == "seed" or (k == "games" and "--games" in sys.argv):
                 continue                     # extending the horizon is allowed (the lr follows it)
-            if len({str(s[k]) for s in saved}) > 1:
+            values = [s.get(k, CONFIG_DEFAULTS.get(k)) for s in saved]
+            if len({str(v) for v in values}) > 1:
                 sys.exit(f"--resume: the runs differ in {k}; resume them separately")
-            setattr(a, k, saved[0][k])
+            setattr(a, k, values[0])
         seeds = [int(s["seed"]) for s in saved]
     else:
         seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
@@ -163,7 +167,7 @@ def main():
     hidden = tuple(int(x) for x in str(a.hidden).split(","))
     cfg = ppo.Config(num_players=a.players, hidden=hidden, learning_rate=a.learning_rate,
                      rollout_games=a.rollout_games, epochs=a.epochs, minibatch=a.minibatch,
-                     total_games=a.games, reward_scheme=a.reward_scheme)
+                     total_games=a.games, reward_scheme=a.reward_scheme, dtype=a.dtype)
 
     import torch
     from rotten_rl.run_logger import RunLogger
@@ -177,7 +181,7 @@ def main():
                 "ppo_minibatch": a.minibatch, "rl_learning_rate": a.learning_rate,
                 "reward_scheme": a.reward_scheme, "round_episodes": True, "ppo_anneal_lr": True,
                 "eval_games": a.eval_games, "eval_deal_seed": a.eval_deal_seed,
-                "eval_engine": a.eval_engine, "seed": seed, "seeds_together": seeds,
+                "eval_engine": a.eval_engine, "dtype": a.dtype, "seed": seed, "seeds_together": seeds,
                 "jax_args": args}
 
     if a.resume:

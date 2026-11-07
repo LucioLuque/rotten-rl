@@ -44,11 +44,25 @@ def init_mlp(key, sizes):
     return params
 
 
-def mlp(params, x):
-    for w, b in params[:-1]:
-        x = jax.nn.relu(x @ w + b)
-    w, b = params[-1]
-    return x @ w + b
+def mlp(params, x, dtype=None):
+    """With `dtype` (e.g. bfloat16), every matmul takes its inputs and weights in that type and
+    accumulates in float32; biases, activations' sums and the output stay float32. The weights
+    themselves (and Adam) are always float32."""
+    if dtype is None:
+        for w, b in params[:-1]:
+            x = jax.nn.relu(x @ w + b)
+        w, b = params[-1]
+        return x @ w + b
+    for i, (w, b) in enumerate(params):
+        x = jnp.dot(x.astype(dtype), w.astype(dtype), preferred_element_type=jnp.float32) + b
+        if i < len(params) - 1:
+            x = jax.nn.relu(x)
+    return x
+
+
+def compute_dtype(cfg):
+    """None (plain float32) or the dtype of the matmuls (Config.dtype)."""
+    return None if cfg.dtype == "float32" else jnp.dtype(cfg.dtype)
 
 
 def to_torch_state_dict(params):
@@ -86,6 +100,7 @@ class Config(NamedTuple):
     total_games: int = 1_000_000    # the learning rate reaches 0 here (--ppo_anneal_lr)
     anneal: bool = True
     reward_scheme: str = "relative"
+    dtype: str = "float32"          # "bfloat16": matmuls (and stored observations) in bf16
 
 
 class TrainState(NamedTuple):
@@ -121,17 +136,20 @@ def _rollout(policy, value, key, cfg):
     k_games, key = jax.random.split(key)
     states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(k_games, B))
     step = jax.vmap(lambda s, a: jg.step(s, a, cfg.reward_scheme))
+    dt = compute_dtype(cfg)
 
     def body(carry, _):
         states, key = carry
         key, sub = jax.random.split(key)
         player = states.current
         obs = jax.vmap(jg.observation)(states, player)
+        if dt is not None:      # the first matmul would round it anyway; halves the stored batch
+            obs = obs.astype(dt)
         mask = jax.vmap(jg.legal_mask)(states)
-        logits = jnp.where(mask, mlp(policy, obs), ILLEGAL)
+        logits = jnp.where(mask, mlp(policy, obs, dt), ILLEGAL)
         action = jax.random.categorical(sub, logits).astype(jnp.int32)
         logp = jax.nn.log_softmax(logits)[jnp.arange(B), action]
-        v = mlp(value, obs)[:, 0]
+        v = mlp(value, obs, dt)[:, 0]
         states, rewards = step(states, action)
         out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player,
                    rewards=rewards)
@@ -185,13 +203,14 @@ def _advantages(traj, cfg):
 
 def _loss(params, batch, cfg):
     policy, value = params
-    logits = jnp.where(batch["mask"], mlp(policy, batch["obs"]), ILLEGAL)
+    dt = compute_dtype(cfg)
+    logits = jnp.where(batch["mask"], mlp(policy, batch["obs"], dt), ILLEGAL)
     logp_all = jax.nn.log_softmax(logits)
     logp = jnp.take_along_axis(logp_all, batch["action"][:, None], axis=1)[:, 0]
     ratio = jnp.exp(logp - batch["logp"])
     a = batch["adv"]
     loss_pi = -jnp.minimum(ratio * a, jnp.clip(ratio, 1 - cfg.clip, 1 + cfg.clip) * a).mean()
-    loss_v = ((mlp(value, batch["obs"])[:, 0] - batch["ret"]) ** 2).mean()
+    loss_v = ((mlp(value, batch["obs"], dt)[:, 0] - batch["ret"]) ** 2).mean()
     probs = jnp.exp(logp_all)
     entropy = -(jnp.where(batch["mask"], probs * logp_all, 0.0)).sum(axis=1).mean()
     loss = loss_pi + cfg.vf_coef * loss_v - cfg.ent_coef * entropy

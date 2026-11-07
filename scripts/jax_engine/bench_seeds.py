@@ -29,11 +29,18 @@ def main():
     p.add_argument("--hidden", default="512,512")
     p.add_argument("--seeds", default="1,2,4,8,16", help="numbers of seeds to try")
     p.add_argument("--repeats", type=int, default=3)
+    p.add_argument("--dtype", default="float32", help="float32 or bfloat16 (ppo.Config.dtype)")
+    p.add_argument("--precision", default=None,
+                   help="jax_default_matmul_precision for float32 (e.g. highest: no TF32)")
     a = p.parse_args()
+    if a.precision:
+        jax.config.update("jax_default_matmul_precision", a.precision)
     cfg = ppo.Config(num_players=a.players, hidden=tuple(int(x) for x in a.hidden.split(",")),
-                     rollout_games=a.rollout_games, minibatch=a.minibatch)
+                     rollout_games=a.rollout_games, minibatch=a.minibatch,
+                     dtype=a.dtype)
     print(f"JAX {jax.__version__} on {jax.devices()}; {a.players} players, {a.rollout_games} matches "
-          f"per update and seed, minibatch {a.minibatch}, net {a.hidden}", flush=True)
+          f"per update and seed, minibatch {a.minibatch}, net {a.hidden}, {a.dtype}, "
+          f"precision {a.precision or 'default'}", flush=True)
     update = ppo.make_update(cfg, multi_seed=True)
     base = None
     for s in [int(x) for x in a.seeds.split(",")]:
