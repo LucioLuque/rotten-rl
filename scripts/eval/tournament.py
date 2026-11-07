@@ -69,6 +69,14 @@ def _policy_file(spec):
     ep = int(re.search(r"policy_ep(\d+)", path).group(1))
     # Nombre corto: el prefijo de la corrida (p.ej. x21) y el episodio (en miles si es redondo).
     short = os.path.basename(run_dir).split("_")[0]
+    # Seeds trained together (train_ppo.py --seeds) share the prefix: add the seed (h20s1).
+    try:
+        with open(os.path.join(run_dir, "config.json")) as f:
+            cfg = json.load(f)
+        if len(cfg.get("seeds_together", [])) > 1:
+            short += f"s{cfg['seed']}"
+    except OSError:
+        pass
     return path, run_dir, f"{short}@{ep // 1000}k" if ep and ep % 1000 == 0 else f"{short}@{ep}"
 
 
