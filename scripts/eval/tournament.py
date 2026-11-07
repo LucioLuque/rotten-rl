@@ -22,6 +22,11 @@ sentado en un asiento, contra el de la columna en los demas, con su error
 estandar; y un ranking por diferencia promedio contra el resto. Si dos agentes
 juegan igual, la diferencia da exactamente 0.
 
+Los enfrentamientos se reparten entre `--workers` procesos (dan lo mismo que de a uno: los
+repartos salen de `deal_seed`). Con 2 jugadores, "B contra A" son las mismas partidas que "A contra
+B" (cada reparto ya se juega con A en los dos asientos), así que no se juega: se anota con el signo
+cambiado, salvo que uno de los dos tenga azar (random, :sample o un perfil).
+
 Ejemplo (en el lab):
     python scripts/eval/tournament.py --players 3 --deals 1000 --device cuda \\
         --agents heuristic,~/scratch/runs/x21_ppo_3p_roll128_<ts>,~/scratch/runs/w10_ppo_3p_s0_<ts>@100000 \\
@@ -31,6 +36,7 @@ Ejemplo (en el lab):
 import argparse
 import glob
 import json
+import multiprocessing
 import os
 import re
 import sys
@@ -139,6 +145,34 @@ def make_agent(spec, game, device, rng):
     return _network_agent(spec, game, device, rng)
 
 
+# Filled by main() before forking the workers (they inherit the agents).
+_GAME = _AGENTS = _ARGS = None
+
+
+def _play_pair(pair):
+    """One matchup: agent i in each seat of each deal, agent j in the others."""
+    i, j = pair
+    t = time.time()
+    rng = np.random.RandomState([_ARGS.seed, i, j])
+    o = evaluate(_GAME, _AGENTS[i][1], _AGENTS[j][1], _ARGS.players, _ARGS.deals * _ARGS.players,
+                 rng, parallel=True, deal_seed=_ARGS.deal_seed)["overall"]
+    return i, j, o, time.time() - t
+
+
+def _mirror(o):
+    """With 2 players, j against i: the same games seen from the other side."""
+    return {"win_rate": 1.0 - o["win_rate"], "win_rate_se": o["win_rate_se"],
+            "mean_score_diff": -o["mean_score_diff"],
+            "mean_score_diff_se": o["mean_score_diff_se"], "mirrored": True}
+
+
+def _deterministic(spec):
+    spec = spec.strip()
+    return spec == "heuristic" or not (spec == "random" or spec.endswith(":sample")
+                                       or spec in PROFILES or os.sep not in spec
+                                       and os.path.isdir(os.path.join(_PEOPLE_DIR, spec)))
+
+
 def _table(names, cell):
     width = max(len(n) for n in names) + 2
     lines = ["| fila vs columna | " + " | ".join(names) + " |",
@@ -159,6 +193,8 @@ def main():
     p.add_argument("--device", default="cpu")
     p.add_argument("--seed", type=int, default=0, help="azar de random y de :sample")
     p.add_argument("--out", help="guardar el resultado en markdown (y .json al lado)")
+    p.add_argument("--workers", type=int, default=min(16, os.cpu_count() or 1),
+                   help="procesos que juegan enfrentamientos a la vez")
     a = p.parse_args()
 
     game = pyspiel.load_game("podrida", {"players": a.players})
@@ -169,18 +205,36 @@ def main():
     if len(set(names)) != len(names):
         raise ValueError(f"Agentes repetidos: {names}")
 
+    global _GAME, _AGENTS, _ARGS
+    _GAME, _AGENTS, _ARGS = game, agents, a
+    torch.set_num_threads(1)
+    specs = [s.strip() for s in a.agents.split(",")]
+    k = len(agents)
+    mirror = n == 2
+    pairs = [(i, j) for i in range(k) for j in range(k) if i != j and not (
+        mirror and i > j and _deterministic(specs[i]) and _deterministic(specs[j]))]
     results = {}
-    for i, (name_a, act_a) in enumerate(agents):
-        for j, (name_b, act_b) in enumerate(agents):
-            if i == j:
-                continue
-            t = time.time()
-            o = evaluate(game, act_a, act_b, n, a.deals * n, rng, parallel=True,
-                         deal_seed=a.deal_seed)["overall"]
-            results[(i, j)] = o
-            print(f"{name_a} vs {name_b}: diff {o['mean_score_diff']:+.2f} "
-                  f"±{o['mean_score_diff_se']:.2f}, win {o['win_rate']:.3f} "
-                  f"±{o['win_rate_se']:.3f} ({time.time() - t:.0f} s)", flush=True)
+    t0 = time.time()
+
+    def report(i, j, o, dt):
+        results[(i, j)] = o
+        print(f"{names[i]} vs {names[j]}: diff {o['mean_score_diff']:+.2f} "
+              f"±{o['mean_score_diff_se']:.2f}, win {o['win_rate']:.3f} "
+              f"±{o['win_rate_se']:.3f} ({dt:.0f} s)", flush=True)
+
+    if a.workers > 1 and a.device == "cpu":         # CUDA does not survive a fork
+        with multiprocessing.get_context("fork").Pool(a.workers) as pool:
+            for i, j, o, dt in pool.imap_unordered(_play_pair, pairs):
+                report(i, j, o, dt)
+    else:
+        for pair in pairs:
+            report(*_play_pair(pair))
+    for i in range(k):
+        for j in range(k):
+            if i != j and (i, j) not in results:
+                results[(i, j)] = _mirror(results[(j, i)])
+    print(f"{len(pairs)} enfrentamientos jugados en {time.time() - t0:.0f} s "
+          f"({a.workers} procesos)", flush=True)
 
     k = len(agents)
     lines = [f"# Torneo, {n} jugadores", "",
