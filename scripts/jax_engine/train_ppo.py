@@ -248,7 +248,7 @@ def main():
 
     def save_and_eval(games):
         t0 = time.perf_counter()
-        for i, (name, log, d) in enumerate(zip(names, logs, snap_dirs)):
+        for i, (member, log, d) in enumerate(zip(names, logs, snap_dirs)):
             policy = seed_state(i).policy
             torch.save(ppo.to_torch_state_dict(policy), os.path.join(d, f"policy_ep{games}.pt"))
             if evaluate is not None:
@@ -258,7 +258,7 @@ def main():
                     m = evaluate(policy, name, past[i])
                     log.log_eval(games, m, opponent=name)
                     o = m["overall"]
-                    print(f"[{games}] {name} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
+                    print(f"[{games}] {member} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
                           f"{o['win_rate_se']:.3f} (empate={1 / a.players:.3f}) "
                           f"diff={o['mean_score_diff']:+.2f}±{o['mean_score_diff_se']:.2f} "
                           f"exact_bid={o['exact_bid_rate']:.3f}", flush=True)
