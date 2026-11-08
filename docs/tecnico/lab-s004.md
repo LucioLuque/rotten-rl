@@ -225,9 +225,14 @@ corte (`--stop_at lab`, 5 minutos antes de que cierre el lab). Para retomar en o
 `~/scratch/runs/` y usar `--resume`. Las corridas de `scripts/lab/no_state.txt` no traen `state/`
 (no se retoman; las redes están en `checkpoints/`): agregar ahí las que terminen y no sigan.
 Las redes (`checkpoints/policy_ep<N>.pt`, una por evaluación, ~3 MB cada una) llegan raleadas: una
-cada 250k partidas y la última de cada corrida (`scripts/lab/thin_policies.sh`; el lab las guarda
-todas). El entrenamiento no las lee; solo los torneos y `play.py`. Para ralear una carpeta a mano:
-`scripts/lab/thin_policies.sh runs/lab/<máquina>/runs [--dry-run]`.
+cada 2M partidas (la primera de cada tramo: JAX las guarda en partidas como 2.000.128) y la última
+de cada corrida (`scripts/lab/thin_policies.sh`; el lab las guarda todas). El entrenamiento no las
+lee; solo los torneos y `play.py`. Para ralear una carpeta a mano:
+`scripts/lab/thin_policies.sh runs/lab/<máquina>/runs [--dry-run]`. `tb/` no se trae (repite los
+CSV) y la copia va a 2 MB/s como máximo (`BWLIMIT`, en KiB/s): a toda velocidad colgó la VPN con
+el wifi de la casa de Lucio. Hasta el 8/11 las listas se armaban con un glob que, con ~80k redes,
+excedía el máximo de argumentos y salía vacío: llegaban todas (74 GB, disco de la laptop al 96 %).
+Mirar el espacio libre de la laptop (`df -h /`) antes de cada respaldo grande.
 De las corridas de recetas ya superadas (las de `labo-s004-17/` y `-19/`: `z*`, `a*`, `b*`, `c10`, `d1*`,
 `d40`, `d70`) queda solo la red final y, si es otra, la mejor contra la heurística entre las que
 quedaban (6/11/2026).

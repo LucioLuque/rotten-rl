@@ -18,7 +18,8 @@ if ! host=$(timeout 40 ssh labs004 hostname 2>/dev/null); then
 fi
 dest=runs/lab/$host
 mkdir -p "$dest"
-opts=(-a --partial --timeout=60 -e "ssh")
+# --bwlimit (KiB/s): at full speed a big backup hung the VPN over home wifi (8/11, twice in 10 min).
+opts=(-a --partial --timeout=60 --bwlimit="${BWLIMIT:-2000}" -e "ssh")
 # Código 24 = archivos que desaparecieron durante la copia (checkpoints que una corrida rotó): no
 # es un error.
 rsync() { command rsync "$@" || [ $? -eq 24 ]; }
@@ -27,15 +28,17 @@ rsync() { command rsync "$@" || [ $? -eq 24 ]; }
 # in the middle leaves the old one. Checkpoints are renamed from .tmp when complete, so *.tmp is
 # skipped. 'P /*' protects the run folders: a run that disappears from the lab (scratch wiped) is
 # not deleted here. no_state.txt: runs that will not resume, whose state/ is skipped.
-# Policies (checkpoints/policy_ep<N>.pt) are thinned the same way: only one every 250k episodes and
-# the newest of each run come (thin_policies.sh); the lab keeps them all.
+# Policies (checkpoints/policy_ep<N>.pt) are thinned the same way: only one every 2M episodes and
+# the newest of each run come (thin_policies.sh); the lab keeps them all. TensorBoard (tb/) does not
+# come: it repeats train.csv and the eval CSVs. Listings use find, not globs: ~80k policies overflow
+# the argument list, the glob listed nothing and every policy came (74 GB until 8/11).
 older=$(mktemp); thinned=$(mktemp)
 trap 'rm -f "$older" "$thinned"' EXIT
-timeout 40 ssh labs004 'cd ~/scratch/runs && ls -d */state/ckpt_ep* 2>/dev/null' | grep -v '[.]tmp$' \
+timeout 40 ssh labs004 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/state/ckpt_ep*" | sed "s|^[.]/||"' | grep -v '[.]tmp$' \
   | sort -V | awk -F/ '{ if ($1 == run) print "/" prev "/"; run = $1; prev = $0 }' > "$older" || true
-timeout 40 ssh labs004 'cd ~/scratch/runs && ls -d */checkpoints/policy_ep*.pt 2>/dev/null' \
+timeout 40 ssh labs004 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/checkpoints/policy_ep*.pt" | sed "s|^[.]/||"' \
   | scripts/lab/thin_policies.sh --filter > "$thinned" || true
-rsync "${opts[@]}" --delete --delete-after --filter 'P /*' --exclude 'prof*' --exclude '*.tmp' \
+rsync "${opts[@]}" --delete --delete-after --filter 'P /*' --exclude 'prof*' --exclude '*.tmp' --exclude 'tb/' \
   --exclude-from "$older" --exclude-from "$thinned" --exclude-from scripts/lab/no_state.txt \
   labs004:scratch/runs/ "$dest/runs/"
 # The previous "newest" policy of a run stays here (excluded files are not deleted): thin it here.
