@@ -167,3 +167,13 @@ con la GPU libre a las 15:00.
   para 4 semillas contra 3 rivales (antes ~20 s por corrida en 2 jugadores y 72 s en 7).
 - Corrida real de 4 semillas de 2 jugadores con evaluación cada 25k: 5.900 partidas/s en total.
 - Próxima palanca: las redes en bf16 (hasta ~2 veces, hay que validar que aprenda igual).
+
+## Etapa 6: barridos de hiperparámetros en un proceso (8/11/2026)
+
+`--learning_rate` y `--ent_coef` aceptan varios valores (`--learning_rate 1e-4,3e-4,1e-3`): cada
+combinación de semilla y valores es una copia más de la pila (el paso recibe la tasa y la entropía
+de cada copia, `make_update(...)(ts, hp)`), con su propia carpeta y su etiqueta en los torneos
+(`p20lr1e-04s0`). Las copias con la misma semilla arrancan con la misma red. Da exactamente lo mismo
+que entrenar cada valor solo (`tests/test_jax_ppo.py`). Las épocas, el minilote y el lote de
+partidas no se pueden variar así (cambian la forma del cálculo). Cuando el barrido elige un valor,
+se entrena solo con varias semillas.
