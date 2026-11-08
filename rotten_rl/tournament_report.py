@@ -34,6 +34,7 @@ def policy_file(spec):
     try:
         with open(os.path.join(run_dir, "config.json")) as f:
             cfg = json.load(f)
+        short += cfg.get("member_tag", "")                  # a sweep's value (p20lr1e-04)
         if len(cfg.get("seeds_together", [])) > 1:
             short += f"s{cfg['seed']}"
     except OSError:

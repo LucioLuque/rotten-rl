@@ -8,6 +8,12 @@ optimizer and matches); one seed leaves the GPU half idle, so 2 to 4 seeds give 
 matches per second of one (scripts/jax_engine/bench_seeds.py). Every seed is its own run folder
 (<run_name>_s<seed>_<time>), with the logs, CSVs and checkpoints of any other run.
 
+--learning_rate and --ent_coef also take lists (e.g. --learning_rate 1e-4,3e-4,1e-3): every
+combination of seed and values trains as one more member of the same vmapped step, so a sweep costs
+about one run. Members with the same seed start from the same networks. Each is its own run
+folder, tagged with what varies (<run_name>_lr1e-04_s0_<time>); the tournaments name it the same
+way (p20lr1e-04s0). Once the sweep picks a value, train it alone with several seeds.
+
 Every --eval_every games each policy is saved as <run>/checkpoints/policy_ep<N>.pt (a PyTorch
 state_dict) and evaluated against random, the heuristic and its previous snapshot ("past", greedy)
 with duplicate deals (--eval_deal_seed), written with RunLogger (eval_<opponent>_overall/by_h/
@@ -43,9 +49,10 @@ import numpy as np  # noqa: E402
 from rotten_rl.jax_engine import ppo  # noqa: E402
 from rotten_rl.lab_hours import Deadline  # noqa: E402
 
-CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "epochs",
+CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed")
-CONFIG_DEFAULTS = {"dtype": "float32"}          # for runs saved before the key existed
+MEMBER_KEYS = ("seed", "learning_rate", "ent_coef")   # may differ between the members of a process
+CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01}  # for runs saved before the key existed
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -123,7 +130,10 @@ def main():
     p.add_argument("--games", type=int, default=1_000_000, help="total matches (lr reaches 0 here)")
     p.add_argument("--rollout_games", type=int, default=512)
     p.add_argument("--hidden", default="512,512")
-    p.add_argument("--learning_rate", type=float, default=3e-4)
+    p.add_argument("--learning_rate", default="3e-4",
+                   help="one value, or several (comma separated) trained together")
+    p.add_argument("--ent_coef", default="0.01",
+                   help="entropy bonus; one value, or several trained together")
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--minibatch", type=int, default=512)
     p.add_argument("--reward_scheme", default="relative")
@@ -153,48 +163,66 @@ def main():
             with open(os.path.join(r, "config.json")) as f:
                 saved.append(json.load(f)["jax_args"])
         for k in CONFIG_KEYS:
-            if k == "seed" or (k == "games" and "--games" in sys.argv):
+            if k in MEMBER_KEYS or (k == "games" and "--games" in sys.argv):
                 continue                     # extending the horizon is allowed (the lr follows it)
             values = [s.get(k, CONFIG_DEFAULTS.get(k)) for s in saved]
             if len({str(v) for v in values}) > 1:
                 sys.exit(f"--resume: the runs differ in {k}; resume them separately")
             setattr(a, k, values[0])
-        seeds = [int(s["seed"]) for s in saved]
+        members = [(int(s["seed"]), float(s["learning_rate"]),
+                    float(s.get("ent_coef", CONFIG_DEFAULTS["ent_coef"]))) for s in saved]
+        lrs = sorted({m[1] for m in members})
+        ents = sorted({m[2] for m in members})
     else:
         seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
+        lrs = [float(x) for x in str(a.learning_rate).split(",")]
+        ents = [float(x) for x in str(a.ent_coef).split(",")]
+        members = [(s, lr, ent) for lr in lrs for ent in ents for s in seeds]
+    seeds = [m[0] for m in members]
     a.seed = seeds[0]
-    multi = len(seeds) > 1
+    multi = len(members) > 1
+
+    def tag(member):                         # what tells this member apart, besides its seed
+        _, lr, ent = member
+        return "".join([f"_lr{lr:.0e}" if len(lrs) > 1 else "", f"_ent{ent:g}" if len(ents) > 1 else ""])
+    names = [f"s{m[0]}{tag(m)}" for m in members]
+    if len(set(names)) != len(names):
+        sys.exit(f"repeated members (values that round to the same tag?): {names}")
     hidden = tuple(int(x) for x in str(a.hidden).split(","))
-    cfg = ppo.Config(num_players=a.players, hidden=hidden, learning_rate=a.learning_rate,
-                     rollout_games=a.rollout_games, epochs=a.epochs, minibatch=a.minibatch,
-                     total_games=a.games, reward_scheme=a.reward_scheme, dtype=a.dtype)
+    cfg = ppo.Config(num_players=a.players, hidden=hidden, learning_rate=members[0][1],
+                     ent_coef=members[0][2], rollout_games=a.rollout_games, epochs=a.epochs,
+                     minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
+                     dtype=a.dtype)
+    hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
+          "ent_coef": np.array([m[2] for m in members], np.float32)} if multi else None
 
     import torch
     from rotten_rl.run_logger import RunLogger
 
-    def config_of(seed):
+    def config_of(member):
+        seed, lr, ent = member
         args = {k: getattr(a, k) for k in CONFIG_KEYS}
-        args["seed"] = seed
+        args.update(seed=seed, learning_rate=lr, ent_coef=ent)
         return {"algo": "ppo", "engine": "jax", "players": a.players,
                 "hidden_layers_sizes": [str(h) for h in hidden], "num_train_episodes": a.games,
                 "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
-                "ppo_minibatch": a.minibatch, "rl_learning_rate": a.learning_rate,
+                "ppo_minibatch": a.minibatch, "rl_learning_rate": lr, "ppo_entropy_coef": ent,
                 "reward_scheme": a.reward_scheme, "round_episodes": True, "ppo_anneal_lr": True,
                 "eval_games": a.eval_games, "eval_deal_seed": a.eval_deal_seed,
                 "eval_engine": a.eval_engine, "dtype": a.dtype, "seed": seed, "seeds_together": seeds,
-                "jax_args": args}
+                "member_tag": tag(member).replace("_", ""), "jax_args": args}
 
     if a.resume:
         states = [load_checkpoint(r) for r in run_dirs]
         if len({int(s.games_done) for s in states}) > 1:
             sys.exit("--resume: the runs stopped at different games; resume them separately")
-        logs = [RunLogger(run_dir=r, config=config_of(s), resume_after=int(ts.games_done))
-                for r, s, ts in zip(run_dirs, seeds, states)]
+        logs = [RunLogger(run_dir=r, config=config_of(m), resume_after=int(ts.games_done))
+                for r, m, ts in zip(run_dirs, members, states)]
     else:
-        states = [ppo.init(jax.random.PRNGKey(s), cfg) for s in seeds]
+        states = [ppo.init(jax.random.PRNGKey(m[0]), cfg) for m in members]
         logs = [RunLogger(base_dir=os.path.expanduser(a.runs_dir),
-                          run_name=f"{a.run_name}_s{s}" if multi else a.run_name,
-                          config=config_of(s)) for s in seeds]
+                          run_name=f"{a.run_name}{tag(m)}_s{m[0]}" if multi else a.run_name,
+                          config=config_of(m)) for m in members]
         run_dirs = [log.run_dir for log in logs]
     snap_dirs = [os.path.join(r, "checkpoints") for r in run_dirs]
     for d in snap_dirs:
@@ -202,7 +230,7 @@ def main():
     ts = stack(states) if multi else states[0]
     games = start_games = int(states[0].games_done)
     del states
-    print(f"JAX {jax.__version__} on {jax.devices()}; seeds {seeds}; runs in {', '.join(run_dirs)}"
+    print(f"JAX {jax.__version__} on {jax.devices()}; members {' '.join(names)}; runs in {', '.join(run_dirs)}"
           + (f"; resuming at game {games}" if a.resume else ""), flush=True)
 
     def seed_state(i):
@@ -220,7 +248,7 @@ def main():
 
     def save_and_eval(games):
         t0 = time.perf_counter()
-        for i, (seed, log, d) in enumerate(zip(seeds, logs, snap_dirs)):
+        for i, (name, log, d) in enumerate(zip(names, logs, snap_dirs)):
             policy = seed_state(i).policy
             torch.save(ppo.to_torch_state_dict(policy), os.path.join(d, f"policy_ep{games}.pt"))
             if evaluate is not None:
@@ -230,7 +258,7 @@ def main():
                     m = evaluate(policy, name, past[i])
                     log.log_eval(games, m, opponent=name)
                     o = m["overall"]
-                    print(f"[{games}] s{seed} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
+                    print(f"[{games}] {name} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
                           f"{o['win_rate_se']:.3f} (empate={1 / a.players:.3f}) "
                           f"diff={o['mean_score_diff']:+.2f}±{o['mean_score_diff_se']:.2f} "
                           f"exact_bid={o['exact_bid_rate']:.3f}", flush=True)
@@ -258,7 +286,7 @@ def main():
     next_ckpt = (games // a.checkpoint_every + 1) * a.checkpoint_every
     start = time.perf_counter()
     while games < a.games:
-        ts, stats = update(ts)
+        ts, stats = update(ts, hp)
         stats = jax.device_get(stats)
         games = int(np.asarray(ts.games_done).ravel()[0])
         speed = (games - start_games) / (time.perf_counter() - start)
@@ -269,9 +297,10 @@ def main():
             log.log_train(games, reward, s)
         if games >= next_eval or games >= a.games:
             ent = np.asarray(stats["entropy"]).ravel()
-            print(f"[{games}] {speed:,.0f} games/s per seed ({speed * len(seeds):,.0f} in total) | "
+            lr_now = np.asarray(stats["learning_rate"]).ravel()
+            print(f"[{games}] {speed:,.0f} games/s per member ({speed * len(members):,.0f} in total) | "
                   f"ent={' '.join(f'{e:.3f}' for e in ent)} "
-                  f"lr={float(np.asarray(stats['learning_rate']).ravel()[0]):.2e}", flush=True)
+                  f"lr={' '.join(f'{x:.2e}' for x in sorted(set(lr_now.tolist())))}", flush=True)
             save_and_eval(games)
             next_eval += a.eval_every
         if deadline is not None and deadline.reached():

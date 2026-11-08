@@ -91,6 +91,33 @@ def test_multi_seed_update_matches_single_seeds():
     assert not np.allclose(np.asarray(leaves0[0]), np.asarray(leaves1[0]))
 
 
+def test_members_with_their_own_hyperparameters():
+    """Members stacked with their own learning rate and entropy bonus (hp) train as each would
+    alone with those values in cfg; members with the same seed start equal and then differ."""
+    base = dict(num_players=2, hidden=(32,), rollout_games=4, minibatch=62, total_games=100)
+    values = [(1e-4, 0.01), (1e-3, 0.0), (3e-4, 0.05)]
+    multi = ppo.make_update(ppo.Config(**base), multi_seed=True)
+    stacked = ppo.init_seeds([0, 0, 0], ppo.Config(**base))
+    hp = {"learning_rate": np.array([v[0] for v in values], np.float32),
+          "ent_coef": np.array([v[1] for v in values], np.float32)}
+    alone = []
+    for lr, ent in values:
+        cfg = ppo.Config(**base, learning_rate=lr, ent_coef=ent)
+        ts, update = ppo.init(jax.random.PRNGKey(0), cfg), ppo.make_update(cfg)
+        for _ in range(2):
+            ts = update(ts)[0]
+        alone.append(ts)
+    for _ in range(2):
+        stacked, stats = multi(stacked, hp)
+    np.testing.assert_allclose(stats["learning_rate"], hp["learning_rate"] * (1 - 4 / 100), rtol=1e-6)
+    for i, ts in enumerate(alone):
+        got = ppo.unstack(stacked, i)
+        for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)
+    w = [np.asarray(jax.tree_util.tree_leaves(ppo.unstack(stacked, i).policy)[0]) for i in range(3)]
+    assert not np.allclose(w[0], w[1])
+
+
 def test_bfloat16_matmuls():
     """With dtype bfloat16 the network gives about the float32 output, the weights stay float32
     and a short training runs."""

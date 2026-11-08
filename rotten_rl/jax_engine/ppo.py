@@ -201,7 +201,7 @@ def _advantages(traj, cfg):
     return adv, adv + traj["value"]
 
 
-def _loss(params, batch, cfg):
+def _loss(params, batch, cfg, ent_coef):
     policy, value = params
     dt = compute_dtype(cfg)
     logits = jnp.where(batch["mask"], mlp(policy, batch["obs"], dt), ILLEGAL)
@@ -213,7 +213,7 @@ def _loss(params, batch, cfg):
     loss_v = ((mlp(value, batch["obs"], dt)[:, 0] - batch["ret"]) ** 2).mean()
     probs = jnp.exp(logp_all)
     entropy = -(jnp.where(batch["mask"], probs * logp_all, 0.0)).sum(axis=1).mean()
-    loss = loss_pi + cfg.vf_coef * loss_v - cfg.ent_coef * entropy
+    loss = loss_pi + cfg.vf_coef * loss_v - ent_coef * entropy
     stats = dict(loss_policy=loss_pi, loss_value=loss_v, entropy=entropy,
                  clip_frac=(jnp.abs(ratio - 1) > cfg.clip).mean(),
                  approx_kl=(batch["logp"] - logp).mean())
@@ -236,13 +236,17 @@ def make_update(cfg, multi_seed=False):
     """One compiled step: play a batch of matches and run every PPO minibatch update on it.
     With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
-    The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free."""
+    The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
+    The step is `update(ts, hp=None)`: `hp` = {"learning_rate", "ent_coef"} overrides those of cfg
+    (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
     T, B = match_length(cfg.num_players), cfg.rollout_games
     size = T * B
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
 
-    def update(ts: TrainState):
+    def update(ts: TrainState, hp=None):
+        base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
+        ent_coef = cfg.ent_coef if hp is None else hp["ent_coef"]
         key, k_roll, k_perm = jax.random.split(ts.key, 3)
         traj = _rollout(ts.policy, ts.value, k_roll, cfg)
         adv, ret = _advantages(traj, cfg)
@@ -252,7 +256,7 @@ def make_update(cfg, multi_seed=False):
         explained = 1 - jnp.var(flat["ret"] - traj["value"].reshape(size)) / (jnp.var(flat["ret"]) + 1e-8)
         flat["adv"] = (flat["adv"] - flat["adv"].mean()) / (flat["adv"].std() + 1e-8)
         frac = jnp.maximum(0.0, 1.0 - ts.games_done / cfg.total_games) if cfg.anneal else 1.0
-        lr = cfg.learning_rate * frac
+        lr = base_lr * frac
 
         def epoch(carry, k):
             params, opt_state = carry
@@ -261,7 +265,7 @@ def make_update(cfg, multi_seed=False):
             def minibatch(carry, idx):
                 params, opt_state = carry
                 batch = jax.tree_util.tree_map(lambda x: x[idx], flat)
-                (loss, stats), grads = jax.value_and_grad(_loss, has_aux=True)(params, batch, cfg)
+                (loss, stats), grads = jax.value_and_grad(_loss, has_aux=True)(params, batch, cfg, ent_coef)
                 stats["grad_norm"] = optax.tree.norm(grads)
                 updates, opt_state = opt.update(grads, opt_state, params)
                 updates = jax.tree_util.tree_map(lambda u: -lr * u, updates)
