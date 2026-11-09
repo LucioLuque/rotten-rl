@@ -1,5 +1,38 @@
 # Plan del proyecto
 
+## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
+
+Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
+ronda. Ese reward (puntaje de la ronda contra el promedio de los rivales) es una aproximación de
+lo que importa, ganar la partida: no mira al rival que va primero ni la situación de la partida.
+Además, como cada ronda es un episodio, el puntaje acumulado que el agente ve en la observación no
+le sirve de nada (le da lo mismo ir 40 arriba o 40 abajo). Decidido el 9/11 (Lucio):
+
+1. **Terminar las extensiones a 24M** de `s20`, `s30` y `u72` (2, 3 y 7 jugadores) con sus torneos
+   contra 12M. No seguir a 48M con el reward por ronda.
+2. **Objetivo de partida en el motor JAX:** la partida entera como episodio (el GAE no corta al
+   cerrar cada ronda) y reward = el de cada ronda + λ × premio final (ganar como premio principal
+   y un poco por puesto; solo premio final sería demasiado ruidoso). Partidas que arrancan en una
+   ronda y con puntajes al azar, para ver seguido finales ajustados. La observación no cambia (ya
+   tiene puntajes y ronda). Los torneos ya miden win rate, que pasa a ser la métrica principal.
+3. **Experimento con 2 jugadores, currículo contra directo**, a igual cantidad de partidas (36M):
+   - A: `s20` (24M con reward por ronda) + 12M con el objetivo nuevo, λ = 0, 0,5 y 1 (λ = 0, con la
+     partida como episodio, es el control);
+   - B: de cero con el objetivo nuevo (λ = 0,5 y 1), 36M seguidas.
+   A contra B dice si conviene aprender primero a ganar rondas y después partidas o ir directo;
+   la curva de B, si lo alcanza antes; B contra `s20`, cuánto rinde el premio de partida desde el
+   principio. Después, 3 y 7 jugadores.
+4. **4, 5 y 6 jugadores directamente con el objetivo nuevo** (cambia el orden del 30/10, para no
+   entrenarlos dos veces).
+5. **Robustez:** medir cuánto se le puede sacar al agente (entrenar uno que solo busque ganarle a
+   una versión congelada); si tiene agujeros grandes, entrenar contra versiones anteriores.
+
+Ahora no: PSRO completo (sin garantías con más de 2 jugadores, caro, en Big 2 no le ganó al
+self-play; el punto 5 da lo útil), 48M con el reward por ronda, solo premio por ganar, búsqueda al
+jugar (mucho código; va al final, sobre una red ya buena), ajustes chicos de la receta (menores
+que el ruido de ~0,3; red más grande y entropía decreciente quedan para después del objetivo
+nuevo) y cambios en la observación.
+
 ## Plan revisado (26/10/2026)
 
 Después de la primera noche de experimentos y de la revisión bibliográfica

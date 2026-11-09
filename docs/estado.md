@@ -286,14 +286,19 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 - En curso: `u72` (7p, receta nueva, 4 semillas, hasta 12M), cortada a las 06:55 del 9/11; se
   retoma con `--resume`.
 
-Fases que siguen:
+Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
 
-1. Horizonte con la receta nueva en 2, 3 y 7 (24M, 48M) hasta ver la meseta; terminar `u72`.
-2. Con eso, 4, 5 y 6 jugadores con la receta nueva (prioridad acordada el 30/10).
-3. Pendientes de la receta: red más grande cuando las partidas dejen de rendir; probar entropía
-   que baje durante el entrenamiento.
-4. Un modelo para varias cantidades de jugadores; PSRO para robustez.
-5. Ronda de 2 cartas con 5–7 jugadores (`rotten_rl/exact/round2/`): primero la agrupación C en
+1. En curso (9/11 desde las 15:43, `queue16`): `s20`, `s30` y `u72` de 12M a 24M, cada una con su
+   torneo contra su versión de 12M. No seguir a 48M con el reward por ronda.
+2. Objetivo de partida en el motor JAX: partida entera como episodio, reward por ronda + λ × premio
+   final por ganar (y algo por puesto), arranques en situaciones al azar.
+3. 2 jugadores, currículo contra directo a 36M: `s20` + 12M con el objetivo nuevo (λ 0 / 0,5 / 1)
+   contra de cero con el objetivo nuevo; medir por win rate. Después 3 y 7.
+4. 4, 5 y 6 jugadores directamente con el objetivo nuevo (cambia el orden del 30/10).
+5. Robustez: entrenar un rival que solo busque ganarle a una versión congelada; si lo explota,
+   entrenar contra versiones anteriores. Red más grande y entropía decreciente, después del
+   objetivo nuevo.
+6. Ronda de 2 cartas con 5–7 jugadores (`rotten_rl/exact/round2/`): primero la agrupación C en
    C++ (validada con 3 y 4 contra B); JAX no sirve para el MCCFR actual (tabla que crece, recorrido
    en árbol: el límite es la memoria), pero si la agrupación C deja un número fijo de situaciones,
    un CFR denso en la GPU podría ser ×10–100. La ronda de 1 carta ya está resuelta (en JAX sería más
