@@ -265,32 +265,33 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-**Estado al 7/11/2026 19:30** (detalle en `docs/reportes/2026-11-06.md`):
+**Estado al 9/11/2026 05:15** (detalle en `docs/reportes/2026-11-06.md`):
 
-- Todo se entrena en JAX en la GPU (`scripts/jax_engine/train_ppo.py`), 4 semillas por proceso,
-  una corrida a la vez. Los torneos también van en JAX (`scripts/jax_engine/tournament.py`, segundos
-  en vez de horas) y corren en la cola entre una corrida y la siguiente (líneas `--script`). pyspiel
-  queda para `play.py`, el entrenamiento viejo en PyTorch, `rotten_rl/exact/` y como referencia de
-  los tests.
-- **Receta nueva: minilote 1024 y 2 épocas** (antes 512 y 5). Más rápida (~×2,3) y mejor con las
-  mismas partidas: con 2 jugadores, 3M de la nueva le ganan a 12M de la vieja; con 7, 1,5M de la
-  nueva le ganan a 6M de la vieja. 1 época pierde mucho (−5,4); minilote 512 o 2048 da igual. bf16
-  no sirve en la 4090 (+7%, JAX ya usa TF32).
-- Mejores hasta ahora: 2 jugadores `n21` (6M, 3 ép.; +1,9 a `m24`, +1,6 a `h22`); 3 jugadores
-  `n31` (6M, 3 ép.; +18,7 contra la heurística, +0,3 a `h32`); 7 jugadores `o71` (3M, 2 ép.;
-  +13,6 contra la heurística). Duplicar las partidas sigue rindiendo con la receta nueva.
-- Red de 1024×1024 (`o23`, 2 jugadores, 3M): +0,58 a la de 512 (15/16) pero ×2,15 más lenta; a
-  igual tiempo rinde más duplicar partidas (+1,9). Por ahora no.
-- En cola (`queue14`, -13): `o72` 7p 6M, `o32` 3p 12M, `o22` 2p 12M, `o73` 7p 12M, `o33` 3p 24M,
-  cada una con su torneo. El lab cierra el lunes 9/11 07:00 (lunes a miércoles podrían ser
-  feriados: Lucio lo confirma).
+- Todo se entrena en JAX en la GPU (`scripts/jax_engine/train_ppo.py`), varias copias por proceso
+  (`--seeds`, y `--learning_rate`/`--ent_coef` con listas para barrer hiperparámetros en un solo
+  proceso), una corrida a la vez. Los torneos también van en JAX (`scripts/jax_engine/tournament.py`,
+  segundos) y corren en la cola entre corridas. pyspiel queda para `play.py`, el entrenamiento viejo
+  en PyTorch, `rotten_rl/exact/` y como referencia de los tests.
+- **Receta actual (barridos del 8–9/11):** tasa 3e-4, 2 épocas, minilote 1024 (confirmados con 2, 3
+  y 7 jugadores) y **entropía más alta que antes**: 0,06 con 2 y 3 jugadores, 0,1 con 7 (antes
+  0,01). Lote de 512 partidas con 2, 3 y 7 (con 7 antes era 256; más grande no ayuda con 2 y 3).
+  Ganancia sobre la receta anterior a igual cantidad de partidas: 2p +1,85 (6M), 3p +0,74 (6M),
+  7p +0,52 (3M); confirmado con 4 semillas a 12M: 2p `s20` +1,17 a `o22`, 3p `s30` +1,15 a `o32`
+  (16/16 cada uno), más de lo que daba duplicar a 24M con la receta vieja.
+- Mejores hasta ahora: 2 jugadores `s20` (12M); 3 jugadores `s30` (12M); 7 jugadores `r70`/`s70`
+  con entropía 0,1 (3M, +0,52 a `o71`). Con la receta vieja, 7 jugadores llegaba a la meseta entre
+  12M y 24M; falta ver dónde queda la meseta con la nueva.
+- Ojo al comparar: con 3 jugadores, dos corridas de la misma receta difirieron +0,30; lo confiable
+  es comparar dentro de una misma corrida o con 4 semillas.
+- En curso: `u72` (7p, receta nueva, 4 semillas, hasta 12M), cortada a las 06:55 del 9/11; se
+  retoma con `--resume`.
 
 Fases que siguen:
 
-1. Terminar el horizonte con la receta nueva en 2, 3 y 7 (la cola de arriba) hasta ver la meseta.
+1. Horizonte con la receta nueva en 2, 3 y 7 (24M, 48M) hasta ver la meseta; terminar `u72`.
 2. Con eso, 4, 5 y 6 jugadores con la receta nueva (prioridad acordada el 30/10).
-3. Pendientes de la receta, a igual tiempo de cómputo: tasa de aprendizaje (1e-4, 1e-3), lotes de
-   partidas (`--rollout_games`), red más grande cuando las partidas dejen de rendir.
+3. Pendientes de la receta: red más grande cuando las partidas dejen de rendir; probar entropía
+   que baje durante el entrenamiento.
 4. Un modelo para varias cantidades de jugadores; PSRO para robustez.
 5. Ronda de 2 cartas con 5–7 jugadores (`rotten_rl/exact/round2/`): primero la agrupación C en
    C++ (validada con 3 y 4 contra B); JAX no sirve para el MCCFR actual (tabla que crece, recorrido
