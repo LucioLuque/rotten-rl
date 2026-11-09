@@ -63,6 +63,8 @@ def save_checkpoint(run_dir, ts):
     tmp = os.path.join(state_dir, "ckpt.pkl.tmp")
     with open(tmp, "wb") as f:
         pickle.dump(jax.tree_util.tree_map(np.asarray, ts), f)
+        f.flush()
+        os.fsync(f.fileno())                 # a machine reboot must not leave it empty
     os.replace(tmp, os.path.join(state_dir, "ckpt.pkl"))
 
 
@@ -240,7 +242,9 @@ def main():
     past = [None] * len(seeds)
     if a.resume:                             # the snapshot of the last evaluation is "past"
         for i, d in enumerate(snap_dirs):
-            snaps = [int(f[len("policy_ep"):-3]) for f in os.listdir(d) if f.startswith("policy_ep")]
+            # An empty file is a save that a machine reboot cut: skip it.
+            snaps = [int(f[len("policy_ep"):-3]) for f in os.listdir(d)
+                     if f.startswith("policy_ep") and os.path.getsize(os.path.join(d, f)) > 0]
             snaps = [e for e in snaps if e <= games]
             if snaps:
                 past[i] = ppo.from_torch_state_dict(
@@ -250,7 +254,10 @@ def main():
         t0 = time.perf_counter()
         for i, (member, log, d) in enumerate(zip(names, logs, snap_dirs)):
             policy = seed_state(i).policy
-            torch.save(ppo.to_torch_state_dict(policy), os.path.join(d, f"policy_ep{games}.pt"))
+            with open(os.path.join(d, f"policy_ep{games}.pt"), "wb") as f:
+                torch.save(ppo.to_torch_state_dict(policy), f)
+                f.flush()
+                os.fsync(f.fileno())
             if evaluate is not None:
                 for name in EVAL_OPPONENTS:
                     if name == "past" and past[i] is None:
