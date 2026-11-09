@@ -2,7 +2,7 @@
 
 Trabajos sobre juegos parecidos a La Podrida (juegos de bazas con canto, información oculta, varios
 jugadores) y sobre los métodos que nos importan. Búsqueda del 25/10/2026, a partir de una lista
-inicial de Lucio más búsquedas propias.
+inicial mía más búsquedas propias.
 
 Para cada trabajo: **relevancia** (alta / media / baja) y **qué leímos** (completo, o solo
 resumen/abstract). Lo que solo leímos por el abstract puede tener matices que no vimos.
@@ -121,6 +121,32 @@ basado en modelo. Antecedente del paper de 2022.
   baja la varianza sin que la política haga trampa al jugar. Es la misma idea que el crítico
   centralizado de VRPO (abajo), el oracle de Suphx y el entrenamiento con información perfecta de
   ScrofaZero.
+- **Lo probamos** (`--ppo_critic central`, 29/10 a 4/11): empata con el crítico local. Con 3
+  jugadores, +0.4 puntos por partida a ~2 errores estándar (torneo del 30/10); con 7, 0.337 contra
+  ~0.33 contra la heurística. Ver abajo por qué era esperable.
+
+### Cuándo ayuda un crítico centralizado — varios trabajos · relevancia media · abstracts y resúmenes
+
+- **Lyu, Xiao, Daley y Amato, AAMAS 2021** (*Contrasting Centralized and Decentralized Critics in
+  Multi-Agent RL*, [arXiv 2102.04402](https://arxiv.org/abs/2102.04402)): el crítico centralizado da
+  el **mismo gradiente esperado** que el local y **no garantiza menos varianza**; puede tener más. En
+  un trabajo posterior (AAAI 2022, *A Deeper Understanding of State-Based Critics*) muestran que un
+  crítico que ve el estado completo **puede sesgar** el gradiente con información parcial: la
+  política no puede usar lo que ve el crítico.
+- **de Witt et al. 2020** (*Is Independent Learning All You Need in the StarCraft Multi-Agent
+  Challenge?*, [arXiv 2011.09533](https://arxiv.org/abs/2011.09533)): IPPO, sin nada centralizado,
+  rinde como los métodos centralizados incluso en un juego cooperativo. El paper de MAPPO también
+  encuentra a IPPO competitivo en muchos escenarios.
+- **PerfectDou** — Yang et al., NeurIPS 2022 ([arXiv 2203.16406](https://arxiv.org/abs/2203.16406)):
+  el contraejemplo en cartas competitivas. PPO con un crítico que ve todas las manos
+  (*perfect-training-imperfect-execution*) le gana a DouZero en Dou Dizhu, con mucho trabajo de
+  features. Las partidas de Dou Dizhu son largas y la información oculta pesa todo el episodio.
+- **Para nosotros**: lo que más resuelve MAPPO (repartir el mérito de un reward compartido) no
+  existe en un juego competitivo con reward propio. Solo queda la baja de varianza, que es chica
+  con episodios de una ronda y reward relativo. El cuello de botella está en otro lado (alargar el
+  horizonte dio +2.2 contra +0.4). Una forma más directa de usar la información oculta es una
+  **pérdida auxiliar que prediga las manos ajenas** (Suphx, PerfectDou y los trabajos de Skat de la
+  sección 3).
 
 ### GAE en self-play con información imperfecta — Fan y Farina, 2026 · relevancia media · abstract
 
@@ -197,6 +223,27 @@ fuerte de evaluación** cuando la heurística quede chica.
 - [Sychrovský et al. 2025](https://arxiv.org/abs/2504.18868): meta-learning para aproximar Nash en
   juegos de suma general · baja · abstract.
 
+### Alternativas al self-play simple (agregado el 6/11/2026, de memoria, sin releer los papers)
+
+- **Self-play regularizado**: *Magnetic Mirror Descent* — Sokota et al., ICLR 2023
+  ([arXiv 2206.05825](https://arxiv.org/abs/2206.05825)): a PPO se le suma un KL hacia una política
+  "imán" que se va actualizando; converge en dos jugadores de suma cero y funciona bien como
+  regularizador en general. **R-NaD** (DeepNash, Perolat et al., Science 2022, Stratego): idea
+  parecida a gran escala. Media: dan estabilidad, pero las garantías son para dos jugadores.
+- **Poblaciones**: PSRO (Lanctot et al. 2017), NeuPL (Liu et al. 2022) y la **liga de AlphaStar**
+  (Vinyals et al. 2019: agentes principales, *exploiters* que buscan sus debilidades y versiones
+  viejas). Media: sirven para ser robustos contra estilos distintos (perfiles, humanos), menos para
+  subir el promedio contra la heurística. NFSP, que ya probamos, es de esta familia.
+- **Estrategia base + búsqueda al jugar**: **Pluribus** — Brown y Sandholm, Science 2019 (póker de
+  6 jugadores; CFR para la base y búsqueda limitada en cada decisión), **ReBeL** (Brown et al.,
+  NeurIPS 2020) y **Student of Games** (Schmid et al., Science Advances 2023). Alta como idea: es el
+  antecedente más cercano para muchos jugadores. Con el motor en JAX, simular sale barato; la
+  versión simple para nosotros es PIMC guiado por la política y el valor de PPO (sección 3).
+- **Diplomacy** (7 jugadores, suma general): DORA (Bakhtin et al. 2021), **piKL** (Jacob et al.,
+  ICML 2022) y Cicero (Meta, Science 2022). El self-play puro converge a convenciones raras que no
+  andan con humanos; regularizar hacia una política humana (piKL) arregla eso. Baja por ahora: nos
+  sirve si algún día juntamos partidas reales.
+
 ## 5. Evaluación y herramientas
 
 - **GTO Wizard Benchmark** (póker, 2026, [arXiv 2603.23660](https://arxiv.org/abs/2603.23660)) ·
@@ -238,3 +285,16 @@ es Wizard (2022). Lo que la literatura sugiere, ordenado por evidencia y costo:
 7. **Lo que no priorizar**: historia con LSTM (no ayudó en Wizard) y búsqueda dentro del agente (no
    ayudó en Wizard). Más adelante, un jugador PIMC como **rival de evaluación** más fuerte que la
    heurística.
+
+**Actualización del 6/11/2026**, con PPO compartido ya andando: el crítico central (MAPPO) empató
+con el local, como era esperable en un juego competitivo con episodios cortos. Lo que queda por
+probar, ordenado por costo:
+
+1. **Pérdida auxiliar que prediga las manos ajenas**: casi gratis, y usa la información oculta de
+   una forma más directa que el crítico.
+2. **Búsqueda al jugar** (PIMC guiado por la política y el valor de PPO, al estilo Pluribus): es lo
+   de mayor techo y el motor en JAX la abarata. Ojo: en Wizard la búsqueda dentro del agente no
+   ayudó (punto 7), así que conviene medirla primero en las últimas bazas, donde las manos
+   muestreadas están más restringidas.
+3. **Regularizar el self-play** (MMD) o entrenar con una **población o liga** si los perfiles
+   muestran estilos que lo explotan.
