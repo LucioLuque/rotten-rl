@@ -89,7 +89,9 @@ class RunLogger:
                 continue
             header, body = rows[0], rows[1:]
             col = header.index("episode")
-            keep = [r for r in body if int(r[col]) <= episode]
+            # A machine crash can leave a half-written tail (NUL bytes, cut lines): drop it.
+            keep = [r for r in body if len(r) == len(header) and r[col].isdigit()
+                    and int(r[col]) <= episode]
             with open(path, "w", newline="") as f:
                 csv.writer(f).writerows([header] + keep)
 
