@@ -30,7 +30,7 @@ que pueden tener los demás, pesadas por lo que cantaron y jugaron. Eso es lo qu
   - si es más alta o más baja que mis cartas de ese palo (si no tengo de ese palo, no importa
     el número: no puede cambiar si gano yo);
   - quién la tiró y quién va ganando la baza.
-  Así se ve cuántas salieron de cada palo que importa (idea de Lucio: con 7 jugadores hay 15
+  Así se ve cuántas salieron de cada palo que importa (idea mía: con 7 jugadores hay 15
   cartas en juego y eso cambia las chances de la segunda baza). Lo que se pierde es sutil
   (cuántas cartas quedan por encima o por debajo de las de los otros) y se mide comparando con la
   versión exacta (`--abstraction exact`) en 3 jugadores.
@@ -80,7 +80,7 @@ sobre todo de lo que se cantó:
 | A | 0.50 | 0.97 | 0.06 |
 
 - **Cantó 1**: sale con la otra casi siempre, con cualquier triunfo. Guarda el triunfo para la
-  segunda baza (la intuición de Lucio, pero no solo con triunfo bajo: con cualquiera).
+  segunda baza (mi intuición, pero no solo con triunfo bajo: con cualquiera).
 - **Cantó 2**: sale con el triunfo, más cuanto más alto (con el As, 94%): asegura una baza y sale
   él en la segunda.
 - **Cantó 0**: sale con el triunfo la mayoría de las veces, sobre todo si es bajo: se saca de

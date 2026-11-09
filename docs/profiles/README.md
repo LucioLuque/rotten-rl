@@ -1,8 +1,8 @@
 # Perfiles
 
 Formas de jugar contra las que medir a los modelos, y la interfaz para jugarles. Hecho: la interfaz,
-el guardado, los perfiles a mano y las situaciones elegidas. **El perfil de Lucio sale de partidas enteras
-contra el mejor modelo de 2 jugadores**: el 31/10 probó las situaciones, le parecieron malas y las cortó
+el guardado, los perfiles a mano y las situaciones elegidas. **Mi perfil sale de partidas enteras
+contra el mejor modelo de 2 jugadores**: el 31/10 probé las situaciones, me parecieron malas y las corté
 a las 6 respuestas (quedan guardadas y `load_answers` las suma). Falta: jugar esas partidas.
 
 ## Jugar
@@ -11,7 +11,7 @@ a las 6 respuestas (quedan guardadas y `load_answers` las suma). Falta: jugar es
 .venv/bin/python scripts/play.py                         # practicar contra la heurística
 .venv/bin/python scripts/play.py --profile lucio --rival runs/lab/<máquina>/runs/<corrida>   # lo principal
 .venv/bin/python scripts/play.py --profile lucio          # partidas enteras contra la heurística
-.venv/bin/python scripts/play.py --profile lucio --spots 150   # jugadas elegidas, descartadas para Lucio
+.venv/bin/python scripts/play.py --profile lucio --spots 150   # jugadas elegidas, descartadas para mí
 ```
 
 Con `--profile` cada decisión va a `data/profiles/<profile>/<fecha>.jsonl`, con la historia completa
@@ -31,7 +31,7 @@ ya entran: `--eval_opponents` de `train.py` y `--agents` de `scripts/eval/tourna
 |---|---|
 | `heuristic` | La actual, en `rotten_rl/evaluation.py` |
 | `conservative`, `risky`, `play_to_lose` | `rotten_rl/profiles/rules.py`: juegan como la heurística y cantan 70%, 130% de su estimación o lo mínimo |
-| `lucio` | Imita a Lucio, a partir de sus partidas |
+| `lucio` | Me imita a mí, a partir de mis partidas |
 | Otras personas | Igual que `lucio`, cada una con sus partidas |
 
 Código en `rotten_rl/profiles/`; la interfaz es `scripts/play.py`.
@@ -49,7 +49,7 @@ Son estilos bien distintos, y ninguno le gana a la heurística.
 
 ## Aprender de una persona: situaciones elegidas
 
-Lo principal para Lucio son las partidas enteras: cada una deja ~40 decisiones, que pasan por el mismo
+Lo principal para mi perfil son las partidas enteras: cada una deja ~40 decisiones, que pasan por el mismo
 tipo de jugada y la misma generalización de abajo, y el rival queda anotado en cada partida. Las jugadas
 elegidas, mostradas una por vez, siguen disponibles pero se descartaron el 31/10. Todo en
 `rotten_rl/profiles/spots.py`.
@@ -67,13 +67,13 @@ elegidas, mostradas una por vez, siguen disponibles pero se descartaron el 31/10
   seguir. Los tipos más importantes se repiten con otras manos, para ver si la respuesta es consistente.
 - **Cuántas:** 150 como base, lo razonable para pedirle a otra persona. Se pueden pedir más cuando
   sea: no repite las ya respondidas (`--spots 100` son 100 nuevas), y por eso se puede cortar y
-  seguir después pidiendo las que faltan. Lucio puede responder más.
+  seguir después pidiendo las que faltan. Yo puedo responder más.
 - **Cómo juega el perfil:** la respuesta más repetida del tipo más detallado que tenga respuestas, y si
   no sabe nada, la heurística. Entra en el torneo y como rival por su nombre (`--agents lucio,heuristic`,
   `play.py --rival lucio`).
 - **Validación:** `agreement` deja afuera un quinto de las respuestas y mide cuánto las predice. Con un
   jugador simulado (la heurística respondiendo 150 situaciones) dio 82%: prueba que generaliza, no que
-  imite a Lucio. Después se compara contra una red ajustada a las mismas respuestas.
+  me imite. Después se compara contra una red ajustada a las mismas respuestas.
 - **Limitación conocida:** con 150 respuestas el nivel más detallado casi no se repite, así que si la
   decisión cambia por los puntos o las cartas se va a ver mejor con más respuestas.
 
@@ -93,21 +93,21 @@ test_renderer.py` controla que las cartas de la baza no se pisen.
 | Contra qué | Qué dice | Alcance |
 |---|---|---|
 | Heurística y otros perfiles | Si le gana a cada estilo | Partida entera |
-| `lucio` | Si le ganaría a Lucio jugando como juega | Partida entera; depende de cuánto lo imite |
-| Lucio en persona | Si le gana de verdad | Pocas partidas: mucho ruido aun con repartos repetidos |
+| `lucio` | Si me ganaría jugando como juego yo | Partida entera; depende de cuánto lo imite |
+| Yo en persona | Si me gana de verdad | Pocas partidas: mucho ruido aun con repartos repetidos |
 | Equilibrio exacto | Cuánto pierde contra el equilibrio | **Solo rondas de 1 y 2 cartas** |
 
 Con 2 jugadores, la ronda de 1 carta está resuelta y `round2 solve --n 2` corre (3M iteraciones en 12 s en
 la laptop). Falta hacer la tabla definitiva y comprobar que `compare_round2_agent.py` ande con 2. Las
-mismas tablas sirven para decirle a Lucio dónde pierde puntos en esas rondas.
+mismas tablas sirven para ver dónde pierdo puntos en esas rondas.
 
 ## Orden, empezando por 2 jugadores
 
 1. ~~Interfaz sobre el estado de OpenSpiel, con guardado y un rival cualquiera.~~
 2. ~~Perfiles `conservative`, `risky` y `play_to_lose`.~~
 3. ~~Situaciones elegidas y perfil aprendido.~~
-4. Lucio juega partidas enteras contra el mejor modelo de 2 jugadores, con repartos repetidos: ¿le
-   gana? Las redes buenas (`f20`, `f22`, 0.73 contra la heurística) están en la -19; en la laptop solo
+4. Juego partidas enteras contra el mejor modelo de 2 jugadores, con repartos repetidos: ¿le
+   gano? Las redes buenas (`f20`, `f22`, 0.73 contra la heurística) están en la -19; en la laptop solo
    hay las de 25k (`f21`, `f23`, `f25`, 0.56).
 5. Con esas decisiones, medir cuánto se predicen (`agreement`) y jugar contra `lucio`.
 6. Sumar perfiles y exacto a la evaluación de cada entrenamiento (`--eval_opponents` ya acepta los

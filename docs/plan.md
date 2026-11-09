@@ -6,7 +6,7 @@ Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con
 ronda. Ese reward (puntaje de la ronda contra el promedio de los rivales) es una aproximación de
 lo que importa, ganar la partida: no mira al rival que va primero ni la situación de la partida.
 Además, como cada ronda es un episodio, el puntaje acumulado que el agente ve en la observación no
-le sirve de nada (le da lo mismo ir 40 arriba o 40 abajo). Decidido el 9/11 (Lucio):
+le sirve de nada (le da lo mismo ir 40 arriba o 40 abajo). Decidido el 9/11:
 
 1. **Terminar las extensiones a 24M** de `s20`, `s30` y `u72` (2, 3 y 7 jugadores) con sus torneos
    contra 12M. No seguir a 48M con el reward por ronda.

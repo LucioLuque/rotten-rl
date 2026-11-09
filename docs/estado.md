@@ -247,10 +247,10 @@ por partida; antes 0.55–0.58). Lotes de 256 y 512 no se distinguen y sigue sub
 
 ## Perfiles (30/10/2026)
 
-Medir modelos contra formas de jugar, incluida la de Lucio, y jugarles en la interfaz, empezando por
+Medir modelos contra formas de jugar, incluida la mía, y jugarles en la interfaz, empezando por
 2 jugadores. Ya están la interfaz sobre el estado de OpenSpiel (`scripts/play.py`), el guardado de
 decisiones, los perfiles `conservative`, `risky` y `play_to_lose`, y las situaciones elegidas
-(`--spots`). El 31/10 Lucio las descartó (cortó a las 6 respuestas): su perfil sale de partidas enteras
+(`--spots`). El 31/10 las descarté (corté a las 6 respuestas): mi perfil sale de partidas enteras
 contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs/profiles/README.md`.
 
 ## Bugs encontrados (25/10/2026)
@@ -315,7 +315,7 @@ validar 3 y 7 jugadores (`j30`) y medir con la GPU libre. **Decidido (6/11/2026)
 etapas en `docs/tecnico/optimizacion.md`, "Elegido para hacer". Empezar por la prueba chica (bazas
 con 2 jugadores, medir partidas por segundo) y seguir solo si da más de ~10 veces.
 
-**Prioridad desde el 30/10/2026 (decisión de Lucio): 2, 3 y 7 jugadores hasta llegar a una meseta;
+**Prioridad desde el 30/10/2026 (decisión mía): 2, 3 y 7 jugadores hasta llegar a una meseta;
 recién ahí 4, 5 y 6, con lo aprendido.** Fin de semana del 30/10 al 2/11, **en curso desde el viernes
 22:22 en la -19; el sábado una reserva del aula, hasta las 17:00, cortó todo y nos pasó a la -22.
 `queue9` se relanzó ahí el sábado a las 18:00, pero desde las 18:00:30 el lab rechaza las conexiones
@@ -347,7 +347,7 @@ Pasos que siguen:
   `explained_variance`, `grad_norm`, `learning_rate`).
 - La deducción "no tiene triunfo" (`--infer_trump_void`, apagada por defecto) se midió con `g70`–`g72`
   contra `b70`–`b72` (31/10): no aporta con 7 jugadores (0.336 contra 0.332 vs heurística; ~0.1 puntos
-  en contra en el torneo). Recomendación: dejarla apagada; falta que Lucio lo decida y lanzar `f21`.
+  en contra en el torneo). Recomendación: dejarla apagada; falta que lo decida y lanzar `f21`.
 - `--resume` puede extender el horizonte (la tasa se recalcula): `e70` va a 1.5M y `h10` extiende
   `c10` a 3M, contra `f30` de cero. Falta saber si conviene extender o empezar de cero.
 - 2 jugadores no corre la receta actual desde el 25/10 (mejor hasta ahora: DQN `r10`–`r12`,

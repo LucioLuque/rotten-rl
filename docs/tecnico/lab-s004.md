@@ -171,7 +171,7 @@ conexión compartida rota desde las ~02:10, estuvo 3 horas sin ver nada.
 Desde el 31/10 cada consulta verifica también la máquina y el log, y cuenta los entrenamientos: sale
 con `FALLA` si cambió la máquina o falta el log, y con `NADA_CORRE` si no hay entrenamientos. Lo motivó
 esa mañana: con el log ausente, `grep` fallaba pero la consulta devolvía igual un `0` válido, y el
-vigilante siguió 30 minutos sin notar que estábamos en otra máquina. Se dio cuenta Lucio.
+vigilante siguió 30 minutos sin notar que estábamos en otra máquina. Me di cuenta yo.
 
 ### Respaldar durante las corridas: `scripts/lab/backup_loop.sh`
 
@@ -230,7 +230,7 @@ de cada corrida (`scripts/lab/thin_policies.sh`; el lab las guarda todas). El en
 lee; solo los torneos y `play.py`. Para ralear una carpeta a mano:
 `scripts/lab/thin_policies.sh runs/lab/<máquina>/runs [--dry-run]`. `tb/` no se trae (repite los
 CSV) y la copia va a 2 MB/s como máximo (`BWLIMIT`, en KiB/s): a toda velocidad colgó la VPN con
-el wifi de la casa de Lucio. Hasta el 8/11 las listas se armaban con un glob que, con ~80k redes,
+el wifi de mi casa. Hasta el 8/11 las listas se armaban con un glob que, con ~80k redes,
 excedía el máximo de argumentos y salía vacío: llegaban todas (74 GB, disco de la laptop al 96 %).
 Mirar el espacio libre de la laptop (`df -h /`) antes de cada respaldo grande.
 De las corridas de recetas ya superadas (las de `labo-s004-17/` y `-19/`: `z*`, `a*`, `b*`, `c10`, `d1*`,

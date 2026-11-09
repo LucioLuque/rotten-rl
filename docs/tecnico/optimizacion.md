@@ -29,7 +29,7 @@ observación (~50–60 µs contra ~25–33 por decisión en la laptop).
 
 ## Elegido para hacer (6/11/2026): todo en la GPU con JAX
 
-Decisión de Lucio: el próximo salto de velocidad va por **JAX**, por encima de C++ (punto 7) y de
+Decisión mía: el próximo salto de velocidad va por **JAX**, por encima de C++ (punto 7) y de
 Numba. Motivo: hoy la GPU marca 99% pero rinde poco, porque cada paso es una llamada chica (32
 partidas) que es casi toda latencia, y la mitad del tiempo es Python en el procesador (simular y
 armar la observación jugada por jugada). Con 8 corridas: ~220 partidas por segundo en total, y no
@@ -93,7 +93,7 @@ queda, de mayor a menor:
 3. **Usar varias máquinas del laboratorio.** La palanca más grande: hay 22 máquinas; si las otras
    tienen la misma GPU, casi ×22. Hay que ver si se puede saltar de una a otra desde adentro del
    lab (el home es NFS compartido) y si está bien usar varias a la vez (son compartidas): lo
-   decide Lucio.
+   decido yo.
 4. **Varios procesos en una GPU.** Con 8 corridas la GPU se reparte por turnos (cada proceso manda
    muchas operaciones chicas). Opciones: CUDA MPS (necesita un servicio corriendo en una máquina
    compartida: no por ahora), CUDA graphs o `torch.compile` para la red de decisión (ganancia
