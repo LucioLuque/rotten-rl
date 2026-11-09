@@ -137,6 +137,21 @@ def _round_rewards(points, n, scheme):
     return points / ROUND_SCORE_NORM
 
 
+def final_rewards(scores, rank_weight=0.25):
+    """float[n]: the end-of-match bonus of each player (before scaling by lambda), zero-sum.
+    Winning share (1 to the top score, split on ties) minus 1/n, plus `rank_weight` times the place
+    in [-0.5, 0.5] (best = +0.5, worst = -0.5, ties averaged)."""
+    n = scores.shape[0]
+    s = scores.astype(jnp.float32)
+    top = s == s.max()
+    win = top / top.sum() - 1.0 / n
+    above = (s[None, :] > s[:, None]).sum(axis=1)           # players strictly ahead
+    tied = (s[None, :] == s[:, None]).sum(axis=1) - 1       # others with the same score
+    rank = above + tied / 2.0                               # 0 = first, n - 1 = last
+    place = 0.5 - rank / (n - 1)
+    return win + rank_weight * place
+
+
 def step(state, action, reward_scheme="relative"):
     """Applies `action` for the current player. Returns (state, rewards float[n]): the rewards are
     nonzero only on the move that closes a round. A no-op at the end of the match."""

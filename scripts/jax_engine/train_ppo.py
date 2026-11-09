@@ -50,9 +50,12 @@ from rotten_rl.jax_engine import ppo  # noqa: E402
 from rotten_rl.lab_hours import Deadline  # noqa: E402
 
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
-               "minibatch", "reward_scheme", "dtype", "seed")
-MEMBER_KEYS = ("seed", "learning_rate", "ent_coef")   # may differ between the members of a process
-CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01}  # for runs saved before the key existed
+               "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
+               "rank_weight")
+# may differ between the members of a process
+MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
+CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
+                   "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -139,6 +142,17 @@ def main():
     p.add_argument("--epochs", type=int, default=5)
     p.add_argument("--minibatch", type=int, default=512)
     p.add_argument("--reward_scheme", default="relative")
+    p.add_argument("--episode", default="round", choices=["round", "match"],
+                   help="match: the whole match is one episode (the score matters)")
+    p.add_argument("--match_bonus", default="0",
+                   help="lambda of the end-of-match bonus (winning + some for the place); one value "
+                        "or several trained together; only with --episode match")
+    p.add_argument("--rank_weight", type=float, default=0.25,
+                   help="share of the place in the end-of-match bonus (rotten_rl/jax_engine/game.py)")
+    p.add_argument("--init_from", default=None,
+                   help="run folder(s), comma-separated: new runs that start from their networks "
+                        "(policy and value; fresh Adam, games and lr schedule), one per folder and "
+                        "value of the lists, with that folder's seed")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -172,21 +186,41 @@ def main():
                 sys.exit(f"--resume: the runs differ in {k}; resume them separately")
             setattr(a, k, values[0])
         members = [(int(s["seed"]), float(s["learning_rate"]),
-                    float(s.get("ent_coef", CONFIG_DEFAULTS["ent_coef"]))) for s in saved]
+                    float(s.get("ent_coef", CONFIG_DEFAULTS["ent_coef"])),
+                    float(s.get("match_bonus", CONFIG_DEFAULTS["match_bonus"]))) for s in saved]
         lrs = sorted({m[1] for m in members})
         ents = sorted({m[2] for m in members})
+        bonuses = sorted({m[3] for m in members})
     else:
-        seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
         lrs = [float(x) for x in str(a.learning_rate).split(",")]
         ents = [float(x) for x in str(a.ent_coef).split(",")]
-        members = [(s, lr, ent) for lr in lrs for ent in ents for s in seeds]
+        bonuses = [float(x) for x in str(a.match_bonus).split(",")]
+        if a.episode == "round" and any(b != 0 for b in bonuses):
+            sys.exit("--match_bonus needs --episode match")
+        if a.init_from:
+            init_dirs = [os.path.expanduser(r).rstrip("/") for r in a.init_from.split(",")]
+            seeds = []
+            for r in init_dirs:
+                with open(os.path.join(r, "config.json")) as f:
+                    src = json.load(f)["jax_args"]
+                for k in ("players", "hidden"):
+                    if str(src[k]) != str(getattr(a, k)):
+                        sys.exit(f"--init_from {r}: {k} is {src[k]}, here {getattr(a, k)}")
+                seeds.append(int(src["seed"]))
+            if len(set(seeds)) != len(seeds):
+                sys.exit("--init_from: two runs with the same seed")
+            init_of = dict(zip(seeds, init_dirs))
+        else:
+            seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
+        members = [(s, lr, ent, b) for lr in lrs for ent in ents for b in bonuses for s in seeds]
     seeds = [m[0] for m in members]
     a.seed = seeds[0]
     multi = len(members) > 1
 
     def tag(member):                         # what tells this member apart, besides its seed
-        _, lr, ent = member
-        return "".join([f"_lr{lr:.0e}" if len(lrs) > 1 else "", f"_ent{ent:g}" if len(ents) > 1 else ""])
+        _, lr, ent, bonus = member
+        return "".join([f"_lr{lr:.0e}" if len(lrs) > 1 else "", f"_ent{ent:g}" if len(ents) > 1 else "",
+                        f"_mb{bonus:g}" if len(bonuses) > 1 else ""])
     names = [f"s{m[0]}{tag(m)}" for m in members]
     if len(set(names)) != len(names):
         sys.exit(f"repeated members (values that round to the same tag?): {names}")
@@ -194,22 +228,26 @@ def main():
     cfg = ppo.Config(num_players=a.players, hidden=hidden, learning_rate=members[0][1],
                      ent_coef=members[0][2], rollout_games=a.rollout_games, epochs=a.epochs,
                      minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
-                     dtype=a.dtype)
+                     dtype=a.dtype, episode=a.episode, match_bonus=members[0][3],
+                     rank_weight=a.rank_weight)
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
-          "ent_coef": np.array([m[2] for m in members], np.float32)} if multi else None
+          "ent_coef": np.array([m[2] for m in members], np.float32),
+          "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None
 
     import torch
     from rotten_rl.run_logger import RunLogger
 
     def config_of(member):
-        seed, lr, ent = member
+        seed, lr, ent, bonus = member
         args = {k: getattr(a, k) for k in CONFIG_KEYS}
-        args.update(seed=seed, learning_rate=lr, ent_coef=ent)
+        args.update(seed=seed, learning_rate=lr, ent_coef=ent, match_bonus=bonus)
         return {"algo": "ppo", "engine": "jax", "players": a.players,
                 "hidden_layers_sizes": [str(h) for h in hidden], "num_train_episodes": a.games,
                 "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
                 "ppo_minibatch": a.minibatch, "rl_learning_rate": lr, "ppo_entropy_coef": ent,
-                "reward_scheme": a.reward_scheme, "round_episodes": True, "ppo_anneal_lr": True,
+                "reward_scheme": a.reward_scheme, "round_episodes": a.episode == "round",
+                "episode": a.episode, "match_bonus": bonus, "rank_weight": a.rank_weight,
+                "init_from": init_of.get(seed) if a.init_from else None, "ppo_anneal_lr": True,
                 "eval_games": a.eval_games, "eval_deal_seed": a.eval_deal_seed,
                 "eval_engine": a.eval_engine, "dtype": a.dtype, "seed": seed, "seeds_together": seeds,
                 "member_tag": tag(member).replace("_", ""), "jax_args": args}
@@ -222,6 +260,15 @@ def main():
                 for r, m, ts in zip(run_dirs, members, states)]
     else:
         states = [ppo.init(jax.random.PRNGKey(m[0]), cfg) for m in members]
+        if a.init_from:                      # the networks of those runs; the rest starts fresh
+            loaded = {s: load_checkpoint(r) for s, r in init_of.items()}
+            states = [ts._replace(policy=loaded[m[0]].policy, value=loaded[m[0]].value,
+                                  opt_state=ppo.make_optimizer(cfg).init(
+                                      (loaded[m[0]].policy, loaded[m[0]].value)))
+                      for ts, m in zip(states, members)]
+            print("starting from " + ", ".join(f"s{s}: {r} (game {int(loaded[s].games_done)})"
+                                               for s, r in init_of.items()), flush=True)
+            del loaded
         logs = [RunLogger(base_dir=os.path.expanduser(a.runs_dir),
                           run_name=f"{a.run_name}{tag(m)}_s{m[0]}" if multi else a.run_name,
                           config=config_of(m)) for m in members]

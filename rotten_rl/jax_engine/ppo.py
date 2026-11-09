@@ -101,6 +101,9 @@ class Config(NamedTuple):
     anneal: bool = True
     reward_scheme: str = "relative"
     dtype: str = "float32"          # "bfloat16": matmuls (and stored observations) in bf16
+    episode: str = "round"          # "match": GAE runs over the whole match (rounds don't cut it)
+    match_bonus: float = 0.0        # lambda: weight of game.final_rewards at the end of the match
+    rank_weight: float = 0.25       # share of the place (vs winning) in game.final_rewards
 
 
 class TrainState(NamedTuple):
@@ -155,7 +158,8 @@ def _rollout(policy, value, key, cfg):
                    rewards=rewards)
         return (states, key), out
 
-    (_, _), traj = jax.lax.scan(body, (states, key), None, length=T)
+    (states, _), traj = jax.lax.scan(body, (states, key), None, length=T)
+    traj["final_scores"] = states.scores                 # [B, n]: every match ends at T
     return traj
 
 
@@ -168,35 +172,50 @@ def _round_closed(traj, n):
     return jnp.asarray(closed)[:, None] & jnp.ones_like(traj["player"], bool)
 
 
-def _advantages(traj, cfg):
-    """GAE per (match, seat), each round an episode: the round reward goes to every player's last
-    decision of the round (done there); the other decisions get 0. Backward scan over time."""
+def _advantages(traj, cfg, match_bonus=None):
+    """GAE per (match, seat). Each round's reward goes to every player's last decision of that
+    round; the other decisions get 0. With cfg.episode == "round" each round is an episode (done
+    at those decisions); with "match" only the end of the match is, and the last decision of each
+    player also gets `match_bonus` * game.final_rewards. Backward scan over time."""
     n = cfg.num_players
     closed = _round_closed(traj, n)
-    B = traj["player"].shape[1]
+    T, B = traj["player"].shape
+    if match_bonus is None:
+        match_bonus = cfg.match_bonus
+    if cfg.episode == "match":
+        ends = jnp.zeros((T,), bool).at[T - 1].set(True)[:, None] & closed
+        bonus = match_bonus * jax.vmap(lambda s: jg.final_rewards(s, cfg.rank_weight))(
+            traj["final_scores"])                                    # [B, n]
+    elif cfg.episode == "round":
+        ends = closed
+        bonus = jnp.zeros((B, n))
+    else:
+        raise ValueError(f"episode must be 'round' or 'match', not {cfg.episode!r}")
+    last = jnp.zeros((T,), bool).at[T - 1].set(True)
 
     def body(carry, x):
-        next_v, gae, pend, pend_r = carry          # [B, n] each: per seat
-        player, v, r, cl = x
-        # A round closed at this move: each seat's latest decision (this one or earlier) is its
-        # last of the round.
-        pend = jnp.where(cl[:, None], True, pend)
-        pend_r = jnp.where(cl[:, None], r, pend_r)
+        next_v, gae, pend_r, pend_done = carry     # [B, n] each: per seat
+        player, v, r, cl, end, is_last = x
+        # The move at t closed a round (or the match): each seat's latest decision (this one or
+        # earlier) is its last one before that, and gets the reward.
+        pend_r = pend_r + jnp.where(cl[:, None], r, 0.0) + jnp.where(is_last, bonus, 0.0)
+        pend_done = pend_done | end[:, None]
         idx = jnp.arange(B)
-        done = pend[idx, player]
-        rew = jnp.where(done, pend_r[idx, player], 0.0)
+        done = pend_done[idx, player]
+        rew = pend_r[idx, player]
         nv = jnp.where(done, 0.0, next_v[idx, player])
         g_next = jnp.where(done, 0.0, gae[idx, player])
         delta = rew + cfg.gamma * nv - v
         a = delta + cfg.gamma * cfg.gae_lambda * g_next
         next_v = next_v.at[idx, player].set(v)
         gae = gae.at[idx, player].set(a)
-        pend = pend.at[idx, player].set(False)
-        return (next_v, gae, pend, pend_r), a
+        pend_r = pend_r.at[idx, player].set(0.0)
+        pend_done = pend_done.at[idx, player].set(False)
+        return (next_v, gae, pend_r, pend_done), a
 
     zeros = jnp.zeros((B, n))
-    init = (zeros, zeros, jnp.zeros((B, n), bool), zeros)
-    xs = (traj["player"], traj["value"], traj["rewards"], closed)
+    init = (zeros, zeros, zeros, jnp.zeros((B, n), bool))
+    xs = (traj["player"], traj["value"], traj["rewards"], closed, ends, last)
     _, adv = jax.lax.scan(body, init, xs, reverse=True)
     return adv, adv + traj["value"]
 
@@ -237,7 +256,8 @@ def make_update(cfg, multi_seed=False):
     With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
     The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
-    The step is `update(ts, hp=None)`: `hp` = {"learning_rate", "ent_coef"} overrides those of cfg
+    The step is `update(ts, hp=None)`: `hp` = {"learning_rate", "ent_coef"[, "match_bonus"]}
+    overrides those of cfg
     (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
     T, B = match_length(cfg.num_players), cfg.rollout_games
@@ -247,9 +267,10 @@ def make_update(cfg, multi_seed=False):
     def update(ts: TrainState, hp=None):
         base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
         ent_coef = cfg.ent_coef if hp is None else hp["ent_coef"]
+        match_bonus = cfg.match_bonus if hp is None else hp.get("match_bonus", cfg.match_bonus)
         key, k_roll, k_perm = jax.random.split(ts.key, 3)
         traj = _rollout(ts.policy, ts.value, k_roll, cfg)
-        adv, ret = _advantages(traj, cfg)
+        adv, ret = _advantages(traj, cfg, match_bonus)
         flat = dict(obs=traj["obs"].reshape(size, -1), mask=traj["mask"].reshape(size, -1),
                     action=traj["action"].reshape(size), logp=traj["logp"].reshape(size),
                     adv=adv.reshape(size), ret=ret.reshape(size))

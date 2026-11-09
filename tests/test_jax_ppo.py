@@ -11,7 +11,7 @@ pytest.importorskip("optax")
 from rotten_rl.jax_engine import ppo  # noqa: E402
 
 
-def _reference_advantages(traj, n, gamma, lam):
+def _reference_advantages(traj, n, gamma, lam, match=False, bonus=None):
     """Like rotten_rl/algorithms/ppo.py: per (match, seat) stream, rewards and dones as VectorRunner
     gives them with round_episodes, then SharedPPO._advantages."""
     player = np.asarray(traj["player"])
@@ -27,8 +27,11 @@ def _reference_advantages(traj, n, gamma, lam):
             streams[p].append([t, value[t, g], 0.0, False])
             if t in ends:
                 for q in range(n):
-                    streams[q][-1][2] = rewards[t, g, q]
-                    streams[q][-1][3] = True
+                    streams[q][-1][2] += rewards[t, g, q]
+                    streams[q][-1][3] = not match or t == T - 1
+            if match and t == T - 1:
+                for q in range(n):
+                    streams[q][-1][2] += bonus[g, q]
         for steps in streams.values():
             gae = 0.0
             for i in reversed(range(len(steps))):
@@ -50,6 +53,41 @@ def test_advantages_match_pytorch_ppo(n):
     np.testing.assert_allclose(np.asarray(adv), ref, rtol=1e-4, atol=1e-5)
     np.testing.assert_allclose(np.asarray(ret), ref + np.asarray(traj["value"]), rtol=1e-4, atol=1e-5)
     assert np.abs(np.asarray(traj["rewards"])).sum() > 0
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_match_episode_advantages(n):
+    """episode="match": one episode per match (rounds don't cut GAE) and the final bonus on each
+    player's last decision."""
+    from rotten_rl.jax_engine import game as jg
+    cfg = ppo.Config(num_players=n, hidden=(32,), rollout_games=4, episode="match", match_bonus=0.7)
+    ts = ppo.init(jax.random.PRNGKey(n), cfg)
+    traj = jax.jit(lambda k: ppo._rollout(ts.policy, ts.value, k, cfg))(jax.random.PRNGKey(7))
+    adv, ret = ppo._advantages(traj, cfg)
+    bonus = 0.7 * np.asarray(jax.vmap(lambda s: jg.final_rewards(s, cfg.rank_weight))(
+        traj["final_scores"]))
+    ref = _reference_advantages(traj, n, cfg.gamma, cfg.gae_lambda, match=True, bonus=bonus)
+    np.testing.assert_allclose(np.asarray(adv), ref, rtol=1e-4, atol=1e-5)
+    # With lambda = 1 the return of the first decision is everything the seat gets in the match.
+    cfg1 = cfg._replace(gae_lambda=1.0)
+    _, ret1 = ppo._advantages(traj, cfg1)
+    player = np.asarray(traj["player"])
+    total = np.asarray(traj["rewards"]).sum(axis=0) + bonus           # [B, n]
+    for g in range(4):
+        for q in range(n):
+            t0 = int(np.argmax(player[:, g] == q))
+            np.testing.assert_allclose(float(ret1[t0, g]), total[g, q], rtol=1e-4, atol=1e-4)
+
+
+def test_final_rewards():
+    from rotten_rl.jax_engine import game as jg
+    r = np.asarray(jg.final_rewards(jax.numpy.array([50, 80, 20]), rank_weight=0.25))
+    np.testing.assert_allclose(r, [-1 / 3, 1 - 1 / 3 + 0.125, -1 / 3 - 0.125], atol=1e-6)
+    tie = np.asarray(jg.final_rewards(jax.numpy.array([80, 80, 20]), rank_weight=0.25))
+    np.testing.assert_allclose(tie, [0.5 - 1 / 3 + 0.0625, 0.5 - 1 / 3 + 0.0625, -1 / 3 - 0.125],
+                               atol=1e-6)
+    for s in ([50, 80, 20], [80, 80, 20], [10, 10], [3, 9, 9, 1, 0, 7, 7]):
+        assert abs(float(jg.final_rewards(jax.numpy.array(s)).sum())) < 1e-6
 
 
 def test_update_runs_and_exports():
