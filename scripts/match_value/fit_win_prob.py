@@ -113,7 +113,9 @@ def main():
     rounds = np.arange(13)
     var = np.broadcast_to(np.asarray(win_prob.var_left(round_var, rounds)), before.shape[:2])
     preds = {
-        "normal": np.asarray(win_prob.normal_win_prob(before, var)),
+        "normal": np.concatenate([np.asarray(win_prob.normal_win_prob(before[i:i + 5000],
+                                                                      var[i:i + 5000]))
+                                  for i in range(0, len(before), 5000)]),
         "table": LeadTable(cum[fit, :-1], target[fit], a.bucket)(before),
         "uniform": np.full(before.shape, 1.0 / n),
     }
