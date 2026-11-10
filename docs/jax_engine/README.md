@@ -177,3 +177,10 @@ de cada copia, `make_update(...)(ts, hp)`), con su propia carpeta y su etiqueta 
 que entrenar cada valor solo (`tests/test_jax_ppo.py`). Las épocas, el minilote y el lote de
 partidas no se pueden variar así (cambian la forma del cálculo). Cuando el barrido elige un valor,
 se entrena solo con varias semillas.
+
+## Resumir un torneo por grupo (10/11/2026)
+
+`scripts/jax_engine/tournament_groups.py <torneo>.md` promedia las dos tablas del torneo (diferencia
+y win rate) por grupo de agentes: por defecto, las semillas de una corrida (y cada λ) son un grupo.
+Da, para cada par de grupos, la diferencia media, el win rate medio de la fila y cuántos cruces
+tienen a la fila arriba. `--group <regex>` arma grupos a mano.

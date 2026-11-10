@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 7/11/2026.
+Última actualización: 10/11/2026 (mediodía).
 
 ## Hecho
 
@@ -265,6 +265,33 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
+### Para retomar desde otra sesión (10/11/2026, mediodía)
+
+- **En el lab no corre nada.** Máquina asignada: `labo-s004-13` (RTX 4090). Lo de la noche del 9 al
+  10/11 terminó y está respaldado en la laptop (`runs/lab/labo-s004-13/`, último respaldo 06:47).
+- **Cola armada sin lanzar: `~/scratch/queue17.txt`** (copia en `docs/match_value/queue17.txt`):
+  `x20` (retoma `s20` 36M con la recompensa de probabilidad de ganar, λ 0 / 0,5 / 1 / 2, 4 semillas,
+  12M; λ 0 es el control), `z20` (lo mismo de cero, λ 1 / 2, 4 semillas, 24M, contra `s20` a 24M) y
+  el torneo `t_x20`. Duración estimada (sin medir con 16 copias): ~3 h `x20`, ~5–6 h `z20`. Se lanza
+  solo cuando lo pido. Necesita `~/scratch/win_prob_2p.json` en el lab (está; copia en
+  `docs/match_value/results/`). Lanzarla así (en el lab, desde `~/rotten-rl`):
+
+  ```
+  tmux new-session -d -s queue17 "source ~/scratch/work/venvs/rotten-rl/bin/activate && \
+    python scripts/run_queue.py --queue ~/scratch/queue17.txt --parallel 1 \
+    --script scripts/jax_engine/train_ppo.py --python ~/scratch/work/venvs/jax/bin/python \
+    --stop_at lab --no_launch_after lab >> ~/scratch/logs/queue17.log 2>&1"
+  ```
+
+  Y desde la máquina que vigila: `scripts/lab/watch_queue.sh queue17.log 0` (sale con cada
+  `terminó`; relanzarlo con la cantidad nueva) y `scripts/lab/backup_loop.sh "<hasta>"`.
+- **Analizar un torneo por grupo** (las 4 semillas juntas, diferencia y win rate):
+  `python scripts/jax_engine/tournament_groups.py ~/scratch/torneo_x20.md`. Mostrar siempre el
+  win rate con el empate (1/n) al lado de la diferencia.
+- Qué mirar en `t_x20`: si `x20` λ > 0 le gana a `x20` λ 0 y a `s20` 36M en win rate (el objetivo es
+  ganar partidas); si `z20` le gana a `s20` 24M. Si sirve con 2 jugadores, repetir con 3 (`s30`) y 7
+  (`u72`) con `win_prob_3p.json` / `win_prob_7p.json` (ya validados, `docs/match_value/README.md`).
+
 **Estado al 9/11/2026 05:15** (detalle en `docs/reportes/2026-11-06.md`):
 
 - Todo se entrena en JAX en la GPU (`scripts/jax_engine/train_ppo.py`), varias copias por proceso
@@ -283,16 +310,17 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
   12M y 24M; falta ver dónde queda la meseta con la nueva.
 - Ojo al comparar: con 3 jugadores, dos corridas de la misma receta difirieron +0,30; lo confiable
   es comparar dentro de una misma corrida o con 4 semillas.
-- En curso: `u72` (7p, receta nueva, 4 semillas, hasta 12M), cortada a las 06:55 del 9/11; se
-  retoma con `--resume`.
+- `u72` (7p, receta nueva, 4 semillas) llegó a 24M el 9/11.
 
 Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
 
 1. Hecho (9/11): `s20`, `s30` y `u72` de 12M a 24M. Win rate de 24M contra 12M: 51,4 % con 2
    jugadores (empate 50 %), 33,9 % con 3 (33,3 %), 14,3 % con 7 (14,3 %). `s20` de 24M a 36M: 50,0 %
    contra 24M. Meseta con el reward por ronda.
-2. Objetivo de partida en el motor JAX: partida entera como episodio, reward por ronda + λ × premio
-   final por ganar (y algo por puesto), arranques en situaciones al azar.
+2. Objetivo de partida en el motor JAX. Primer intento (9/11): partida entera como episodio, reward
+   por ronda + λ × premio final por ganar (y algo por puesto); no sirvió (punto 3). Segundo (10/11):
+   episodio por ronda + λ × cambio en la probabilidad de ganar (`docs/match_value/`). Pendiente:
+   arranques en situaciones al azar.
 3. 2 jugadores, currículo contra directo (torneo `t_w20`, 10/11): **el objetivo de partida no
    mejoró nada**. `s20` (reward por ronda) les gana a todas: 52,0–53,8 % de win rate, 16/16. Retomar
    `s20` con partida entera (`w20a`) pierde lo mismo con λ 0 que con 0,5 o 1, así que el premio no es
