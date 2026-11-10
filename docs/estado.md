@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 10/11/2026 (mediodía).
+Última actualización: 10/11/2026 09:45.
 
 ## Hecho
 
@@ -265,26 +265,28 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-### Para retomar desde otra sesión (10/11/2026, mediodía)
+### Para retomar desde otra sesión (10/11/2026 09:45)
 
-- **En el lab no corre nada.** Máquina asignada: `labo-s004-13` (RTX 4090). Lo de la noche del 9 al
-  10/11 terminó y está respaldado en la laptop (`runs/lab/labo-s004-13/`, último respaldo 06:47).
-- **Cola armada sin lanzar: `~/scratch/queue17.txt`** (copia en `docs/match_value/queue17.txt`):
-  `x20` (retoma `s20` 36M con la recompensa de probabilidad de ganar, λ 0 / 0,5 / 1 / 2, 4 semillas,
-  12M; λ 0 es el control), `z20` (lo mismo de cero, λ 1 / 2, 4 semillas, 24M, contra `s20` a 24M) y
-  el torneo `t_x20`. Duración estimada (sin medir con 16 copias): ~3 h `x20`, ~5–6 h `z20`. Se lanza
-  solo cuando lo pido. Necesita `~/scratch/win_prob_2p.json` en el lab (está; copia en
-  `docs/match_value/results/`). Lanzarla así (en el lab, desde `~/rotten-rl`):
-
-  ```
-  tmux new-session -d -s queue17 "source ~/scratch/work/venvs/rotten-rl/bin/activate && \
-    python scripts/run_queue.py --queue ~/scratch/queue17.txt --parallel 1 \
-    --script scripts/jax_engine/train_ppo.py --python ~/scratch/work/venvs/jax/bin/python \
-    --stop_at lab --no_launch_after lab >> ~/scratch/logs/queue17.log 2>&1"
-  ```
-
-  Y desde la máquina que vigila: `scripts/lab/watch_queue.sh queue17.log 0` (sale con cada
-  `terminó`; relanzarlo con la cantidad nueva) y `scripts/lab/backup_loop.sh "<hasta>"`.
+- **Corriendo en el lab (`labo-s004-13`, RTX 4090): `queue17`**, en `tmux` (sesión `queue17`),
+  lanzada el 10/11 a las 09:44 desde la notebook, con `--stop_at lab --no_launch_after lab` (corta a
+  las 06:55 del 11/11, no lanza nada después de las 06:00). Log de la cola:
+  `~/scratch/logs/queue17.log`; de cada corrida: `~/scratch/logs/<nombre>.log`. Cola:
+  `~/scratch/queue17.txt` (copia en `docs/match_value/queue17.txt`), en este orden:
+  1. `x20`: retoma `s20` 36M con la recompensa de probabilidad de ganar (`--win_prob
+     ~/scratch/win_prob_2p.json`), λ 0 / 0,5 / 1 / 2 × 4 semillas (16 copias), 12M; λ 0 es el control.
+  2. `z20`: lo mismo de cero, λ 1 / 2 × 4 semillas, 24M (se compara con `s20` a 24M).
+  3. `t_x20`: torneo de todas, más `s20` 24M y 36M, `w20r` y la heurística → `~/scratch/torneo_x20.md`.
+  Duración estimada (sin medir con 16 copias): ~3 h `x20`, ~5–6 h `z20`. Si algo queda cortado a las
+  06:55, se retoma después de las 08:00 con `--resume <carpetas>` (ver `docs/jax_engine/README.md`).
+- **Vigilancia, desde la notebook** (el servidor solo hace pruebas cortas de lectura, sin tocar las
+  corridas): `udesa-vpn-watch` (reconecta la VPN, hasta el 11/11 07:00), `scripts/lab/backup_loop.sh
+  "2026-11-11 06:50"` (cada hora a `runs/lab/labo-s004-13/`) y `scripts/lab/watch_queue.sh queue17.log
+  <terminadas>` (sale con cada `terminó`, con `FALLA` si el lab no responde ~5 min o con `HORA` 25
+  min antes del cierre; se relanza con la cantidad nueva). La notebook usa una conexión compartida
+  (ControlMaster); `watch_queue.sh` abre además una propia unos segundos cada 5 minutos.
+- **Para mirar cómo va** (solo lectura): `ssh labs004 'bash -lc "tail -3 ~/scratch/logs/queue17.log;
+  grep games/s ~/scratch/logs/x20_jaxppo2p_winprob_ft12M.log | tail -1"'`. Nunca `pkill -f` /
+  `pgrep -f` desde un `ssh labs004 '...'`.
 - **Analizar un torneo por grupo** (las 4 semillas juntas, diferencia y win rate):
   `python scripts/jax_engine/tournament_groups.py ~/scratch/torneo_x20.md`. Mostrar siempre el
   win rate con el empate (1/n) al lado de la diferencia.
