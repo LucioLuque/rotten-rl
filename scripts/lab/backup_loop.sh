@@ -13,11 +13,13 @@ cd "$(dirname "$0")"
 until_epoch=$(date -d "$1" +%s) || exit 2
 every=$((${2:-60} * 60))
 last=0; last_slot=""; fails=0
+err=$(mktemp); trap 'rm -f "$err"' EXIT
 while [ "$(date +%s)" -lt "$until_epoch" ]; do
   epoch=$(date +%s)
   closed=0; slot=0; due=0
-  if ! closes=$(cd ../.. && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>&1); then
-    echo "FALLA $(date +%H:%M) calendario: $(echo "$closes" | tail -1)"; exit 1
+  # Warnings (cached calendar, no network) go to stderr and must not end up in $closes.
+  if ! closes=$(cd ../.. && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>"$err"); then
+    echo "FALLA $(date +%H:%M) calendario: $(tail -1 "$err")"; exit 1
   fi
   if [ "$closes" = "-" ]; then
     closed=1
