@@ -173,6 +173,18 @@ Dizhu y póker. A tener en cuenta si usamos PPO.
   ronda actual, y eso reparte el crédito entre rondas.
 - **Oracle guiding**: primero entrena viendo la información oculta y se la va quitando de a poco.
 - Mejor que el 99.99% de los humanos rankeados en Tenhou.
+- **Detalle de la predicción del reward global** (sección 3.2, leída el 10/11/2026): Φ es una GRU de
+  2 capas + 2 capas densas que, con la información pública de cada ronda (puntos de la ronda, puntos
+  acumulados, quién reparte, contadores), predice el resultado final de la partida; se entrena con
+  error cuadrático sobre partidas de humanos fuertes. **El reward de la ronda k es Φ(x_k) − Φ(x_{k−1})**.
+  En su comparación, el agente con esto (RL-1) le gana al que usa los puntos de la ronda (RL-basic).
+  Ejemplo del paper: con mucha ventaja en la última ronda, juega a la defensiva aunque tenga buena mano.
+- **Para nosotros**: nuestro reward por ronda ya es de esta forma, con Φ = mis puntos − promedio de
+  los otros (suma exactamente la diferencia final). Cambiar Φ por la probabilidad de ganar dada la
+  diferencia y las rondas que faltan pasa el objetivo a ganar la partida sin alargar el episodio.
+  Ng, Harada y Russell (ICML 1999): sumar Φ(s') − Φ(s) no cambia la política óptima si se optimiza la
+  suma completa; con episodios de una ronda (miope), la calidad depende de que Φ se parezca al valor
+  real, y un Φ aproximado puede cambiar la política (Behboudian et al. 2022).
 
 ### Otros
 
