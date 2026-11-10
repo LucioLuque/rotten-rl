@@ -104,6 +104,10 @@ class Config(NamedTuple):
     episode: str = "round"          # "match": GAE runs over the whole match (rounds don't cut it)
     match_bonus: float = 0.0        # lambda: weight of game.final_rewards at the end of the match
     rank_weight: float = 0.25       # share of the place (vs winning) in game.final_rewards
+    # With episode == "round" and match_bonus != 0: each round also gets lambda * (change in the
+    # probability of winning the match), rotten_rl/match_value/win_prob.py with these per-round
+    # variances (13 floats, from scripts/match_value/fit_win_prob.py).
+    round_var: tuple = ()
 
 
 class TrainState(NamedTuple):
@@ -155,7 +159,7 @@ def _rollout(policy, value, key, cfg):
         v = mlp(value, obs, dt)[:, 0]
         states, rewards = step(states, action)
         out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player,
-                   rewards=rewards)
+                   rewards=rewards, scores=states.scores)
         return (states, key), out
 
     (states, _), traj = jax.lax.scan(body, (states, key), None, length=T)
@@ -163,10 +167,29 @@ def _rollout(policy, value, key, cfg):
     return traj
 
 
+def _round_ends(n):
+    """The moves that close each of the 13 rounds (the same for every match)."""
+    return np.cumsum([n + n * h for h in [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1]]) - 1
+
+
+def _win_prob_shaping(traj, cfg):
+    """float[T, B, n]: at each move that closes a round, the change in each player's probability
+    of winning the match (0 elsewhere). Summed over the match: final win share - 1/n."""
+    from rotten_rl.match_value import win_prob
+    n = cfg.num_players
+    ends = _round_ends(n)
+    scores = traj["scores"][ends]                                            # [13, B, n]
+    var = win_prob.var_left(np.asarray(cfg.round_var), np.arange(1, 14))     # [13]
+    var = jnp.broadcast_to(var[:, None], scores.shape[:2])
+    after = win_prob.normal_win_prob(scores, var)                            # [13, B, n]
+    before = jnp.concatenate([jnp.full((1,) + after.shape[1:], 1.0 / n), after[:-1]])
+    return jnp.zeros(traj["rewards"].shape).at[ends].set(after - before)
+
+
 def _round_closed(traj, n):
     """bool[T, B]: the move at t closed a round. Rounds close after a fixed number of decisions
     (n bids + n*h plays), so it is known without looking at the rewards (which can be all zero)."""
-    ends = np.cumsum([n + n * h for h in [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1]]) - 1
+    ends = _round_ends(n)
     closed = np.zeros(match_length(n), bool)
     closed[ends] = True
     return jnp.asarray(closed)[:, None] & jnp.ones_like(traj["player"], bool)
@@ -176,7 +199,9 @@ def _advantages(traj, cfg, match_bonus=None):
     """GAE per (match, seat). Each round's reward goes to every player's last decision of that
     round; the other decisions get 0. With cfg.episode == "round" each round is an episode (done
     at those decisions); with "match" only the end of the match is, and the last decision of each
-    player also gets `match_bonus` * game.final_rewards. Backward scan over time."""
+    player also gets `match_bonus` * game.final_rewards. With "round", `match_bonus` != 0 and
+    cfg.round_var, each round's reward adds `match_bonus` * the change in the probability of
+    winning the match (_win_prob_shaping). Backward scan over time."""
     n = cfg.num_players
     closed = _round_closed(traj, n)
     T, B = traj["player"].shape
@@ -192,13 +217,18 @@ def _advantages(traj, cfg, match_bonus=None):
     else:
         raise ValueError(f"episode must be 'round' or 'match', not {cfg.episode!r}")
     last = jnp.zeros((T,), bool).at[T - 1].set(True)
+    if cfg.episode == "round" and cfg.round_var:
+        shaping = match_bonus * _win_prob_shaping(traj, cfg)
+    else:
+        shaping = jnp.zeros(traj["rewards"].shape)
 
     def body(carry, x):
         next_v, gae, pend_r, pend_done = carry     # [B, n] each: per seat
-        player, v, r, cl, end, is_last = x
+        player, v, r, cl, end, is_last, shape = x
         # The move at t closed a round (or the match): each seat's latest decision (this one or
         # earlier) is its last one before that, and gets the reward.
-        pend_r = pend_r + jnp.where(cl[:, None], r, 0.0) + jnp.where(is_last, bonus, 0.0)
+        pend_r = (pend_r + jnp.where(cl[:, None], r + shape, 0.0)
+                  + jnp.where(is_last, bonus, 0.0))
         pend_done = pend_done | end[:, None]
         idx = jnp.arange(B)
         done = pend_done[idx, player]
@@ -215,7 +245,7 @@ def _advantages(traj, cfg, match_bonus=None):
 
     zeros = jnp.zeros((B, n))
     init = (zeros, zeros, zeros, jnp.zeros((B, n), bool))
-    xs = (traj["player"], traj["value"], traj["rewards"], closed, ends, last)
+    xs = (traj["player"], traj["value"], traj["rewards"], closed, ends, last, shaping)
     _, adv = jax.lax.scan(body, init, xs, reverse=True)
     return adv, adv + traj["value"]
 

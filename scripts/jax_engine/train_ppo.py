@@ -51,11 +51,12 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
-               "rank_weight")
+               "rank_weight", "round_var")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
-                   "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25}
+                   "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
+                   "round_var": []}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -146,7 +147,13 @@ def main():
                    help="match: the whole match is one episode (the score matters)")
     p.add_argument("--match_bonus", default="0",
                    help="lambda of the end-of-match bonus (winning + some for the place); one value "
-                        "or several trained together; only with --episode match")
+                        "or several trained together; with --episode match at the end of the "
+                        "match, with --episode round as lambda * change in the probability of "
+                        "winning at each round (needs --win_prob)")
+    p.add_argument("--win_prob", default=None,
+                   help=".json of scripts/match_value/fit_win_prob.py (per-round variances of the "
+                        "probability of winning; they are copied into the run's config)")
+    p.set_defaults(round_var=[])
     p.add_argument("--rank_weight", type=float, default=0.25,
                    help="share of the place in the end-of-match bonus (rotten_rl/jax_engine/game.py)")
     p.add_argument("--init_from", default=None,
@@ -196,7 +203,16 @@ def main():
         ents = [float(x) for x in str(a.ent_coef).split(",")]
         bonuses = [float(x) for x in str(a.match_bonus).split(",")]
         if a.episode == "round" and any(b != 0 for b in bonuses):
-            sys.exit("--match_bonus needs --episode match")
+            if not a.win_prob:
+                sys.exit("--match_bonus with --episode round needs --win_prob")
+        if a.win_prob:
+            if a.episode != "round":
+                sys.exit("--win_prob only with --episode round")
+            with open(os.path.expanduser(a.win_prob)) as f:
+                wp = json.load(f)
+            if wp["players"] != a.players:
+                sys.exit(f"--win_prob is for {wp['players']} players, here {a.players}")
+            a.round_var = [float(v) for v in wp["round_var"]]
         if a.init_from:
             init_dirs = [os.path.expanduser(r).rstrip("/") for r in a.init_from.split(",")]
             seeds = []
@@ -229,7 +245,7 @@ def main():
                      ent_coef=members[0][2], rollout_games=a.rollout_games, epochs=a.epochs,
                      minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
                      dtype=a.dtype, episode=a.episode, match_bonus=members[0][3],
-                     rank_weight=a.rank_weight)
+                     rank_weight=a.rank_weight, round_var=tuple(a.round_var))
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
           "ent_coef": np.array([m[2] for m in members], np.float32),
           "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None

@@ -79,6 +79,30 @@ def test_match_episode_advantages(n):
             np.testing.assert_allclose(float(ret1[t0, g]), total[g, q], rtol=1e-4, atol=1e-4)
 
 
+@pytest.mark.parametrize("n", [2, 3])
+def test_win_prob_shaping(n):
+    """episode="round" with round_var: each round adds lambda * the change in the probability of
+    winning; the changes of a match add up to the final win share - 1/n."""
+    var = tuple(float(v) for v in np.linspace(40, 60, 13))
+    cfg = ppo.Config(num_players=n, hidden=(32,), rollout_games=4, match_bonus=0.8, round_var=var)
+    ts = ppo.init(jax.random.PRNGKey(n), cfg)
+    traj = jax.jit(lambda k: ppo._rollout(ts.policy, ts.value, k, cfg))(jax.random.PRNGKey(7))
+    shaping = np.asarray(ppo._win_prob_shaping(traj, cfg))                 # [T, B, n]
+    final = np.asarray(traj["final_scores"]).astype(float)
+    top = final == final.max(axis=1, keepdims=True)
+    share = top / top.sum(axis=1, keepdims=True)
+    np.testing.assert_allclose(shaping.sum(axis=0), share - 1.0 / n, atol=1e-5)
+    adv, _ = ppo._advantages(traj, cfg)
+    shaped = dict(traj, rewards=np.asarray(traj["rewards"]) + 0.8 * shaping)
+    ref = _reference_advantages(shaped, n, cfg.gamma, cfg.gae_lambda)
+    np.testing.assert_allclose(np.asarray(adv), ref, rtol=1e-4, atol=1e-5)
+    # Without round_var the bonus is ignored in round episodes (train_ppo refuses that case).
+    adv0, _ = ppo._advantages(traj, cfg._replace(round_var=()))
+    np.testing.assert_allclose(np.asarray(adv0), _reference_advantages(traj, n, cfg.gamma,
+                                                                       cfg.gae_lambda), rtol=1e-4,
+                               atol=1e-5)
+
+
 def test_final_rewards():
     from rotten_rl.jax_engine import game as jg
     r = np.asarray(jg.final_rewards(jax.numpy.array([50, 80, 20]), rank_weight=0.25))
