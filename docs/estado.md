@@ -297,8 +297,12 @@ Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
    mejoró nada**. `s20` (reward por ronda) les gana a todas: 52,0–53,8 % de win rate, 16/16. Retomar
    `s20` con partida entera (`w20a`) pierde lo mismo con λ 0 que con 0,5 o 1, así que el premio no es
    lo que empeora; de cero a 36M (`w20b`) queda peor todavía, y λ 1 peor que 0,5. Falta separar si
-   lo que empeora es la tasa que vuelve a 3e-4 al retomar (`w20c`, tasa 5e-5) o el episodio de
-   partida entera (`w20r`, retoma con episodios de una ronda). No pasar a 3 y 7 hasta saberlo.
+   lo que empeora es la tasa que vuelve a 3e-4 al retomar o el episodio de partida entera: **es el
+   episodio de partida entera** (10/11: `w20r`, retoma con 3e-4 y episodios de una ronda, empata
+   con `s20`; `w20c`, partida entera con tasa 5e-5, pierde −0,61; `w20a`, partida entera con 3e-4,
+   −2,43). También sube la entropía de 0,34 a 0,47. Próximo: pasar el premio de partida sin
+   alargar el episodio (por ejemplo, episodios de una ronda y el premio sumado al reward de la
+   última ronda, o descuento entre rondas), y recién ahí 3 y 7 jugadores.
 4. 4, 5 y 6 jugadores directamente con el objetivo nuevo (cambia el orden del 30/10).
 5. Robustez: entrenar un rival que solo busque ganarle a una versión congelada; si lo explota,
    entrenar contra versiones anteriores. Red más grande y entropía decreciente, después del
