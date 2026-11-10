@@ -288,12 +288,17 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
 
-1. En curso (9/11 desde las 15:43, `queue16`): `s20`, `s30` y `u72` de 12M a 24M, cada una con su
-   torneo contra su versión de 12M. No seguir a 48M con el reward por ronda.
+1. Hecho (9/11): `s20`, `s30` y `u72` de 12M a 24M. Win rate de 24M contra 12M: 51,4 % con 2
+   jugadores (empate 50 %), 33,9 % con 3 (33,3 %), 14,3 % con 7 (14,3 %). `s20` de 24M a 36M: 50,0 %
+   contra 24M. Meseta con el reward por ronda.
 2. Objetivo de partida en el motor JAX: partida entera como episodio, reward por ronda + λ × premio
    final por ganar (y algo por puesto), arranques en situaciones al azar.
-3. 2 jugadores, currículo contra directo a 36M: `s20` + 12M con el objetivo nuevo (λ 0 / 0,5 / 1)
-   contra de cero con el objetivo nuevo; medir por win rate. Después 3 y 7.
+3. 2 jugadores, currículo contra directo (torneo `t_w20`, 10/11): **el objetivo de partida no
+   mejoró nada**. `s20` (reward por ronda) les gana a todas: 52,0–53,8 % de win rate, 16/16. Retomar
+   `s20` con partida entera (`w20a`) pierde lo mismo con λ 0 que con 0,5 o 1, así que el premio no es
+   lo que empeora; de cero a 36M (`w20b`) queda peor todavía, y λ 1 peor que 0,5. Falta separar si
+   lo que empeora es la tasa que vuelve a 3e-4 al retomar (`w20c`, tasa 5e-5) o el episodio de
+   partida entera (`w20r`, retoma con episodios de una ronda). No pasar a 3 y 7 hasta saberlo.
 4. 4, 5 y 6 jugadores directamente con el objetivo nuevo (cambia el orden del 30/10).
 5. Robustez: entrenar un rival que solo busque ganarle a una versión congelada; si lo explota,
    entrenar contra versiones anteriores. Red más grande y entropía decreciente, después del
