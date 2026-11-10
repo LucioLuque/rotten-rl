@@ -301,8 +301,9 @@ Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
    episodio de partida entera** (10/11: `w20r`, retoma con 3e-4 y episodios de una ronda, empata
    con `s20`; `w20c`, partida entera con tasa 5e-5, pierde −0,61; `w20a`, partida entera con 3e-4,
    −2,43). También sube la entropía de 0,34 a 0,47. Próximo: pasar el premio de partida sin
-   alargar el episodio (por ejemplo, episodios de una ronda y el premio sumado al reward de la
-   última ronda, o descuento entre rondas), y recién ahí 3 y 7 jugadores.
+   alargar el episodio: λ × cambio en la probabilidad de ganar en cada ronda (`docs/match_value/`,
+   validado con 2, 3 y 7 jugadores). Cola `queue17` armada sin lanzar: `x20` (retoma `s20`) y
+   `z20` (de cero), solo 2 jugadores; 3 y 7 después de ver el resultado.
 4. 4, 5 y 6 jugadores directamente con el objetivo nuevo (cambia el orden del 30/10).
 5. Robustez: entrenar un rival que solo busque ganarle a una versión congelada; si lo explota,
    entrenar contra versiones anteriores. Red más grande y entropía decreciente, después del
