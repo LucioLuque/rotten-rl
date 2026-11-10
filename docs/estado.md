@@ -267,6 +267,17 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (10/11/2026 09:45)
 
+> **Sin acceso al lab desde las ~10:04 del 10/11.** `ssh labs004` autentica en la entrada pero el
+> comando no llega a la máquina: a los ~22 s sale con código 1 sin ningún mensaje (con la conexión
+> compartida, con una nueva y con `ControlPath=none`; la VPN anda). El servidor no tenía conexiones
+> abiertas, así que no es el límite de 2. Último intento: 11:28, igual. Lo más probable es que la
+> -13 esté apagada o colgada; no sé si `queue17` sigue viva. Paré `backup_loop` y `watch_queue`
+> (salió con `FALLA` a las 10:08) para no seguir conectando: si la -13 está apagada, cada conexión
+> puede hacer que el lab nos fije en otra máquina. Último respaldo bueno: 09:46
+> (`runs/lab/labo-s004-13/`, `x20` recién arrancada). Antes de volver a probar, preguntarle a
+> Stefano Ruberto (IT) por la -13. Si vuelve el acceso: `hostname`, `tmux ls`, `tail
+> ~/scratch/logs/queue17.log`, y relanzar `backup_loop.sh` y `watch_queue.sh` como dice abajo.
+
 - **Corriendo en el lab (`labo-s004-13`, RTX 4090): `queue17`**, en `tmux` (sesión `queue17`),
   lanzada el 10/11 a las 09:44 desde la notebook, con `--stop_at lab --no_launch_after lab` (corta a
   las 06:55 del 11/11, no lanza nada después de las 06:00). Log de la cola:
