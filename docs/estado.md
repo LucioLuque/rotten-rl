@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 10/11/2026 09:45.
+Última actualización: 12/11/2026 20:00.
 
 ## Hecho
 
@@ -265,9 +265,19 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-### Para retomar desde otra sesión (10/11/2026 09:45)
+### Para retomar desde otra sesión (12/11/2026 20:00)
 
-> **Sin acceso al lab desde las ~10:04 del 10/11.** `ssh labs004` autentica en la entrada pero el
+> **12/11: `queue17` relanzada de cero a las 19:55, desde el servidor (`luqo-server`).** Volvió el
+> acceso a la -13 (IT la arregló; se había reiniciado el 12/11 ~08:56 y no quedaba nada en `tmux`).
+> El 10/11 `x20` había llegado a 1M de 12M antes de que se cayera (a 1M, todas, también λ 0, bajaban
+> un poco: ~0,80 contra la heurística desde ~0,815 y 0,44–0,48 contra `past`; sin diferencia entre
+> λ). Decidí no retomar ese checkpoint: borré las 16 carpetas de `x20` (lab y respaldo) y guardé los
+> logs viejos como `~/scratch/logs/*.crashed-20261110.log`. Corta sola a las 06:55 del 13/11 y no
+> lanza nada después de las 06:00. Vigilancia y respaldo desde el servidor: `backup_loop.sh
+> "2026-11-13 06:50"` y `WATCH_HOST=labo-s004-13 watch_queue.sh queue17.log <terminadas>`; VPN con
+> `vpn on` (apagarla con `vpn off` al terminar). Lo de abajo sobre la notebook quedó viejo.
+>
+> **Sin acceso al lab desde las ~10:04 del 10/11 hasta el 12/11.** `ssh labs004` autentica en la entrada pero el
 > comando no llega a la máquina: a los ~22 s sale con código 1 sin ningún mensaje (con la conexión
 > compartida, con una nueva y con `ControlPath=none`; la VPN anda). El servidor no tenía conexiones
 > abiertas, así que no es el límite de 2. Último intento: 11:28, igual. Lo más probable es que la
