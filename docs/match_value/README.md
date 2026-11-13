@@ -42,3 +42,9 @@ sigue siendo un episodio y su recompensa es la de siempre (puntos relativos) + �
 probabilidad de ganar en esa ronda). La varianza se copia a la config de la corrida
 (`round_var`), así que `--resume` no necesita el `.json`. Test: `tests/test_jax_ppo.py`
 (`test_win_prob_shaping`: las recompensas de una partida suman la parte del triunfo − 1/n).
+
+## Resultado con 2 jugadores (12–13/11/2026, `queue17`)
+
+No aporta. `x20` (retoma `s20` 36M, 12M más) con λ 0,5 / 1 / 2 empata con el control λ 0 (+0,02 a
++0,11 de diferencia, 49,8–50,2 % de win rate); `z20` (de cero, 24M) pierde con `s20` 24M (−0,36 con
+λ 1, −0,24 con λ 2). Detalle en `docs/reportes/2026-11-12.md`. Falta probar con 3 y 7 jugadores.

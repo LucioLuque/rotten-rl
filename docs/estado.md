@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 12/11/2026 20:00.
+Última actualización: 13/11/2026 02:00.
 
 ## Hecho
 
@@ -265,8 +265,16 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-### Para retomar desde otra sesión (12/11/2026 20:00)
+### Para retomar desde otra sesión (13/11/2026 02:00)
 
+> **13/11 01:51: `queue17` terminada; el lab quedó libre (-13).** Resultado (`docs/reportes/2026-11-12.md`):
+> **el premio por probabilidad de ganar no aporta con 2 jugadores.** `x20` con λ > 0 empata con λ 0
+> (+0,02 a +0,11, 49,8–50,2 % de win rate) y `z20` de cero pierde con `s20` 24M (−0,36 / −0,24).
+> Falta decidir si se prueba con 3 y 7 jugadores (`s30`, `u72`), donde ganar y sumar puntos se
+> separan más, o se pasa a otro punto del plan. Desde el servidor: push a GitHub por SSH (clave
+> `luqo-server` cargada en la cuenta); respaldo y vigilante como procesos sueltos (`setsid nohup`),
+> con avisos al celular, registro en `runs/lab/labo-s004-13/logs/watch_queue17.out`.
+>
 > **12/11: `queue17` relanzada de cero a las 19:55, desde el servidor (`luqo-server`).** Volvió el
 > acceso a la -13 (IT la arregló; se había reiniciado el 12/11 ~08:56 y no quedaba nada en `tmux`).
 > El 10/11 `x20` había llegado a 1M de 12M antes de que se cayera (a 1M, todas, también λ 0, bajaban
@@ -354,7 +362,8 @@ Fases que siguen (plan del 9/11, detalle en `docs/plan.md`):
    −2,43). También sube la entropía de 0,34 a 0,47. Próximo: pasar el premio de partida sin
    alargar el episodio: λ × cambio en la probabilidad de ganar en cada ronda (`docs/match_value/`,
    validado con 2, 3 y 7 jugadores). Cola `queue17` armada sin lanzar: `x20` (retoma `s20`) y
-   `z20` (de cero), solo 2 jugadores; 3 y 7 después de ver el resultado.
+   `z20` (de cero), solo 2 jugadores; 3 y 7 después de ver el resultado. **Resultado (13/11): no
+   aporta con 2 jugadores** (`docs/reportes/2026-11-12.md`).
 4. 4, 5 y 6 jugadores directamente con el objetivo nuevo (cambia el orden del 30/10).
 5. Robustez: entrenar un rival que solo busque ganarle a una versión congelada; si lo explota,
    entrenar contra versiones anteriores. Red más grande y entropía decreciente, después del
