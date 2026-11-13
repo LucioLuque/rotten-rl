@@ -267,6 +267,13 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **13/11 17:30: terminaron `z30` y el torneo `t_x30` (`runs/lab/labo-s004-13/torneo_x30.md`); corre
+> `x70mb0`.** Con 3 jugadores el premio por probabilidad de ganar tampoco aporta: entre `s30` 24M,
+> `x30a`/`x30b` (λ 0; 0,5; 1; 2) y `z30` de cero (λ 1, 2; 24M) todas las diferencias quedan entre −0,3 y
+> +0,3 puntos y los win rates entre 33,1 % y 33,7 % (empate 33,3 %). Todas le ganan a la heurística por
+> ~+19,6 (62–63 %). λ 1 es apenas la mejor (+0,06 a +0,32), λ 2 apenas la peor; `z30` de cero queda
+> −0,2 contra `s30`. Falta 7 jugadores (`x70`, `z70`, `t_x70`).
+>
 > **13/11 17:20: el servidor se apagó de golpe a las 11:45 y `queue18` siguió bien en el lab.** El
 > registro del sistema se corta sin apagado ordenado (no hubo `reboot` ni actualización; temperatura y
 > carga normales) y vuelve a las 11:46: corte de luz o del enchufe, sin confirmar. Se perdieron la sesión
