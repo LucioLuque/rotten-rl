@@ -272,8 +272,9 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > carga normales) y vuelve a las 11:46: corte de luz o del enchufe, sin confirmar. Se perdieron la sesión
 > de Claude, el respaldo y el vigilante; Claude no volvió solo porque `claude-podrida` no arrancaba con el
 > sistema (ahora sí: `systemctl enable`). En el lab: `x30a` y `x30b` terminaron (código 0), `z30` corre
-> desde las 13:07. Respaldo y vigilante relanzados a las 17:16 igual que antes (vigilante desde 2
-> terminadas). Ya no hace falta reiniciar el servidor al final de `queue18`: el arranque de las 11:46 ya
+> desde las 13:07. Respaldo y vigilante relanzados (vigilante desde 2 terminadas) como unidades propias de
+> systemd (`podrida-backup`, `podrida-watch`, con `sudo systemd-run --uid=luqo`): lanzados con `setsid
+> nohup` desde Claude quedan dentro de `claude-podrida.service` y mueren si ese servicio se reinicia. Ya no hace falta reiniciar el servidor al final de `queue18`: el arranque de las 11:46 ya
 > cargó la `libc6` nueva.
 >
 > **13/11 08:43: `queue18` corriendo en la -13 (tmux `queue18`), lab abierto hasta el lunes 16/11
