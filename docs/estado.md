@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 13/11/2026 02:00.
+Última actualización: 13/11/2026 08:50.
 
 ## Hecho
 
@@ -265,7 +265,18 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
-### Para retomar desde otra sesión (13/11/2026 02:00)
+### Para retomar desde otra sesión (13/11/2026 08:50)
+
+> **13/11 08:43: `queue18` corriendo en la -13 (tmux `queue18`), lab abierto hasta el lunes 16/11
+> 07:00 sin eventos.** La misma prueba de `queue17` con 3 y 7 jugadores (cola en
+> `docs/match_value/queue18.txt`): `x30a`/`x30b` retoman `s30` 24M, λ 0/0,5 y 1/2 × 4 semillas, 12M;
+> `z30` de cero, λ 1/2, 24M; torneo `t_x30`; `x70mb0`…`x70mb2` retoman `u72` 24M, un proceso por λ;
+> `z70mb1`/`z70mb2` de cero, 24M; torneo `t_x70`. **Memoria de la GPU (24 GB):** con 16 copias no
+> entran ni 3 ni 7 jugadores, ni 8 copias con 7; entran 8 copias con 3 jugadores (12.000 partidas/s
+> en total) y 4 con 7 (4.750). Estimado: 3 jugadores ~9 h (`t_x30` ~18:00 del 13/11), 7 jugadores
+> ~22 h más (`t_x70` ~domingo 15/11 a la tarde). Respaldo (`backup_loop.sh "2026-11-16 06:50"`) y
+> vigilante con avisos sueltos en el servidor; eventos en `runs/lab/labo-s004-13/logs/watch_queue18.out`.
+> Si se corta, retomar con `--resume` de las carpetas a medio hacer.
 
 > **13/11 01:51: `queue17` terminada; el lab quedó libre (-13).** Resultado (`docs/reportes/2026-11-12.md`):
 > **el premio por probabilidad de ganar no aporta con 2 jugadores.** `x20` con λ > 0 empata con λ 0
