@@ -277,6 +277,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > ~22 h más (`t_x70` ~domingo 15/11 a la tarde). Respaldo (`backup_loop.sh "2026-11-16 06:50"`) y
 > vigilante con avisos sueltos en el servidor; eventos en `runs/lab/labo-s004-13/logs/watch_queue18.out`.
 > Si se corta, retomar con `--resume` de las carpetas a medio hacer.
+> **Al terminar `queue18` (después de `t_x70`):** analizar los torneos, `vpn off` y reiniciar el
+> servidor (`sudo reboot`; quedó pendiente una actualización de `libc6` del 13/11). Lo hace Claude.
 
 > **13/11 01:51: `queue17` terminada; el lab quedó libre (-13).** Resultado (`docs/reportes/2026-11-12.md`):
 > **el premio por probabilidad de ganar no aporta con 2 jugadores.** `x20` con λ > 0 empata con λ 0
