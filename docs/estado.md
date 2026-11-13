@@ -291,7 +291,7 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > `z70mb1`/`z70mb2` de cero, 24M; torneo `t_x70`. **Memoria de la GPU (24 GB):** con 16 copias no
 > entran ni 3 ni 7 jugadores, ni 8 copias con 7; entran 8 copias con 3 jugadores (12.000 partidas/s
 > en total) y 4 con 7 (4.750). Estimado: 3 jugadores ~9 h (`t_x30` ~18:00 del 13/11), 7 jugadores
-> ~22 h más (`t_x70` ~domingo 15/11 a la tarde). Respaldo (`backup_loop.sh "2026-11-16 06:50"`) y
+> ~22 h más (`t_x70` ~sábado 14/11 15:30–16:00, medido: 1.224 partidas/s por copia). Respaldo (`backup_loop.sh "2026-11-16 06:50"`) y
 > vigilante con avisos sueltos en el servidor; eventos en `runs/lab/labo-s004-13/logs/watch_queue18.out`.
 > Si se corta, retomar con `--resume` de las carpetas a medio hacer.
 > **Al terminar `queue18` (después de `t_x70`):** analizar los torneos y `vpn off`. Lo hace Claude.
