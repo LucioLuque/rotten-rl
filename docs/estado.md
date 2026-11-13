@@ -267,6 +267,15 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **13/11 17:20: el servidor se apagó de golpe a las 11:45 y `queue18` siguió bien en el lab.** El
+> registro del sistema se corta sin apagado ordenado (no hubo `reboot` ni actualización; temperatura y
+> carga normales) y vuelve a las 11:46: corte de luz o del enchufe, sin confirmar. Se perdieron la sesión
+> de Claude, el respaldo y el vigilante; Claude no volvió solo porque `claude-podrida` no arrancaba con el
+> sistema (ahora sí: `systemctl enable`). En el lab: `x30a` y `x30b` terminaron (código 0), `z30` corre
+> desde las 13:07. Respaldo y vigilante relanzados a las 17:16 igual que antes (vigilante desde 2
+> terminadas). Ya no hace falta reiniciar el servidor al final de `queue18`: el arranque de las 11:46 ya
+> cargó la `libc6` nueva.
+>
 > **13/11 08:43: `queue18` corriendo en la -13 (tmux `queue18`), lab abierto hasta el lunes 16/11
 > 07:00 sin eventos.** La misma prueba de `queue17` con 3 y 7 jugadores (cola en
 > `docs/match_value/queue18.txt`): `x30a`/`x30b` retoman `s30` 24M, λ 0/0,5 y 1/2 × 4 semillas, 12M;
@@ -277,8 +286,7 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > ~22 h más (`t_x70` ~domingo 15/11 a la tarde). Respaldo (`backup_loop.sh "2026-11-16 06:50"`) y
 > vigilante con avisos sueltos en el servidor; eventos en `runs/lab/labo-s004-13/logs/watch_queue18.out`.
 > Si se corta, retomar con `--resume` de las carpetas a medio hacer.
-> **Al terminar `queue18` (después de `t_x70`):** analizar los torneos, `vpn off` y reiniciar el
-> servidor (`sudo reboot`; quedó pendiente una actualización de `libc6` del 13/11). Lo hace Claude.
+> **Al terminar `queue18` (después de `t_x70`):** analizar los torneos y `vpn off`. Lo hace Claude.
 
 > **13/11 01:51: `queue17` terminada; el lab quedó libre (-13).** Resultado (`docs/reportes/2026-11-12.md`):
 > **el premio por probabilidad de ganar no aporta con 2 jugadores.** `x20` con λ > 0 empata con λ 0
