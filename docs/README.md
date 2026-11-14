@@ -12,5 +12,7 @@
 | Cómo correr en el laboratorio S004 (VPN, SSH, horarios, velocidad) | `tecnico/lab-s004.md` |
 | Dónde se va el tiempo y qué queda por optimizar | `tecnico/optimizacion.md` |
 | El juego y PPO en JAX para correr todo en la GPU: avance y mediciones | `jax_engine/` |
-| Objetivo de ganar la partida: probabilidad de ganar como recompensa, validación y cola pendiente | `match_value/` |
+| Objetivo de ganar la partida: probabilidad de ganar como recompensa, validación y resultados (no aporta) | `match_value/` |
+| Robustez: un explotador entrenado contra el agente congelado (`train_ppo --opponent`) | `robustness/` |
+| Tamaño de la red: prueba con 1024 | `net_size/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

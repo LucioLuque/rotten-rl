@@ -267,6 +267,18 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **14/11 18:45: `queue19` esperando en la -13 (tmux `queue19`) a que se libere la GPU.** Desde las
+> ~18:02 otro usuario del lab (`fsandri`) tiene la GPU al 100 % con 22,6 de 24 GB; las pruebas de
+> velocidad de la red de 1024 fallaron por memoria. `~/scratch/queue19_start.sh` espera a que la GPU
+> use menos de 2 GB durante 3 minutos seguidos y lanza `run_queue` (corta a las 06:55 del lunes 16/11,
+> no lanza después de las 06:00). Cola (`docs/robustness/queue19.txt`): explotadores `e20i`/`e30i`/
+> `e70i` contra `s20`/`s30`/`u72` congelados (`train_ppo --opponent`, nuevo, `docs/robustness/`) y
+> después la red de 1024 (`n20`/`n30`/`n70` de cero a 12M con torneos contra 12M, `docs/net_size/`).
+> Respaldo (`podrida-backup`, hasta el 16/11 06:50) y vigilante (`podrida-watch`, espera el arranque
+> y después `watch_queue.sh`; eventos en `runs/lab/labo-s004-13/logs/watch_queue19.out`). Para correr
+> los tests de JAX: el servidor no puede (su procesador no tiene AVX2); van en el lab, en
+> `~/scratch/dev-rotten-rl` con `JAX_PLATFORMS=cpu` (le instalé `pytest` al entorno `jax` con `uv`).
+>
 > **14/11 15:24: `queue18` terminada; el lab quedó libre (-13), VPN apagada.** Resultado
 > (`docs/reportes/2026-11-13.md`): **el premio por probabilidad de ganar no aporta ni con 3 ni con 7
 > jugadores** (con 2 tampoco, `queue17`). Ningún λ le gana al control λ 0, y `z30`/`z70` de cero quedan
