@@ -239,3 +239,54 @@ def test_exploit_update_single_and_multi_seed():
         assert int(got.games_done) == int(ts.games_done) == 8
         for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
             np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)
+
+
+def _stack(trees):
+    return jax.tree_util.tree_map(lambda *x: jax.numpy.stack(x), *trees)
+
+
+def test_league_rollout_groups():
+    """With a stack of K opponents, block g of B / K matches is played by opponent g (greedy)."""
+    n, K = 3, 4
+    cfg = ppo.Config(num_players=n, hidden=(16,), rollout_games=8)
+    learner = ppo.init(jax.random.PRNGKey(0), cfg)
+    opps = [ppo.init(jax.random.PRNGKey(20 + g), cfg._replace(hidden=(12,))).policy for g in range(K)]
+    traj = jax.jit(lambda k: ppo._rollout(learner.policy, learner.value, k, cfg, _stack(opps), K))(
+        jax.random.PRNGKey(5))
+    is_l, act = np.asarray(traj["learner"]), np.asarray(traj["action"])
+    obs, mask = np.asarray(traj["obs"]), np.asarray(traj["mask"])
+    per = cfg.rollout_games // K
+    for g, o in enumerate(opps):
+        cols = slice(g * per, (g + 1) * per)
+        x = obs[:, cols].reshape(-1, obs.shape[-1])
+        logits = np.where(mask[:, cols], np.asarray(ppo.mlp(o, x)).reshape(mask[:, cols].shape),
+                          ppo.ILLEGAL)
+        greedy = logits.argmax(axis=-1)
+        np.testing.assert_array_equal(act[:, cols][~is_l[:, cols]], greedy[~is_l[:, cols]])
+
+
+def test_league_update_single_and_multi_seed():
+    """League steps (pool of 5 slots, 3 valid, 2 groups, with the current policy as one of them)
+    run alone and stacked per seed and agree; the learner's policy changes."""
+    cfg = ppo.Config(num_players=2, hidden=(16,), rollout_games=4, minibatch=50, total_games=100)
+    size = 5
+    pools = []
+    for s in (0, 1):
+        members = [ppo.init(jax.random.PRNGKey(30 + 10 * s + i), cfg).policy for i in range(3)]
+        members += [jax.tree_util.tree_map(np.zeros_like, members[0])] * (size - 3)
+        pools.append(_stack(members))
+    single = ppo.make_update(cfg, league_groups=2, league_self=True)
+    multi = ppo.make_update(cfg, multi_seed=True, league_groups=2, league_self=True)
+    alone = [ppo.init(jax.random.PRNGKey(s), cfg) for s in (0, 1)]
+    start = jax.tree_util.tree_leaves(alone[0].policy)[0]
+    stacked = ppo.init_seeds([0, 1], cfg)
+    count = jax.numpy.array([3, 3])
+    for _ in range(2):
+        stacked, stats = multi(stacked, None, _stack(pools), count)
+        alone = [single(ts, None, p, 3)[0] for ts, p in zip(alone, pools)]
+    assert all(np.isfinite(np.asarray(v)).all() for v in stats.values())
+    assert not np.allclose(np.asarray(start), np.asarray(jax.tree_util.tree_leaves(alone[0].policy)[0]))
+    for i, ts in enumerate(alone):
+        got = ppo.unstack(stacked, i)
+        for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)

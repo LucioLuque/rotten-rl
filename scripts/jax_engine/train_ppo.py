@@ -27,6 +27,14 @@ hidden sizes); with several runs, one per seed in --seeds order. Only the learne
 trained on, and the evaluations add "frozen" (the learner in one seat, the frozen policy in the
 others) instead of "past". It measures how much a fixed agent can be exploited.
 
+--league <run>[@<ep>][,...] trains against a league instead: a pool of frozen policies (each run's
+last state, or its checkpoints/policy_ep<ep>.pt), the same pool for every seed. Each update draws
+--league_groups of them at random and each plays a block of the matches (only the learner's seat is
+trained, as with --opponent). --league_add_every N adds the learner's own policy to its pool every N
+games (up to --league_size; then it replaces its oldest own snapshot, the initial ones stay), and
+--league_self makes one of the drawn opponents the current policy. The evaluations add "league0"
+(the first run of --league). The pool is saved with the state (state/league.pkl) and resumed.
+
 The whole training state of each seed goes to <run>/state/ckpt.pkl every --checkpoint_every games
 and when it stops (--stop_at, SIGTERM/SIGHUP, Ctrl+C); --resume <run>[,<run>...] continues them
 (with --games, extending the horizon). Accepts --runs_dir, --run_name and --stop_at like train.py,
@@ -57,12 +65,14 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
-               "rank_weight", "round_var")
+               "rank_weight", "round_var", "league", "league_size", "league_groups",
+               "league_add_every", "league_self")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
                    "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
-                   "round_var": []}
+                   "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
+                   "league_add_every": 0, "league_self": False}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -81,6 +91,33 @@ def save_checkpoint(run_dir, ts):
 def load_checkpoint(run_dir):
     with open(os.path.join(run_dir, "state", "ckpt.pkl"), "rb") as f:
         return jax.tree_util.tree_map(jax.numpy.asarray, pickle.load(f))
+
+
+def load_policy(spec):
+    """<run>: the policy of its last state; <run>@<ep>: its checkpoints/policy_ep<ep>.pt."""
+    spec = os.path.expanduser(spec.strip()).rstrip("/")
+    if "@" in spec:
+        import torch
+        run, ep = spec.rsplit("@", 1)
+        return ppo.from_torch_state_dict(torch.load(os.path.join(run, "checkpoints", f"policy_ep{ep}.pt")))
+    return load_checkpoint(spec).policy
+
+
+def shapes(tree):
+    return [tuple(np.shape(x)) for x in jax.tree_util.tree_leaves(tree)]
+
+
+def make_pool(policies, size):
+    """A stack of `size` policy slots (numpy), the first len(policies) filled."""
+    first = policies[0]
+    for p in policies:
+        if shapes(p) != shapes(first):
+            sys.exit(f"--league: networks of different sizes ({shapes(p)} vs {shapes(first)})")
+    leaves = [np.zeros((size,) + np.shape(x), np.float32) for x in jax.tree_util.tree_leaves(first)]
+    for i, p in enumerate(policies):
+        for leaf, x in zip(leaves, jax.tree_util.tree_leaves(p)):
+            leaf[i] = np.asarray(x)
+    return jax.tree_util.tree_unflatten(jax.tree_util.tree_structure(first), leaves)
 
 
 def stack(states):
@@ -169,6 +206,16 @@ def main():
     p.add_argument("--opponent", default=None,
                    help="run folder(s), comma-separated: train against their frozen policy instead "
                         "of self-play (one for every seed, or one per seed in --seeds order)")
+    p.add_argument("--league", default=None,
+                   help="run folder(s)[@ep], comma-separated: train against a league (pool) of their "
+                        "frozen policies instead of self-play")
+    p.add_argument("--league_size", type=int, default=32, help="slots of the league pool")
+    p.add_argument("--league_groups", type=int, default=8,
+                   help="opponents drawn from the pool per update (divides --rollout_games)")
+    p.add_argument("--league_add_every", type=int, default=0,
+                   help="add the learner's own policy to its pool every N games (0: never)")
+    p.add_argument("--league_self", action="store_true",
+                   help="one of the drawn opponents is the current policy")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -246,6 +293,8 @@ def main():
             seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
         members = [(s, lr, ent, b) for lr in lrs for ent in ents for b in bonuses for s in seeds]
         opp_of = None
+        if a.opponent and a.league:
+            sys.exit("--opponent and --league go separately")
         if a.opponent:
             opp_dirs = [os.path.expanduser(r).rstrip("/") for r in a.opponent.split(",")]
             if len(opp_dirs) not in (1, len(seeds)):
@@ -316,6 +365,33 @@ def main():
     for d in snap_dirs:
         os.makedirs(d, exist_ok=True)
     ts = stack(states) if multi else states[0]
+    league = None                            # {"pool": stacked device pool, "count": [S], "n_init", "added"}
+    if a.league:
+        own = (a.league_add_every > 0) or a.league_self
+        if a.resume:
+            saved_pools = []
+            for r in run_dirs:
+                with open(os.path.join(r, "state", "league.pkl"), "rb") as f:
+                    saved_pools.append(pickle.load(f))
+            pools = [sp["pool"] for sp in saved_pools]
+            counts = [sp["count"] for sp in saved_pools]
+            n_init, added = saved_pools[0]["n_init"], saved_pools[0]["added"]
+        else:
+            init_pols = [load_policy(x) for x in a.league.split(",")]
+            n_init, added = len(init_pols), 0
+            if n_init > a.league_size or (a.league_add_every and n_init >= a.league_size):
+                sys.exit(f"--league: {n_init} policies for --league_size {a.league_size}")
+            pool0 = make_pool(init_pols, a.league_size)
+            pools, counts = [pool0] * len(members), [n_init] * len(members)
+            print(f"league: {n_init} policies ({a.league}), size {a.league_size}, "
+                  f"{a.league_groups} per update", flush=True)
+            del init_pols
+        if own and shapes(jax.tree_util.tree_map(lambda x: x[0], pools[0])) != shapes(states[0].policy):
+            sys.exit("--league_add_every/--league_self: the league's networks differ from the learner's")
+        league = {"pool": stack(pools) if multi else jax.tree_util.tree_map(jax.numpy.asarray, pools[0]),
+                  "count": jax.numpy.asarray(counts if multi else counts[0], jax.numpy.int32),
+                  "n_init": n_init, "added": added}
+        del pools
     opponents = None                         # frozen policies, one per member (stacked if multi)
     if opp_of:
         frozen = {d: load_checkpoint(d) for d in set(opp_of.values())}
@@ -353,11 +429,15 @@ def main():
                 f.flush()
                 os.fsync(f.fileno())
             if evaluate is not None:
-                for name in (EVAL_OPPONENTS[:2] + ("frozen",) if opp_of else EVAL_OPPONENTS):
+                for name in (EVAL_OPPONENTS[:2] + ("frozen",) if opp_of else
+                             EVAL_OPPONENTS + (("league0",) if league is not None else ())):
                     if name == "past" and past[i] is None:
                         continue
                     if name == "frozen":
                         m = evaluate(policy, "past", ppo.unstack(opponents, i) if multi else opponents)
+                    elif name == "league0":
+                        first = ppo.unstack(league["pool"], i) if multi else league["pool"]
+                        m = evaluate(policy, "past", jax.tree_util.tree_map(lambda x: x[0], first))
                     else:
                         m = evaluate(policy, name, past[i])
                     log.log_eval(games, m, opponent=name)
@@ -382,15 +462,46 @@ def main():
     def checkpoint():
         for i, r in enumerate(run_dirs):
             save_checkpoint(r, seed_state(i))
+            if league is not None:
+                pool = jax.tree_util.tree_map(np.asarray, ppo.unstack(league["pool"], i) if multi
+                                              else league["pool"])
+                count = int(np.asarray(league["count"]).ravel()[i])
+                tmp = os.path.join(r, "state", "league.pkl.tmp")
+                with open(tmp, "wb") as f:
+                    pickle.dump({"pool": pool, "count": count, "n_init": league["n_init"],
+                                 "added": league["added"]}, f)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp, os.path.join(r, "state", "league.pkl"))
 
-    update = ppo.make_update(cfg, multi_seed=multi, exploit=bool(opp_of))
+    def league_add():
+        """The learner's current policy into the next own slot of every member's pool."""
+        own_slots = a.league_size - league["n_init"]
+        slot = league["n_init"] + league["added"] % own_slots
+        league["pool"] = jax.tree_util.tree_map(
+            (lambda D, P: D.at[:, slot].set(P)) if multi else (lambda D, P: D.at[slot].set(P)),
+            league["pool"], ts.policy)
+        league["added"] += 1
+        league["count"] = jax.numpy.minimum(league["count"] * 0 + league["n_init"] + league["added"],
+                                            a.league_size)
+
+    update = ppo.make_update(cfg, multi_seed=multi, exploit=bool(opp_of),
+                             league_groups=a.league_groups if league else 0,
+                             league_self=bool(league) and a.league_self)
+    next_add = ((games // a.league_add_every + 1) * a.league_add_every
+                if league is not None and a.league_add_every else None)
     if games == 0:
         save_and_eval(0)
     next_eval = (games // a.eval_every + 1) * a.eval_every
     next_ckpt = (games // a.checkpoint_every + 1) * a.checkpoint_every
     start = time.perf_counter()
     while games < a.games:
-        ts, stats = update(ts, hp, opponents) if opp_of else update(ts, hp)
+        if league is not None:
+            ts, stats = update(ts, hp, league["pool"], league["count"])
+        elif opp_of:
+            ts, stats = update(ts, hp, opponents)
+        else:
+            ts, stats = update(ts, hp)
         stats = jax.device_get(stats)
         games = int(np.asarray(ts.games_done).ravel()[0])
         speed = (games - start_games) / (time.perf_counter() - start)
@@ -399,6 +510,9 @@ def main():
             reward = s.pop("reward_seat0")
             s["games_per_second"] = speed
             log.log_train(games, reward, s)
+        if next_add is not None and games >= next_add:
+            league_add()
+            next_add += a.league_add_every
         if games >= next_eval or games >= a.games:
             ent = np.asarray(stats["entropy"]).ravel()
             lr_now = np.asarray(stats["learning_rate"]).ravel()

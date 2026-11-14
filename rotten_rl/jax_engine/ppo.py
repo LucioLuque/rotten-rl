@@ -137,12 +137,23 @@ def init(key, cfg):
     return TrainState(policy, value, opt_state, jnp.int32(0), key)
 
 
-def _rollout(policy, value, key, cfg, opponent=None):
+def _opponent_logits(opponent, obs, dt, groups):
+    """Logits of the frozen opponent(s): one network, or with groups > 0 a stack of `groups`
+    networks, each playing a consecutive block of B / groups matches."""
+    if not groups:
+        return mlp(opponent, obs, dt)
+    B = obs.shape[0]
+    x = obs.reshape(groups, B // groups, -1)
+    return jax.vmap(lambda p, o: mlp(p, o, dt))(opponent, x).reshape(B, -1)
+
+
+def _rollout(policy, value, key, cfg, opponent=None, groups=0):
     """Plays `rollout_games` whole matches. Returns per-step arrays [T, B].
     With `opponent` (the policy params of a frozen network, any hidden sizes), each match has one
     seat at random for `policy` (sampling) and the others for `opponent`, greedy as in the
     evaluations and tournaments; traj["learner"] [T, B] marks the learner's decisions and
-    traj["learner_seat"] [B] its seat."""
+    traj["learner_seat"] [B] its seat. With groups > 0, `opponent` is a stack of that many
+    networks (leading axis) and each plays a block of B / groups consecutive matches."""
     n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players)
     k_games, k_seat, key = jax.random.split(key, 3)
     states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(k_games, B))
@@ -165,7 +176,8 @@ def _rollout(policy, value, key, cfg, opponent=None):
         out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player)
         if opponent is not None:
             learner = player == learner_seat
-            theirs = jnp.argmax(jnp.where(mask, mlp(opponent, obs, dt), ILLEGAL), axis=1)
+            theirs = jnp.argmax(jnp.where(mask, _opponent_logits(opponent, obs, dt, groups), ILLEGAL),
+                                axis=1)
             action = jnp.where(learner, action, theirs.astype(jnp.int32))
             out.update(action=action, learner=learner)
         states, rewards = step(states, action)
@@ -293,13 +305,18 @@ def unstack(tree, i):
     return jax.tree_util.tree_map(lambda x: x[i], tree)
 
 
-def make_update(cfg, multi_seed=False, exploit=False):
+def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_self=False):
     """One compiled step: play a batch of matches and run every PPO minibatch update on it.
     With exploit, the step is `update(ts, hp, opponent)`: it trains against the frozen policy
     `opponent` (with multi_seed, one per stacked state) instead of self-play. Only the learner's
     decisions are trained on: every seat makes T / n decisions per match, so the batch is
     T / n * B transitions (n times fewer minibatches per update than self-play), and the logged
     "reward_seat0" is the learner's reward per match.
+    With league_groups = K > 0 (league training, implies exploit), the step is
+    `update(ts, hp, pool, pool_count)`: `pool` is a stack of frozen policies (leading axis of a fixed
+    size, the first `pool_count` valid); each update draws K of them at random (with replacement)
+    and each plays B / K of the matches. With league_self, the first of the K is the current
+    policy itself (greedy, like the others).
     With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
     The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
@@ -308,16 +325,26 @@ def make_update(cfg, multi_seed=False, exploit=False):
     (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
     n, T, B = cfg.num_players, match_length(cfg.num_players), cfg.rollout_games
+    exploit = exploit or league_groups > 0
+    if league_groups and B % league_groups:
+        raise ValueError(f"rollout_games ({B}) must be a multiple of league_groups ({league_groups})")
     L = T // n if exploit else T                       # decisions trained on per match
     size = L * B
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
 
-    def update(ts: TrainState, hp=None, opponent=None):
+    def update(ts: TrainState, hp=None, opponent=None, pool_count=None):
         base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
         ent_coef = cfg.ent_coef if hp is None else hp["ent_coef"]
         match_bonus = cfg.match_bonus if hp is None else hp.get("match_bonus", cfg.match_bonus)
         key, k_roll, k_perm = jax.random.split(ts.key, 3)
-        traj = _rollout(ts.policy, ts.value, k_roll, cfg, opponent if exploit else None)
+        if league_groups:                              # draw this update's opponents from the pool
+            pick_idx = jax.random.randint(jax.random.fold_in(ts.key, 7), (league_groups,), 0,
+                                          pool_count)
+            opponent = jax.tree_util.tree_map(lambda x: x[pick_idx], opponent)
+            if league_self:
+                opponent = jax.tree_util.tree_map(lambda o, p: o.at[0].set(p), opponent, ts.policy)
+        traj = _rollout(ts.policy, ts.value, k_roll, cfg, opponent if exploit else None,
+                        league_groups)
         adv, ret = _advantages(traj, cfg, match_bonus)
         if exploit:                                    # keep the learner's T / n decisions per match
             idx = jax.vmap(lambda col: jnp.nonzero(col, size=L)[0], in_axes=1, out_axes=1)(

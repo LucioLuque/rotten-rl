@@ -32,4 +32,26 @@ Lectura:
 `queue19.txt` (14/11): `e20i`, `e30i`, `e70i` arrancan de `s20`, `s30` y `u72` (última versión,
 24M o 36M) y explotan a esa misma versión congelada, 4 semillas, 6M partidas. Arrancar del mismo
 agente es la forma más barata de encontrar una mejora contra él: a 0 partidas da el empate exacto.
-Después la misma cola sigue con la red de 1024 (`docs/net_size/`).
+Siguen `e20z` y `e30z`: explotadores **de cero** contra `s20` y `s30` congelados, 4 semillas, 12M
+partidas. El que arranca del mismo agente busca mejoras cercanas a su forma de jugar; uno de cero
+puede encontrar otro estilo que le gane. Con 7 jugadores no lo puse: el que aprende juega 1 de los 7
+asientos, así que recibe 7 veces menos datos por partida que en self-play, y de cero necesitaría
+muchas más partidas. Después la misma cola sigue con la red de 1024 (`docs/net_size/`).
+
+## Si hay agujeros: la liga
+
+`train_ppo.py --league <run>[@<ep>],...` (14/11, listo sin usar todavía) entrena contra un conjunto
+de versiones congeladas en vez de una sola:
+
+- El conjunto arranca con las redes que se le pasan (la última de cada corrida, o un checkpoint con
+  `@<ep>`), igual para todas las semillas, con lugar para `--league_size` (32).
+- En cada actualización se eligen `--league_groups` (8) al azar y cada una juega un bloque de las
+  partidas. Solo se entrena el asiento del que aprende.
+- `--league_add_every N` agrega cada N partidas la red actual del que aprende a su conjunto (cuando
+  se llena, reemplaza la más vieja de las suyas; las iniciales quedan). `--league_self` hace que uno
+  de los rivales elegidos sea la red actual.
+- La evaluación agrega `league0` (contra la primera red de `--league`). El conjunto se guarda con el
+  estado (`state/league.pkl`) y se retoma con `--resume`.
+
+Es una liga simple (todos los rivales con la misma probabilidad), no PSRO: PSRO elegiría los rivales
+según la tabla de quién le gana a quién.

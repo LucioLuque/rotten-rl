@@ -272,12 +272,14 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > velocidad de la red de 1024 fallaron por memoria. `~/scratch/queue19_start.sh` espera a que la GPU
 > use menos de 2 GB durante 3 minutos seguidos y lanza `run_queue` (corta a las 06:55 del lunes 16/11,
 > no lanza después de las 06:00). Cola (`docs/robustness/queue19.txt`): explotadores `e20i`/`e30i`/
-> `e70i` contra `s20`/`s30`/`u72` congelados (`train_ppo --opponent`, nuevo, `docs/robustness/`) y
-> después la red de 1024 (`k20`/`k30`/`k70` de cero a 12M con torneos contra 12M, `docs/net_size/`).
+> `e70i` contra `s20`/`s30`/`u72` congelados (`train_ppo --opponent`, nuevo, `docs/robustness/`),
+> `e20z`/`e30z` (explotadores de cero, 12M) y después la red de 1024 (`k20`/`k30`/`k70` de cero a 12M con torneos contra 12M, `docs/net_size/`).
 > Respaldo (`podrida-backup`, hasta el 16/11 06:50) y vigilante (`podrida-watch`, espera el arranque
 > y después `watch_queue.sh`; eventos en `runs/lab/labo-s004-13/logs/watch_queue19.out`). Para correr
 > los tests de JAX: el servidor no puede (su procesador no tiene AVX2); van en el lab, en
 > `~/scratch/dev-rotten-rl` con `JAX_PLATFORMS=cpu` (le instalé `pytest` al entorno `jax` con `uv`).
+> También quedó lista la liga (`train_ppo --league`, `docs/robustness/README.md`) para usarla si los
+> explotadores encuentran agujeros.
 >
 > **14/11 15:24: `queue18` terminada; el lab quedó libre (-13), VPN apagada.** Resultado
 > (`docs/reportes/2026-11-13.md`): **el premio por probabilidad de ganar no aporta ni con 3 ni con 7
