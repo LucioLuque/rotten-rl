@@ -47,4 +47,12 @@ probabilidad de ganar en esa ronda). La varianza se copia a la config de la corr
 
 No aporta. `x20` (retoma `s20` 36M, 12M más) con λ 0,5 / 1 / 2 empata con el control λ 0 (+0,02 a
 +0,11 de diferencia, 49,8–50,2 % de win rate); `z20` (de cero, 24M) pierde con `s20` 24M (−0,36 con
-λ 1, −0,24 con λ 2). Detalle en `docs/reportes/2026-11-12.md`. Falta probar con 3 y 7 jugadores.
+λ 1, −0,24 con λ 2). Detalle en `docs/reportes/2026-11-12.md`.
+
+## Resultado con 3 y 7 jugadores (13–14/11/2026, `queue18`)
+
+Tampoco aporta. Ningún λ le gana al control λ 0 (con 3 jugadores, λ 1 apenas: +0,07; con 7, todos
+iguales o un poco abajo; win rates en el empate: 33,1–33,6 % y 14,2–14,5 %). `z30`/`z70` de cero
+quedan entre −0,09 y −0,23 contra `s30`/`u72` con 24M. El control también empata con su punto de
+partida: `s30` y `u72` están en meseta. Detalle en `docs/reportes/2026-11-13.md`. **Línea cerrada:
+el premio no aporta con 2, 3 ni 7 jugadores.**

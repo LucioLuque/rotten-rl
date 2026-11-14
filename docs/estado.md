@@ -267,6 +267,13 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **14/11 15:24: `queue18` terminada; el lab quedó libre (-13), VPN apagada.** Resultado
+> (`docs/reportes/2026-11-13.md`): **el premio por probabilidad de ganar no aporta ni con 3 ni con 7
+> jugadores** (con 2 tampoco, `queue17`). Ningún λ le gana al control λ 0, y `z30`/`z70` de cero quedan
+> un poco abajo de `s30`/`u72` con 24M. El control empata con `s30`/`u72`: las dos están en meseta.
+> Línea cerrada. Falta decidir el próximo punto del plan. `watch_queue.sh` ahora cuenta también los
+> torneos y confirma un minuto después antes de avisar `NADA_CORRE` (dos falsas alarmas el 14/11).
+>
 > **13/11 17:30: terminaron `z30` y el torneo `t_x30` (`runs/lab/labo-s004-13/torneo_x30.md`); corre
 > `x70mb0`.** Con 3 jugadores el premio por probabilidad de ganar tampoco aporta: entre `s30` 24M,
 > `x30a`/`x30b` (λ 0; 0,5; 1; 2) y `z30` de cero (λ 1, 2; 24M) todas las diferencias quedan entre −0,3 y

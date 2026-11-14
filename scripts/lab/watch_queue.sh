@@ -13,7 +13,8 @@
 #   changes, or the queue log is missing, it exits with FALLA right away. Stderr is kept apart from
 #   the parsed output: on 31/10 a failed grep still printed a valid-looking "0" and the watcher saw
 #   nothing for 30 minutes after the lab moved us to another machine.
-# - No training process running: exits with NADA_CORRE.
+# - No training or tournament process running in two queries a minute apart: exits with NADA_CORRE
+#   (on 14/11 a single query caught the gap between two runs of the queue and gave a false alarm).
 # - If a query fails twice in a row (~5 minutes), closes the shared connection and exits with FALLA.
 # - Exits with HORA 25 minutes before the lab closes (rotten_rl/lab_hours.py: room calendar with its
 #   margins, weekday reboot at 07:30), or right away if it is closed: it never queries a closed lab.
@@ -26,7 +27,7 @@ trap 'rm -f "$err"' EXIT
 remote="hostname
 if [ -f ~/scratch/logs/$log ]; then grep -c terminó ~/scratch/logs/$log; else echo NOLOG; fi
 if [ -n '$file' ] && [ -f ~/scratch/$file ]; then echo 1; else echo 0; fi
-ps -eo args | awk '\$2 ~ /train(_ppo)?[.]py\$/ {n++} END {print n+0}'"
+ps -eo args | awk '\$2 ~ /(train(_ppo)?|tournament)[.]py\$/ {n++} END {print n+0}'"
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 while true; do
   closes=$(cd "$repo" && env -u PYTHONPATH python3 -m rotten_rl.lab_hours closes 2>"$err") \
@@ -51,6 +52,10 @@ while true; do
   if [ "$n" = "NOLOG" ]; then echo "FALLA $(date +%H:%M) no existe $log en $got"; exit 1; fi
   if [ "$n" -gt "$known" ]; then echo "TERMINO $n"; exit 0; fi
   if [ "$f" = "1" ]; then echo "ARCHIVO"; exit 0; fi
-  if [ "$running" -eq 0 ]; then echo "NADA_CORRE $(date +%H:%M) en $got"; exit 0; fi
+  if [ "$running" -eq 0 ]; then
+    if [ -n "$idle" ]; then echo "NADA_CORRE $(date +%H:%M) en $got"; exit 0; fi
+    idle=1; sleep 60; continue
+  fi
+  idle=
   sleep 300
 done
