@@ -120,6 +120,16 @@ ssh <usuario>@labs004.udesa.edu.ar
   reinicio a Windows). Rearmar el entorno con `scripts/lab/setup_machine.sh` (`~/rotten-rl` está en
   el `$HOME` compartido) y subir los checkpoints desde la laptop.
 - **Máximo 2 conexiones simultáneas por usuario** (`ssh`, `scp`, `rsync` cuentan cada uno).
+- **Segunda máquina (slot 2)** (Stefano, 14/11/2026): `ssh -o SetEnv=LAB_SLOT=2 ...` entra a otra
+  máquina fija (la labo-s004-14); sin eso, al slot 1 (la -13). En el servidor está el alias
+  `labs004b` (`SetEnv LAB_SLOT=2` y su propio `ControlPath`). El home es el mismo; `~/scratch`, el
+  entorno de JAX y las corridas son de cada máquina. Los scripts del lab (`watch_queue.sh`,
+  `pull_from_lab.sh`, `backup_loop.sh`) toman `LAB_SSH=labs004b` para usar la segunda. Política del
+  lab para compartir una máquina con otro usuario: no hay límites por usuario en la GPU, "aprendan a
+  compartir"; si la GPU está ocupada, pedir a IT otra máquina. Para armar el entorno de JAX en una
+  máquina nueva: `uv venv --python 3.12 ~/scratch/work/venvs/jax` y `uv pip install -r
+  ~/jax-venv-requirements.txt` (con `--extra-index-url https://download.pytorch.org/whl/cpu
+  --index-strategy unsafe-best-match`, por el torch de CPU), ~10 minutos.
 
 Para entrar sin contraseña y que todas las sesiones compartan una sola conexión:
 

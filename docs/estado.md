@@ -267,6 +267,17 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **14/11 19:45: todo pasó a la -14 (segunda máquina); la -13 quedó libre para el otro usuario.**
+> Stefano me asignó una segunda máquina: `ssh -o SetEnv=LAB_SLOT=2 ...` (alias `labs004b` en
+> `~/.ssh/config` del servidor) entra a la labo-s004-14; `labs004` sigue entrando a la -13. Home
+> compartido, `~/scratch` propio de cada una. En la -14 armé el entorno `jax` (mismas versiones,
+> `~/jax-venv-requirements.txt`) y copié `s20`/`s30`/`u72` (configs, estado y checkpoints de 12M y
+> finales). En la -13 terminaron `e20i` y `e30i` (**los dos empatan contra el agente congelado**:
+> 50,1 % / −0,47 con 2 jugadores, 32,9 % / −0,46 con 3) y corté `e70i` a las 158k partidas. Cola
+> `queue20` en la -14 (tmux `queue20`, log `~/scratch/logs/queue20.log` por `tee`): `e70i` de cero,
+> `e20z`, `e30z`, `k20`/`k30`/`k70` y sus torneos. Respaldo y vigilante con `LAB_SSH=labs004b`
+> (eventos en `runs/lab/labo-s004-14/logs/watch_queue20.out`). Los scripts del lab toman `LAB_SSH`.
+>
 > **14/11 18:45: `queue19` esperando en la -13 (tmux `queue19`) a que se libere la GPU.** Desde las
 > ~18:02 otro usuario del lab (`fsandri`) tiene la GPU al 100 % con 22,6 de 24 GB; las pruebas de
 > velocidad de la red de 1024 fallaron por memoria. `~/scratch/queue19_start.sh` espera a que la GPU
