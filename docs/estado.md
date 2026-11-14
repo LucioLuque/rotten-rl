@@ -267,6 +267,12 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **14/11 20:18: `e70i` terminó y también empata** (14,1 % contra 14,3 %, −0,24). Las tres `i`
+> empatan, pero perdieron la primera mitad cayendo (~−3 por arrancar con tasa 3e-4) y se recuperaron
+> cuando la tasa ya iba a 0. **Decidido:** esperar a `e20z`/`e30z`/`e70z`; si también empatan, agregar
+> antes de la red de 1024 una `i` con tasa baja (5e-5) y más partidas (24M); si alguna le gana, pasar a
+> la liga.
+>
 > **14/11 19:45: todo pasó a la -14 (segunda máquina); la -13 quedó libre para el otro usuario.**
 > Stefano me asignó una segunda máquina: `ssh -o SetEnv=LAB_SLOT=2 ...` (alias `labs004b` en
 > `~/.ssh/config` del servidor) entra a la labo-s004-14; `labs004` sigue entrando a la -13. Home
