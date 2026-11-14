@@ -195,3 +195,47 @@ def test_bfloat16_matmuls():
     ts, stats = ppo.make_update(cfg)(ts)
     assert all(np.isfinite(float(v)) for v in stats.values())
     assert all(leaf.dtype == np.float32 for leaf in jax.tree_util.tree_leaves(ts.policy))
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_exploit_rollout_seats(n):
+    """Against a frozen opponent: one learner seat per match, T / n learner decisions there, and
+    the other seats play the opponent's greedy action."""
+    cfg = ppo.Config(num_players=n, hidden=(16,), rollout_games=24)
+    learner = ppo.init(jax.random.PRNGKey(0), cfg)
+    frozen = ppo.init(jax.random.PRNGKey(1), cfg._replace(hidden=(24, 8))).policy   # other sizes
+    traj = jax.jit(lambda k: ppo._rollout(learner.policy, learner.value, k, cfg, frozen))(
+        jax.random.PRNGKey(3))
+    player, is_l = np.asarray(traj["player"]), np.asarray(traj["learner"])
+    seat = np.asarray(traj["learner_seat"])
+    T = ppo.match_length(n)
+    np.testing.assert_array_equal(is_l, player == seat[None, :])
+    assert (is_l.sum(axis=0) == T // n).all()
+    assert len(set(seat.tolist())) == n
+    obs, mask = np.asarray(traj["obs"]), np.asarray(traj["mask"])
+    logits = np.where(mask, np.asarray(ppo.mlp(frozen, obs.reshape(-1, obs.shape[-1]))).reshape(
+        mask.shape), ppo.ILLEGAL)
+    greedy = logits.argmax(axis=-1)
+    act = np.asarray(traj["action"])
+    np.testing.assert_array_equal(act[~is_l], greedy[~is_l])
+    assert mask.reshape(-1, mask.shape[-1])[np.arange(act.size), act.ravel()].all()
+
+
+def test_exploit_update_single_and_multi_seed():
+    """The exploit step runs alone and stacked (one opponent per seed) and gives the same."""
+    cfg = ppo.Config(num_players=3, hidden=(16,), rollout_games=4, minibatch=50, total_games=100)
+    opp = [ppo.init(jax.random.PRNGKey(10 + s), cfg).policy for s in (0, 1)]
+    single = ppo.make_update(cfg, exploit=True)
+    multi = ppo.make_update(cfg, multi_seed=True, exploit=True)
+    alone = [ppo.init(jax.random.PRNGKey(s), cfg) for s in (0, 1)]
+    stacked = ppo.init_seeds([0, 1], cfg)
+    opp_stacked = jax.tree_util.tree_map(lambda *x: jax.numpy.stack(x), *opp)
+    for _ in range(2):
+        stacked, stats = multi(stacked, None, opp_stacked)
+        alone = [single(ts, None, o)[0] for ts, o in zip(alone, opp)]
+    assert all(np.isfinite(np.asarray(v)).all() for v in stats.values())
+    for i, ts in enumerate(alone):
+        got = ppo.unstack(stacked, i)
+        assert int(got.games_done) == int(ts.games_done) == 8
+        for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
+            np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)

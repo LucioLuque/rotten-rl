@@ -137,11 +137,16 @@ def init(key, cfg):
     return TrainState(policy, value, opt_state, jnp.int32(0), key)
 
 
-def _rollout(policy, value, key, cfg):
-    """Plays `rollout_games` whole matches. Returns per-step arrays [T, B]."""
+def _rollout(policy, value, key, cfg, opponent=None):
+    """Plays `rollout_games` whole matches. Returns per-step arrays [T, B].
+    With `opponent` (the policy params of a frozen network, any hidden sizes), each match has one
+    seat at random for `policy` (sampling) and the others for `opponent`, greedy as in the
+    evaluations and tournaments; traj["learner"] [T, B] marks the learner's decisions and
+    traj["learner_seat"] [B] its seat."""
     n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players)
-    k_games, key = jax.random.split(key)
+    k_games, k_seat, key = jax.random.split(key, 3)
     states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(k_games, B))
+    learner_seat = jax.random.randint(k_seat, (B,), 0, n)
     step = jax.vmap(lambda s, a: jg.step(s, a, cfg.reward_scheme))
     dt = compute_dtype(cfg)
 
@@ -157,13 +162,20 @@ def _rollout(policy, value, key, cfg):
         action = jax.random.categorical(sub, logits).astype(jnp.int32)
         logp = jax.nn.log_softmax(logits)[jnp.arange(B), action]
         v = mlp(value, obs, dt)[:, 0]
+        out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player)
+        if opponent is not None:
+            learner = player == learner_seat
+            theirs = jnp.argmax(jnp.where(mask, mlp(opponent, obs, dt), ILLEGAL), axis=1)
+            action = jnp.where(learner, action, theirs.astype(jnp.int32))
+            out.update(action=action, learner=learner)
         states, rewards = step(states, action)
-        out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player,
-                   rewards=rewards, scores=states.scores)
+        out.update(rewards=rewards, scores=states.scores)
         return (states, key), out
 
     (states, _), traj = jax.lax.scan(body, (states, key), None, length=T)
     traj["final_scores"] = states.scores                 # [B, n]: every match ends at T
+    if opponent is not None:
+        traj["learner_seat"] = learner_seat
     return traj
 
 
@@ -281,8 +293,13 @@ def unstack(tree, i):
     return jax.tree_util.tree_map(lambda x: x[i], tree)
 
 
-def make_update(cfg, multi_seed=False):
+def make_update(cfg, multi_seed=False, exploit=False):
     """One compiled step: play a batch of matches and run every PPO minibatch update on it.
+    With exploit, the step is `update(ts, hp, opponent)`: it trains against the frozen policy
+    `opponent` (with multi_seed, one per stacked state) instead of self-play. Only the learner's
+    decisions are trained on: every seat makes T / n decisions per match, so the batch is
+    T / n * B transitions (n times fewer minibatches per update than self-play), and the logged
+    "reward_seat0" is the learner's reward per match.
     With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
     The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
@@ -290,21 +307,33 @@ def make_update(cfg, multi_seed=False):
     overrides those of cfg
     (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
-    T, B = match_length(cfg.num_players), cfg.rollout_games
-    size = T * B
+    n, T, B = cfg.num_players, match_length(cfg.num_players), cfg.rollout_games
+    L = T // n if exploit else T                       # decisions trained on per match
+    size = L * B
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
 
-    def update(ts: TrainState, hp=None):
+    def update(ts: TrainState, hp=None, opponent=None):
         base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
         ent_coef = cfg.ent_coef if hp is None else hp["ent_coef"]
         match_bonus = cfg.match_bonus if hp is None else hp.get("match_bonus", cfg.match_bonus)
         key, k_roll, k_perm = jax.random.split(ts.key, 3)
-        traj = _rollout(ts.policy, ts.value, k_roll, cfg)
+        traj = _rollout(ts.policy, ts.value, k_roll, cfg, opponent if exploit else None)
         adv, ret = _advantages(traj, cfg, match_bonus)
-        flat = dict(obs=traj["obs"].reshape(size, -1), mask=traj["mask"].reshape(size, -1),
-                    action=traj["action"].reshape(size), logp=traj["logp"].reshape(size),
-                    adv=adv.reshape(size), ret=ret.reshape(size))
-        explained = 1 - jnp.var(flat["ret"] - traj["value"].reshape(size)) / (jnp.var(flat["ret"]) + 1e-8)
+        if exploit:                                    # keep the learner's T / n decisions per match
+            idx = jax.vmap(lambda col: jnp.nonzero(col, size=L)[0], in_axes=1, out_axes=1)(
+                traj["learner"])                       # [L, B]
+            cols = jnp.arange(B)[None, :]
+            pick = lambda x: x[idx, cols]              # noqa: E731
+            seat = traj["learner_seat"]
+            reward = traj["rewards"].sum(axis=0)[jnp.arange(B), seat].mean()
+        else:
+            pick = lambda x: x                         # noqa: E731
+            reward = traj["rewards"][:, :, 0].sum(axis=0).mean()
+        flat = dict(obs=pick(traj["obs"]).reshape(size, -1), mask=pick(traj["mask"]).reshape(size, -1),
+                    action=pick(traj["action"]).reshape(size), logp=pick(traj["logp"]).reshape(size),
+                    adv=pick(adv).reshape(size), ret=pick(ret).reshape(size))
+        values = pick(traj["value"]).reshape(size)
+        explained = 1 - jnp.var(flat["ret"] - values) / (jnp.var(flat["ret"]) + 1e-8)
         flat["adv"] = (flat["adv"] - flat["adv"].mean()) / (flat["adv"].std() + 1e-8)
         frac = jnp.maximum(0.0, 1.0 - ts.games_done / cfg.total_games) if cfg.anneal else 1.0
         lr = base_lr * frac
@@ -329,7 +358,7 @@ def make_update(cfg, multi_seed=False):
         stats = jax.tree_util.tree_map(jnp.mean, stats)
         stats["explained_variance"] = explained
         stats["learning_rate"] = lr
-        stats["reward_seat0"] = traj["rewards"][:, :, 0].sum(axis=0).mean()
+        stats["reward_seat0"] = reward
         new = TrainState(params[0], params[1], opt_state, ts.games_done + B, key)
         return new, stats
 

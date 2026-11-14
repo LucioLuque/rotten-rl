@@ -21,6 +21,12 @@ by_seat CSVs, train.csv, TensorBoard). The evaluation runs on the GPU too
 (rotten_rl/jax_engine/evaluate.py, under a second); --eval_engine pyspiel uses
 rotten_rl/evaluation.py on the CPU instead (the deals differ: compare within standard errors).
 
+--opponent <run>[,<run>...] trains an exploiter instead of self-play: each match has one seat for
+the learner and the others for the frozen policy of that run (its last state/ckpt.pkl, greedy, any
+hidden sizes); with several runs, one per seed in --seeds order. Only the learner's decisions are
+trained on, and the evaluations add "frozen" (the learner in one seat, the frozen policy in the
+others) instead of "past". It measures how much a fixed agent can be exploited.
+
 The whole training state of each seed goes to <run>/state/ckpt.pkl every --checkpoint_every games
 and when it stops (--stop_at, SIGTERM/SIGHUP, Ctrl+C); --resume <run>[,<run>...] continues them
 (with --games, extending the horizon). Accepts --runs_dir, --run_name and --stop_at like train.py,
@@ -160,6 +166,9 @@ def main():
                    help="run folder(s), comma-separated: new runs that start from their networks "
                         "(policy and value; fresh Adam, games and lr schedule), one per folder and "
                         "value of the lists, with that folder's seed")
+    p.add_argument("--opponent", default=None,
+                   help="run folder(s), comma-separated: train against their frozen policy instead "
+                        "of self-play (one for every seed, or one per seed in --seeds order)")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -181,10 +190,12 @@ def main():
 
     if a.resume:
         run_dirs = [os.path.expanduser(r).rstrip("/") for r in a.resume.split(",")]
-        saved = []
+        saved, saved_opp = [], []
         for r in run_dirs:
             with open(os.path.join(r, "config.json")) as f:
-                saved.append(json.load(f)["jax_args"])
+                c = json.load(f)
+            saved.append(c["jax_args"])
+            saved_opp.append(c.get("opponent_dir"))
         for k in CONFIG_KEYS:
             if k in MEMBER_KEYS or (k == "games" and "--games" in sys.argv):
                 continue                     # extending the horizon is allowed (the lr follows it)
@@ -198,6 +209,11 @@ def main():
         lrs = sorted({m[1] for m in members})
         ents = sorted({m[2] for m in members})
         bonuses = sorted({m[3] for m in members})
+        opp_of = {int(s["seed"]): o for s, o in zip(saved, saved_opp)}
+        if len({v is None for v in opp_of.values()}) > 1:
+            sys.exit("--resume: some runs have --opponent and others not; resume them separately")
+        if None in opp_of.values():
+            opp_of = None
     else:
         lrs = [float(x) for x in str(a.learning_rate).split(",")]
         ents = [float(x) for x in str(a.ent_coef).split(",")]
@@ -229,6 +245,12 @@ def main():
         else:
             seeds = [int(s) for s in a.seeds.split(",")] if a.seeds else [a.seed]
         members = [(s, lr, ent, b) for lr in lrs for ent in ents for b in bonuses for s in seeds]
+        opp_of = None
+        if a.opponent:
+            opp_dirs = [os.path.expanduser(r).rstrip("/") for r in a.opponent.split(",")]
+            if len(opp_dirs) not in (1, len(seeds)):
+                sys.exit(f"--opponent: {len(opp_dirs)} runs for {len(seeds)} seeds (give 1 or one per seed)")
+            opp_of = dict(zip(seeds, opp_dirs * len(seeds) if len(opp_dirs) == 1 else opp_dirs))
     seeds = [m[0] for m in members]
     a.seed = seeds[0]
     multi = len(members) > 1
@@ -266,7 +288,8 @@ def main():
                 "init_from": init_of.get(seed) if a.init_from else None, "ppo_anneal_lr": True,
                 "eval_games": a.eval_games, "eval_deal_seed": a.eval_deal_seed,
                 "eval_engine": a.eval_engine, "dtype": a.dtype, "seed": seed, "seeds_together": seeds,
-                "member_tag": tag(member).replace("_", ""), "jax_args": args}
+                "member_tag": tag(member).replace("_", ""), "jax_args": args,
+                "opponent_dir": opp_of[seed] if opp_of else None}
 
     if a.resume:
         states = [load_checkpoint(r) for r in run_dirs]
@@ -293,6 +316,14 @@ def main():
     for d in snap_dirs:
         os.makedirs(d, exist_ok=True)
     ts = stack(states) if multi else states[0]
+    opponents = None                         # frozen policies, one per member (stacked if multi)
+    if opp_of:
+        frozen = {d: load_checkpoint(d) for d in set(opp_of.values())}
+        for d, st in frozen.items():
+            print(f"opponent {d} (game {int(st.games_done)})", flush=True)
+        opp_list = [frozen[opp_of[m[0]]].policy for m in members]
+        opponents = stack(opp_list) if multi else opp_list[0]
+        del frozen
     games = start_games = int(states[0].games_done)
     del states
     print(f"JAX {jax.__version__} on {jax.devices()}; members {' '.join(names)}; runs in {', '.join(run_dirs)}"
@@ -303,7 +334,7 @@ def main():
 
     evaluate = None if a.no_eval else (JaxEval(a) if a.eval_engine == "jax" else PyspielEval(a, hidden))
     past = [None] * len(seeds)
-    if a.resume:                             # the snapshot of the last evaluation is "past"
+    if a.resume and not opp_of:              # with --opponent, "frozen" is evaluated instead                             # the snapshot of the last evaluation is "past"
         for i, d in enumerate(snap_dirs):
             # An empty file is a save that a machine reboot cut: skip it.
             snaps = [int(f[len("policy_ep"):-3]) for f in os.listdir(d)
@@ -322,10 +353,13 @@ def main():
                 f.flush()
                 os.fsync(f.fileno())
             if evaluate is not None:
-                for name in EVAL_OPPONENTS:
+                for name in (EVAL_OPPONENTS[:2] + ("frozen",) if opp_of else EVAL_OPPONENTS):
                     if name == "past" and past[i] is None:
                         continue
-                    m = evaluate(policy, name, past[i])
+                    if name == "frozen":
+                        m = evaluate(policy, "past", ppo.unstack(opponents, i) if multi else opponents)
+                    else:
+                        m = evaluate(policy, name, past[i])
                     log.log_eval(games, m, opponent=name)
                     o = m["overall"]
                     print(f"[{games}] {member} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
@@ -349,14 +383,14 @@ def main():
         for i, r in enumerate(run_dirs):
             save_checkpoint(r, seed_state(i))
 
-    update = ppo.make_update(cfg, multi_seed=multi)
+    update = ppo.make_update(cfg, multi_seed=multi, exploit=bool(opp_of))
     if games == 0:
         save_and_eval(0)
     next_eval = (games // a.eval_every + 1) * a.eval_every
     next_ckpt = (games // a.checkpoint_every + 1) * a.checkpoint_every
     start = time.perf_counter()
     while games < a.games:
-        ts, stats = update(ts, hp)
+        ts, stats = update(ts, hp, opponents) if opp_of else update(ts, hp)
         stats = jax.device_get(stats)
         games = int(np.asarray(ts.games_done).ravel()[0])
         speed = (games - start_games) / (time.perf_counter() - start)
