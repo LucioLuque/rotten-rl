@@ -273,7 +273,7 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > use menos de 2 GB durante 3 minutos seguidos y lanza `run_queue` (corta a las 06:55 del lunes 16/11,
 > no lanza después de las 06:00). Cola (`docs/robustness/queue19.txt`): explotadores `e20i`/`e30i`/
 > `e70i` contra `s20`/`s30`/`u72` congelados (`train_ppo --opponent`, nuevo, `docs/robustness/`) y
-> después la red de 1024 (`n20`/`n30`/`n70` de cero a 12M con torneos contra 12M, `docs/net_size/`).
+> después la red de 1024 (`k20`/`k30`/`k70` de cero a 12M con torneos contra 12M, `docs/net_size/`).
 > Respaldo (`podrida-backup`, hasta el 16/11 06:50) y vigilante (`podrida-watch`, espera el arranque
 > y después `watch_queue.sh`; eventos en `runs/lab/labo-s004-13/logs/watch_queue19.out`). Para correr
 > los tests de JAX: el servidor no puede (su procesador no tiene AVX2); van en el lab, en

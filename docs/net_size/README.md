@@ -5,12 +5,28 @@ jugadores es de capacidad, una red más grande debería pasarla.
 
 ## La prueba
 
-`queue19` (`docs/robustness/queue19.txt`, 14/11): `n20`, `n30` y `n70` entrenan de cero con
+`queue19` (`docs/robustness/queue19.txt`, 14/11): `k20`, `k30` y `k70` entrenan de cero con
 `--hidden 1024,1024` y la receta actual (tasa 3e-4, 2 épocas, minilote 1024, lote de 512 partidas,
-entropía 0,06 con 2 y 3 jugadores y 0,1 con 7), 4 semillas y 12M partidas. Los torneos `t_n20`,
-`t_n30` y `t_n70` las comparan con `s20`, `s30` y `u72` a la misma cantidad de partidas
+entropía 0,06 con 2 y 3 jugadores y 0,1 con 7), 4 semillas y 12M partidas. Los torneos `t_k20`,
+`t_k30` y `t_k70` las comparan con `s20`, `s30` y `u72` a la misma cantidad de partidas
 (`@12000256`, el final de su tramo de 12M) y con su última versión (24M o 36M).
 
 No pude medir la velocidad antes de lanzar: el 14/11 a las 18:35 la GPU estaba ocupada por otro
-usuario del lab y las pruebas cortas no tuvieron memoria. Estimado sin medir: 2 a 3 veces más lenta
-que la de 512.
+usuario del lab y las pruebas cortas no tuvieron memoria. La referencia es `o23` (abajo): con 2
+jugadores, ×2,15 más lenta que la de 512. Con 3 y 7 no está medida.
+
+Los nombres `n20`/`n30`/`n70` ya estaban usados por corridas viejas (`n30`, `n70` del 7/11); por eso
+`k`.
+
+## Pruebas anteriores con 1024
+
+- **26/10, `x24`** (PPO en PyTorch, 2 jugadores, 200k partidas, receta vieja): no ayudó (0,400 contra
+  la heurística, por debajo de la base). Arrancó más rápido y después no siguió subiendo
+  (`docs/reportes/2026-10-26.md`).
+- **7/11, `o23`** (PPO en JAX, 2 jugadores, 3M, 2 épocas, entropía 0,01): le ganó a `m26` (512, misma
+  receta y partidas) por +0,58 (15/16 cruces), pero era ×2,15 más lenta (6.898 partidas/s). Conclusión
+  de entonces: a igual tiempo convenía duplicar partidas con la de 512 (`docs/reportes/2026-11-06.md`).
+
+Por qué de nuevo: ahora duplicar partidas ya no mejora (meseta de `s20`, `s30` y `u72`), así que la
+capacidad es lo que queda por probar. Además nunca se probó con la receta actual (entropía 0,06/0,1),
+ni con 3 y 7 jugadores, ni a 12M.
