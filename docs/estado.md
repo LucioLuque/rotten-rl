@@ -271,7 +271,7 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > empatan, pero perdieron la primera mitad cayendo (~−3 por arrancar con tasa 3e-4) y se recuperaron
 > cuando la tasa ya iba a 0. **Decidido:** esperar a `e20z`/`e30z`/`e70z`; si también empatan, agregar
 > antes de la red de 1024 una `i` con tasa baja (5e-5) y más partidas (24M); si alguna le gana, pasar a
-> la liga.
+> la liga. Aunque empaten todas, después quiero probar la liga igual (`train_ppo --league`).
 >
 > **14/11 19:45: todo pasó a la -14 (segunda máquina); la -13 quedó libre para el otro usuario.**
 > Stefano me asignó una segunda máquina: `ssh -o SetEnv=LAB_SLOT=2 ...` (alias `labs004b` en
