@@ -8,13 +8,14 @@
 #
 # Para retomar en otra máquina: copiar runs/lab/<máquina>/runs/<corrida> a ~/scratch/runs/ y
 # usar --resume (los checkpoints de state/ son el estado completo).
+LAB=${LAB_SSH:-labs004}   # ssh host; LAB_SSH=labs004b for the second machine (LAB_SLOT=2)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 # La conexión compartida (ControlMaster) a veces queda rota del lado del lab ("unknown userid"):
 # se cierra y se reconecta.
-if ! host=$(timeout 40 ssh labs004 hostname 2>/dev/null); then
-  ssh -O exit labs004 >/dev/null 2>&1 || true
-  host=$(timeout 40 ssh labs004 hostname)
+if ! host=$(timeout 40 ssh "$LAB" hostname 2>/dev/null); then
+  ssh -O exit "$LAB" >/dev/null 2>&1 || true
+  host=$(timeout 40 ssh "$LAB" hostname)
 fi
 dest=runs/lab/$host
 mkdir -p "$dest"
@@ -34,13 +35,13 @@ rsync() { command rsync "$@" || [ $? -eq 24 ]; }
 # the argument list, the glob listed nothing and every policy came (74 GB until 8/11).
 older=$(mktemp); thinned=$(mktemp)
 trap 'rm -f "$older" "$thinned"' EXIT
-timeout 40 ssh labs004 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/state/ckpt_ep*" | sed "s|^[.]/||"' | grep -v '[.]tmp$' \
+timeout 40 ssh "$LAB" 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/state/ckpt_ep*" | sed "s|^[.]/||"' | grep -v '[.]tmp$' \
   | sort -V | awk -F/ '{ if ($1 == run) print "/" prev "/"; run = $1; prev = $0 }' > "$older" || true
-timeout 40 ssh labs004 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/checkpoints/policy_ep*.pt" | sed "s|^[.]/||"' \
+timeout 40 ssh "$LAB" 'cd ~/scratch/runs && find . -mindepth 3 -maxdepth 3 -path "./*/checkpoints/policy_ep*.pt" | sed "s|^[.]/||"' \
   | scripts/lab/thin_policies.sh --filter > "$thinned" || true
 rsync "${opts[@]}" --delete --delete-after --filter 'P /*' --exclude 'prof*' --exclude '*.tmp' --exclude 'tb/' \
   --exclude-from "$older" --exclude-from "$thinned" --exclude-from scripts/lab/no_state.txt \
-  labs004:scratch/runs/ "$dest/runs/"
+  "$LAB":scratch/runs/ "$dest/runs/"
 # The previous "newest" policy of a run stays here (excluded files are not deleted): thin it here.
 scripts/lab/thin_policies.sh "$dest/runs"
 # The older copies stay out of --delete because they are excluded: drop them here, keeping the
@@ -53,9 +54,9 @@ for state in "$dest"/runs/*/state; do
   # grep exits 1 when the newest is the only one: nothing to drop.
   ls -d "$state"/ckpt_ep* | { grep -vxF "$newest" || true; } | xargs -r rm -rf
 done
-rsync "${opts[@]}" labs004:scratch/logs/ "$dest/logs/"
-rsync "${opts[@]}" --include '*.txt*' --include '*.sh' --exclude '*' labs004:scratch/ "$dest/"
+rsync "${opts[@]}" "$LAB":scratch/logs/ "$dest/logs/"
+rsync "${opts[@]}" --include '*.txt*' --include '*.sh' --exclude '*' "$LAB":scratch/ "$dest/"
 if [ "${1:-}" = "--tables" ]; then
-  rsync "${opts[@]}" --exclude '*.prev' --exclude '*.tmp' --exclude 'n3_exact.bin' labs004:scratch/round2/ "$dest/round2/"
+  rsync "${opts[@]}" --exclude '*.prev' --exclude '*.tmp' --exclude 'n3_exact.bin' "$LAB":scratch/round2/ "$dest/round2/"
 fi
 echo "$(date +%H:%M:%S) copiado de $host a $dest ($(du -sh "$dest" | cut -f1))"
