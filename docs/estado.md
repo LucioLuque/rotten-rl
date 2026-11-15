@@ -267,6 +267,12 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **15/11 03:40: `e20il` (tasa 5e-5) le gana a `s20`: 51,6 % y +0,82** (primer agujero, chico).
+> `e20zl` (de cero, 36M) empata. `queue20` sigue en la -14: `k20` → `e20il_to48M` → `k30` → `k70` →
+> liga con 2 jugadores (`l20`, control `c20`, torneo `t_l20`, explotadores `e20xl`/`e20xc`;
+> `docs/robustness/README.md`). `train_ppo` acepta patrones con `*` en `--init_from`, `--opponent`,
+> `--league` y `--resume`.
+>
 > **14/11 20:18: `e70i` terminó y también empata** (14,1 % contra 14,3 %, −0,24). Las tres `i`
 > empatan, pero perdieron la primera mitad cayendo (~−3 por arrancar con tasa 3e-4) y se recuperaron
 > cuando la tasa ya iba a 0. **Decidido:** esperar a `e20z`/`e30z`/`e70z`; si también empatan, agregar

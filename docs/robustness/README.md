@@ -82,3 +82,16 @@ debajo, todavía subiendo despacio. Contra la heurística quedan algo por debajo
 semillas positivas, subiendo parejo). Contra la heurística ~80 % (como `s20`). `s20` tiene un agujero
 chico. `e20il_to48M` lo retoma hasta 48M (la tasa vuelve a 2,5e-5 y baja a 0) para ver hasta dónde
 llega. `e20zl` (de cero, 36M) terminó en empate exacto: 50,3 % y +0,02.
+
+## La liga con 2 jugadores (al final de `queue20`)
+
+- `l20`: arranca de `s20` y entrena 24M partidas (tasa 1e-4) contra una liga: `s20` final, a 24M y a
+  12M, `e20il` y `e20zl` (las 4 semillas de cada uno, 20 redes; la primera, `s20` s0, es `league0`),
+  más una copia propia cada 1M partidas y la red actual como uno de los 8 rivales de cada
+  actualización.
+- `c20`: el control, igual pero en self-play (misma tasa y partidas desde `s20`).
+- `t_l20`: torneo entre la heurística, `s20`, `l20`, `c20`, `e20il` y `e20zl`.
+- `e20xl` y `e20xc`: un explotador como `e20il` (tasa 5e-5, 24M) contra `l20` y contra `c20`.
+
+La liga sirve si `l20` empata o le gana a `e20il`, no queda peor que `c20` contra la heurística y
+`e20xl` le saca menos que `e20xc` (y que los +0,82 de `e20il` a `s20`).
