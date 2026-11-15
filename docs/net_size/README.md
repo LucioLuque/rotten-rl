@@ -41,3 +41,10 @@ heurística 81,2 % (`s20` a 12M, 82,3 %). Velocidad: 1.818 partidas/s por semill
 **3 jugadores (`t_k30`, 15/11):** tampoco mejora. `k30` (12M) contra `s30` a 12M: −0,25, 33,1 % de win
 rate, 4/16 cruces; contra `s30` final (24M): −0,80, 32,0 %, 0/16. Contra la heurística 62,5 % (`s30` a
 12M, 62,1 %).
+
+**7 jugadores (`t_k70`, 15/11):** tampoco. `k70` (12M) contra `u72` a 12M: −0,03, 14,1 % de win rate,
+6/16 cruces (empate); contra `u72` final (24M): −0,20, 14,0 %, 0/16. Contra la heurística 38,2 % (`u72`
+a 12M, 38,1 %). Velocidad: 536 partidas/s por semilla.
+
+**Conclusión:** con 2, 3 y 7 jugadores la red de 1024 empata o queda un poco abajo de la de 512 a igual
+cantidad de partidas, y es 2 a 3 veces más lenta. La meseta no es de capacidad.
