@@ -36,7 +36,8 @@ Siguen `e20z` y `e30z`: explotadores **de cero** contra `s20` y `s30` congelados
 partidas. El que arranca del mismo agente busca mejoras cercanas a su forma de jugar; uno de cero
 puede encontrar otro estilo que le gane. Con 7 jugadores, `e70z` (en `queue20`, la -14) con 24M
 partidas: el que aprende juega 1 de los 7 asientos y recibe 7 veces menos datos por partida que en
-self-play, así que 24M equivalen a ~3,4M de self-play (`s70` llegó a un nivel razonable con 3M). Después la misma cola sigue con la red de 1024 (`docs/net_size/`).
+self-play, así que 24M equivalen a ~3,4M de self-play (`s70` llegó a un nivel razonable con 3M). Después, `e20zl`: el de 2 jugadores de cero con 36M partidas, porque `e20z` (12M) terminó a −2,25 y
+todavía subiendo. Después la misma cola sigue con la red de 1024 (`docs/net_size/`).
 
 ## Si hay agujeros: la liga
 
