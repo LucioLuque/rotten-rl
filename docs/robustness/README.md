@@ -77,3 +77,8 @@ Ninguno le gana a su agente. Las `i` caen al principio (~−3 con 2 jugadores, p
 3e-4) y vuelven al empate cuando la tasa llega a 0. Las `z` suben desde abajo y quedan apenas por
 debajo, todavía subiendo despacio. Contra la heurística quedan algo por debajo de su agente (`e20z`
 76,6 % contra ~82 % de `s20`): juegan peor en general y casi empatan contra el agente.
+
+`e20il` (tasa 5e-5, desde `s20`, 24M) es el primero que le gana a su agente: 51,6 % y +0,82 (las 4
+semillas positivas, subiendo parejo). Contra la heurística ~80 % (como `s20`). `s20` tiene un agujero
+chico. `e20il_to48M` lo retoma hasta 48M (la tasa vuelve a 2,5e-5 y baja a 0) para ver hasta dónde
+llega. `e20zl` (de cero, 36M) terminó en empate exacto: 50,3 % y +0,02.
