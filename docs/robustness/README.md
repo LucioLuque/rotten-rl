@@ -100,3 +100,21 @@ La liga sirve si `l20` empata o le gana a `e20il`, no queda peor que `c20` contr
 punto por partida y casi no crece en la segunda mitad. Ojo: la línea de `--resume` no llevaba
 `--eval_every` (no se guarda en la config), así que evaluó cada 25.000 partidas (~960 evaluaciones,
 2,7 GB por semilla y ~10 minutos más); en las líneas de `--resume` pasar `--eval_every`.
+
+### Torneo `t_l20` (15/11 17:56)
+
+Promedio de 4 semillas; diferencia, win rate de la fila (empate 50 %) y cruces ganados:
+
+| Fila vs columna | `s20` 36M | `c20` (control) | `e20il` 48M | `e20zl` 36M | heurística |
+|---|---|---|---|---|---|
+| `l20` (liga) | +0,55 · 50,5 % · 15/16 | +0,00 · 49,6 % · 7/16 | +0,09 · 49,8 % · 10/16 | +1,43 · 51,5 % · 16/16 | +32,45 · 81,2 % |
+| `c20` (control) | +0,47 · 50,6 % · 14/16 | — | −0,56 · 49,4 % · 0/16 | +0,77 · 51,2 % · 16/16 | +34,25 · 82,3 % |
+| `s20` | — | −0,47 | −1,10 · 48,8 % · 0/16 | +0,04 | +34,16 · 82,2 % |
+
+- Las dos le ganan a `s20` por lo mismo (~+0,5): entrenar 24M más con tasa 1e-4 lo mejora un poco,
+  con o sin liga.
+- `l20` y `c20` empatan entre sí, aunque `l20` entrenó con la mitad de los datos (1 de 2 asientos).
+- `l20` cierra el agujero de `e20il` (+0,09) y `c20` no (−0,56). Pero `e20il` estaba en la liga de
+  `l20`: entrenó contra él. La prueba real son `e20xl`/`e20xc`, explotadores nuevos.
+- Contra la heurística `l20` queda ~1,8 puntos abajo de `c20` (81,2 % contra 82,3 %): se especializa un
+  poco en sus rivales de la liga.
