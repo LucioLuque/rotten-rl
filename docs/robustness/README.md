@@ -37,7 +37,9 @@ partidas. El que arranca del mismo agente busca mejoras cercanas a su forma de j
 puede encontrar otro estilo que le gane. Con 7 jugadores, `e70z` (en `queue20`, la -14) con 24M
 partidas: el que aprende juega 1 de los 7 asientos y recibe 7 veces menos datos por partida que en
 self-play, así que 24M equivalen a ~3,4M de self-play (`s70` llegó a un nivel razonable con 3M). Después, `e20zl`: el de 2 jugadores de cero con 36M partidas, porque `e20z` (12M) terminó a −2,25 y
-todavía subiendo. Después la misma cola sigue con la red de 1024 (`docs/net_size/`).
+todavía subiendo, y `e20il`: arranca de `s20` como `e20i` pero con tasa 5e-5 (no 3e-4) y 24M partidas,
+porque las `i` se pasaron la primera mitad cayendo por la tasa alta. Después la misma cola sigue con la
+red de 1024 (`docs/net_size/`).
 
 ## Si hay agujeros: la liga
 
@@ -56,3 +58,22 @@ de versiones congeladas en vez de una sola:
 
 Es una liga simple (todos los rivales con la misma probabilidad), no PSRO: PSRO elegiría los rivales
 según la tabla de quién le gana a quién.
+
+## Resultados (14/11)
+
+Win rate del explotador (en un asiento) contra el agente congelado (en los demás), promedio de 4
+semillas, al final de cada corrida:
+
+| Corrida | Contra | Partidas | Win rate (empate) | Diferencia |
+|---|---|---|---|---|
+| `e20i` (desde el agente) | `s20` | 6M | 50,1 % (50 %) | −0,47 |
+| `e30i` (desde el agente) | `s30` | 6M | 32,9 % (33,3 %) | −0,46 |
+| `e70i` (desde el agente) | `u72` | 6M | 14,1 % (14,3 %) | −0,24 |
+| `e20z` (de cero) | `s20` | 12M | 48,6 % (50 %) | −2,25 |
+| `e30z` (de cero) | `s30` | 12M | 32,6 % (33,3 %) | −1,67 |
+| `e70z` (de cero) | `u72` | 24M | 13,8 % (14,3 %) | −0,58 |
+
+Ninguno le gana a su agente. Las `i` caen al principio (~−3 con 2 jugadores, por arrancar con tasa
+3e-4) y vuelven al empate cuando la tasa llega a 0. Las `z` suben desde abajo y quedan apenas por
+debajo, todavía subiendo despacio. Contra la heurística quedan algo por debajo de su agente (`e20z`
+76,6 % contra ~82 % de `s20`): juegan peor en general y casi empatan contra el agente.
