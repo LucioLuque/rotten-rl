@@ -95,3 +95,8 @@ llega. `e20zl` (de cero, 36M) terminó en empate exacto: 50,3 % y +0,02.
 
 La liga sirve si `l20` empata o le gana a `e20il`, no queda peor que `c20` contra la heurística y
 `e20xl` le saca menos que `e20xc` (y que los +0,82 de `e20il` a `s20`).
+
+`e20il_to48M` (15/11): a 48M, 51,6 % y **+1,04** contra `s20` (a 24M, +0,82): el agujero llega a ~1
+punto por partida y casi no crece en la segunda mitad. Ojo: la línea de `--resume` no llevaba
+`--eval_every` (no se guarda en la config), así que evaluó cada 25.000 partidas (~960 evaluaciones,
+2,7 GB por semilla y ~10 minutos más); en las líneas de `--resume` pasar `--eval_every`.

@@ -30,3 +30,10 @@ Los nombres `n20`/`n30`/`n70` ya estaban usados por corridas viejas (`n30`, `n70
 Por qué de nuevo: ahora duplicar partidas ya no mejora (meseta de `s20`, `s30` y `u72`), así que la
 capacidad es lo que queda por probar. Además nunca se probó con la receta actual (entropía 0,06/0,1),
 ni con 3 y 7 jugadores, ni a 12M.
+
+## Resultados
+
+**2 jugadores (`t_k20`, 15/11):** la red de 1024 no mejora. `k20` (12M) contra `s20` a 12M: −0,59,
+50,0 % de win rate, 2 de 16 cruces; contra `s20` final (36M): −1,45, 48,7 %, 0/16. Contra la
+heurística 81,2 % (`s20` a 12M, 82,3 %). Velocidad: 1.818 partidas/s por semilla (4 semillas); con
+3 jugadores (`k30`), 1.228.
