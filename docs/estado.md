@@ -267,6 +267,11 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **15/11 20:51: liga con 3 jugadores en la -14** (agregada a `queue20`): `l30` (desde `s30`, 24M,
+> liga de `s30` final y a 12M, `e30i`, `e30z`), control `c30`, torneo `t_l30`, explotadores
+> `e30xl`/`e30xc` (tasa 5e-5, 24M) y al final `e70il` (tasa 5e-5 contra `u72`, para saber si el de 7
+> jugadores tiene agujero antes de armar su liga). Corta sola a las 06:55 del 16/11.
+>
 > **15/11 20:18: `queue20` terminada en la -14; VPN apagada.** Reporte en `docs/reportes/2026-11-14.md`.
 > **La liga funciona con 2 jugadores:** `l20` (desde `s20`, 24M contra una liga) empata con su control
 > `c20` (self-play, mismas partidas) y los dos le ganan a `s20` por ~+0,5, pero un explotador nuevo le
