@@ -118,3 +118,9 @@ Promedio de 4 semillas; diferencia, win rate de la fila (empate 50 %) y cruces g
   `l20`: entrenó contra él. La prueba real son `e20xl`/`e20xc`, explotadores nuevos.
 - Contra la heurística `l20` queda ~1,8 puntos abajo de `c20` (81,2 % contra 82,3 %): se especializa un
   poco en sus rivales de la liga.
+
+### Explotadores nuevos contra la liga y el control (15/11)
+
+`e20xl` contra `l20`: 50,2 %, **0,00**. `e20xc` contra `c20`: 51,2 %, **+0,99** (las 4 semillas
+positivas). La liga cierra el agujero que `s20` tenía y el control conserva: la robustez viene de la
+liga, no de entrenar más.

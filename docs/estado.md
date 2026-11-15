@@ -267,6 +267,13 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **15/11 20:18: `queue20` terminada en la -14; VPN apagada.** Reporte en `docs/reportes/2026-11-14.md`.
+> **La liga funciona con 2 jugadores:** `l20` (desde `s20`, 24M contra una liga) empata con su control
+> `c20` (self-play, mismas partidas) y los dos le ganan a `s20` por ~+0,5, pero un explotador nuevo le
+> saca +0,99 a `c20` y nada a `l20` (0,00). `s20` tenía un agujero de ~1 punto (`e20il`, tasa 5e-5) que
+> la liga cierra. La red de 1024 no mejora con 2, 3 ni 7 jugadores (la meseta no es de capacidad).
+> Próximo a decidir: liga con 3 y 7 jugadores, y si la liga pasa a ser la forma de entrenar.
+>
 > **15/11 03:40: `e20il` (tasa 5e-5) le gana a `s20`: 51,6 % y +0,82** (primer agujero, chico).
 > `e20zl` (de cero, 36M) empata. `queue20` sigue en la -14: `k20` → `e20il_to48M` → `k30` → `k70` →
 > liga con 2 jugadores (`l20`, control `c20`, torneo `t_l20`, explotadores `e20xl`/`e20xc`;
