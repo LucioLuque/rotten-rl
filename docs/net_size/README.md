@@ -37,3 +37,7 @@ ni con 3 y 7 jugadores, ni a 12M.
 50,0 % de win rate, 2 de 16 cruces; contra `s20` final (36M): −1,45, 48,7 %, 0/16. Contra la
 heurística 81,2 % (`s20` a 12M, 82,3 %). Velocidad: 1.818 partidas/s por semilla (4 semillas); con
 3 jugadores (`k30`), 1.228.
+
+**3 jugadores (`t_k30`, 15/11):** tampoco mejora. `k30` (12M) contra `s30` a 12M: −0,25, 33,1 % de win
+rate, 4/16 cruces; contra `s30` final (24M): −0,80, 32,0 %, 0/16. Contra la heurística 62,5 % (`s30` a
+12M, 62,1 %).
