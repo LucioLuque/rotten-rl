@@ -48,6 +48,7 @@ XLA_PYTHON_CLIENT_PREALLOCATE=false (run_queue.py does it).
 """
 
 import argparse
+import glob
 import json
 import os
 import pickle
@@ -91,6 +92,25 @@ def save_checkpoint(run_dir, ts):
 def load_checkpoint(run_dir):
     with open(os.path.join(run_dir, "state", "ckpt.pkl"), "rb") as f:
         return jax.tree_util.tree_map(jax.numpy.asarray, pickle.load(f))
+
+
+def expand_runs(value):
+    """Comma-separated run folders; a part with * stands for every folder it matches, sorted (an
+    @<ep> suffix applies to each). Lets a queue line name runs that a previous line creates."""
+    if not value:
+        return value
+    out = []
+    for part in value.split(","):
+        part = part.strip()
+        if "*" not in part:
+            out.append(part)
+            continue
+        pattern, _, ep = part.partition("@")
+        found = sorted(glob.glob(os.path.expanduser(pattern)))
+        if not found:
+            sys.exit(f"{part}: no runs match")
+        out += [f + (f"@{ep}" if ep else "") for f in found]
+    return ",".join(out)
 
 
 def load_policy(spec):
@@ -234,6 +254,8 @@ def main():
     p.add_argument("--runs_dir", default="runs")
     p.add_argument("--run_name", default="jax_ppo")
     a = p.parse_args()
+    for k in ("resume", "init_from", "opponent", "league"):
+        setattr(a, k, expand_runs(getattr(a, k)))
 
     if a.resume:
         run_dirs = [os.path.expanduser(r).rstrip("/") for r in a.resume.split(",")]
