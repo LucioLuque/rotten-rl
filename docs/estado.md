@@ -267,6 +267,12 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Qué sigue (16/11/2026 07:00)
 
+> **16/11 14:00, etapa A en marcha.** Ronda de 1 carta contra el equilibrio: `s20`, `s30` y `u72`
+> cantan en equilibrio (pierden 0,001–0,003 puntos por ronda; `docs/primera-ronda/README.md`). PIMC
+> escrito y con tests (`rotten_rl/search/`, `docs/search/`); falta la primera corrida en la GPU. Ronda
+> de 2 cartas: el servidor no tiene compilador; va en la -14 (tabla de 3 jugadores en
+> `runs/lab/labo-s004-19/round2/n3_b.bin`; la de 2 jugadores hay que calcularla).
+
 > **16/11 08:35 (programado):** `queue22` en la -14 (liga desde cero con 2 jugadores, `lz20`, 48M;
 > torneo `t_lz20`; explotador `e20xz`) y `queue23` en la -13 solo para terminar `e70xc`. **Después la
 > -13 no se usa más por ahora** (se la dejo al otro usuario); todo lo nuevo va a la -14.

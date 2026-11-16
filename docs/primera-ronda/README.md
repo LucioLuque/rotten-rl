@@ -81,6 +81,21 @@ canta 0 con cartas bajas saliendo primero y pierde 2.7 puntos por ronda de 1 car
 1 siempre). Con 3 a 7 jugadores, lo máximo que se le saca a una mesa de heurísticas es 0.1 a 0.6
 puntos por ronda, y casi todo escuchando los cantos (la heurística no los mira).
 
+## Los agentes actuales contra el equilibrio (16/11/2026)
+
+`scripts/exact/compare_round1_agent.py --deals 200000` con la última versión de la semilla 0 de cada
+uno (pérdida en puntos por ronda contra el equilibrio, con los demás en equilibrio; promedio de las
+posiciones de canto):
+
+| Agente | Acción más probable | Muestreando | Heurística |
+|---|---|---|---|
+| `s20` (2 jugadores, 36M) | +0,003 | +0,000 | −1,390 |
+| `s30` (3 jugadores, 24M) | +0,001 | −0,004 | −0,370 |
+| `u72` (7 jugadores, 24M) | +0,003 | −0,003 | −0,242 |
+
+**Los tres cantan la ronda de 1 carta en equilibrio** (lo que pierden está en el ruido). La heurística
+pierde mucho con 2 jugadores (no canta 1 siempre en primera posición).
+
 ## Archivos
 
 - `rotten_rl/exact/round1.py`: el cálculo (repartos, CFR+, mejor respuesta, tablas de la

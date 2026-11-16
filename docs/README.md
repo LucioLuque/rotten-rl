@@ -15,4 +15,5 @@
 | Objetivo de ganar la partida: probabilidad de ganar como recompensa, validación y resultados (no aporta) | `match_value/` |
 | Robustez: un explotador entrenado contra el agente congelado (`train_ppo --opponent`) | `robustness/` |
 | Tamaño de la red: prueba con 1024 | `net_size/` |
+| Búsqueda (PIMC): rival más fuerte, análisis de decisiones y, más adelante, jugador | `search/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

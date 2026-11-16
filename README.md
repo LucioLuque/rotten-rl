@@ -16,6 +16,7 @@ rotten_rl/                    paquete
   tournament_report.py        tablas y ranking de los torneos
   match_value/                probabilidad de ganar la partida según los puntajes (docs/match_value/)
   profiles/                   perfiles de juego (reglas, partidas guardadas) para medir contra estilos
+  search/pimc.py              PIMC sobre el motor en JAX: rival y analizador de decisiones (docs/search/)
   exact/                      partes del juego resueltas sin RL (ver su README.md)
     round1.py                 la ronda de 1 carta: equilibrio (CFR) y comparaciones
     round2/                   la ronda de 2 cartas, en C++ (MCCFR)
@@ -41,6 +42,7 @@ scripts/
   exact/                      resolver la ronda de 1 carta, analizar la de 2 y comparar el agente
   match_value/fit_win_prob.py ajuste de la probabilidad de ganar
   profiles/screenshots.py     capturas de la interfaz sin ventana
+  search/analyze_decisions.py PIMC: analizar las decisiones del agente o jugar contra él
   dev/                        herramientas de desarrollo
 tests/                        tests con pytest (tests/data: observaciones de referencia)
 docs/                         documentación (índice en docs/README.md)
