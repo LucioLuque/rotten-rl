@@ -267,6 +267,13 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
+> **15/11 21:15: liga con 7 jugadores en la -13** (la GPU estaba libre desde el 14/11 18:54), en
+> paralelo con la de 3 en la -14: `queue21` (`docs/robustness/queue21.txt`): `l70` (desde `u72`, liga
+> de `u72` final y a 12M, `e70i` y `e70z`), `c70`, `t_l70`, `e70xl`, `e70xc`, todo a 24M. No entra en
+> una noche: corta a las 06:55 y se retoma con `--resume`. `~/scratch/queue21_start.sh` tiene un guardia:
+> si otro usuario usa la GPU, corta la cola (el entrenamiento guarda su estado) y hay que pasar lo que
+> falte a la -14. Vigilante y respaldo de la -13: `podrida-watch13`, `podrida-backup13` (cada 2 h).
+>
 > **15/11 20:51: liga con 3 jugadores en la -14** (agregada a `queue20`): `l30` (desde `s30`, 24M,
 > liga de `s30` final y a 12M, `e30i`, `e30z`), control `c30`, torneo `t_l30`, explotadores
 > `e30xl`/`e30xc` (tasa 5e-5, 24M) y al final `e70il` (tasa 5e-5 contra `u72`, para saber si el de 7
