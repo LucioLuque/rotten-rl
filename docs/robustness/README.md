@@ -143,3 +143,16 @@ Explotadores nuevos (tasa 5e-5, 24M): `e30xl` contra `l30`: 33,7 %, **+0,36**; `
 algo más débil que el control y no es menos explotable (los dos tienen un agujero chico, menor que el
 de `s20` con 2 jugadores). Lo atribuyo a que el que aprende recibe un tercio de los datos por partida.
 Idea para probar: que el que aprende ocupe varios asientos en las partidas de la liga.
+
+## La liga con 7 jugadores (15–16/11, -13 y -14)
+
+Torneo `t_l70` (16/11 05:24), promedio de 4 semillas (empate 14,3 %):
+
+| Fila vs columna | `u72` 24M | `l70` (liga) | `c70` (control) | `e70i` | `e70z` | heurística |
+|---|---|---|---|---|---|---|
+| `l70` | +0,03 · 10/16 | — | −0,13 · 1/16 | +0,30 · 16/16 | +0,73 · 16/16 | 37,7 % |
+| `c70` | +0,12 · 14/16 | +0,07 · 12/16 | — | +0,38 · 16/16 | +0,80 · 16/16 | 38,5 % |
+
+Igual que con 3 jugadores: la liga queda un poco por debajo del control (el que aprende recibe 1/7 de
+los datos por partida) y casi no mejora a `u72`. Explotadores `e70xl` (-14) y `e70xc` (-13, cortado
+a las 06:55; se retoma con `--resume`).
