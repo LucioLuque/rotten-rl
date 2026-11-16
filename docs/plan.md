@@ -1,5 +1,28 @@
 # Plan del proyecto
 
+## Plan desde el 16/11/2026: medir mejor, mejorar la receta, escalar
+
+Al 16/11, `s20`, `s30` y `u72` (2, 3 y 7 jugadores) están en meseta con PPO y self-play; no la
+pasaron ni el premio por ganar la partida ni la red de 1024 (`docs/match_value/`, `docs/net_size/`).
+La heurística ya no distingue entre agentes buenos (todos le ganan igual). La liga sobre un agente
+entrenado cierra un agujero de ~1 punto con 2 jugadores; con 3 y 7 está en estudio
+(`docs/robustness/`). La idea del plan: **primero medir mejor, después mejorar, después escalar**.
+Duraciones estimadas, según las noches de lab que haya.
+
+| Etapa | Qué | Por qué en ese lugar | Duración |
+|---|---|---|---|
+| **A. Medir** | Explotadores de 3 y 7 a 48M (`queue24`). Comparar `s20`, `s30` y `u72` contra lo exacto (ronda 1 con los tres; ronda 2 con 3 jugadores; correr el solver de la ronda 2 con 2 jugadores, que nunca se corrió). PIMC como rival y como analizador de errores (en las partidas perdidas, ¿había una jugada claramente mejor?). Panel de rivales: nuestros mejores agentes, explotadores, PIMC y mi perfil cuando tenga partidas | Sin mejor medición no se sabe si lo que sigue mejora algo | 1–2 semanas |
+| **B. Mejorar la receta** (con 2, 3 y 7) | Pérdida auxiliar que prediga las manos ajenas; canto y juego en cabezas separadas; liga con el que aprende en varios asientos; quizás MMD | Cada mejora habría que reentrenarla en todas las n: conviene encontrarlas con pocas | 2–3 semanas |
+| **C. 4, 5 y 6 jugadores** | Con la mejor receta de B; cada agente nuevo, contra lo exacto donde exista | Para no entrenarlos dos veces | ~1 semana |
+| **D. Variantes de reglas** | No cantar lo mismo 3 veces seguidas; rondas sin triunfo | Cambian el juego y obligan a reentrenar: con la receta fija | 1–2 semanas |
+| **E. Modelo único de 2 a 7** | Contra los específicos de cada n; vale si pierde poco (por ejemplo, menos de 0,3 por partida) | Tiene que incluir las variantes | 1–2 semanas |
+| **F. Eficiencia** | Red más chica (256): cuánta velocidad gana sin perder calidad | Cuando lo principal esté resuelto | días |
+| **G. Búsqueda al jugar** | PIMC como jugador, sobre el modelo final | Se apoya en la mejor red | abierto |
+| **H. Más adelante** | Identificar el estilo de cada rival; jugar contra personas | Necesita todo lo anterior | — |
+
+Lo exacto de la ronda 2 con 5 a 7 jugadores (agrupación C, `docs/segunda-ronda/`) entra en C solo si
+hace falta como control. El plan del 9/11 (abajo) queda como historia.
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
