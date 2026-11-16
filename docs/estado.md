@@ -270,6 +270,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > **16/11 08:35 (programado):** `queue22` en la -14 (liga desde cero con 2 jugadores, `lz20`, 48M;
 > torneo `t_lz20`; explotador `e20xz`) y `queue23` en la -13 solo para terminar `e70xc`. **Después la
 > -13 no se usa más por ahora** (se la dejo al otro usuario); todo lo nuevo va a la -14.
+> 12:25: `queue22` terminada. **La liga desde cero aprende mucho más lento** (a 48M = `s20` a 12M);
+> la liga sirve como etapa final sobre un agente entrenado. VPN apagada hasta las 18:25.
 
 1. ~~Terminar `e70xc`~~ (16/11 09:27): +0,02 contra `c70`. Con 7 jugadores no hay agujero (ni en la
    liga ni en el control) y la liga no aporta. La -13 quedó libre.

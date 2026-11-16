@@ -178,3 +178,21 @@ estaba en +0,70 a las 12M; con 3 y 7 todos seguían subiendo al cortarse a las 2
 +0,36 entre 16M y 24M, `e70xc` −0,22 → +0,02 entre 12M y 24M). El que aprende recibe 1/n de los datos
 por partida: 24M partidas son ~12M de self-play con 2 jugadores, ~8M con 3 y ~3,4M con 7.
 `queue24` los retoma hasta 48M.
+
+## Liga desde cero con 2 jugadores (`queue22`, 16/11, -14)
+
+`lz20`: de cero, 48M partidas, tasa 3e-4, liga que arranca con las redes iniciales de `s20` y suma
+una copia propia cada 1M (más la red actual como rival). Torneo `t_lz20`:
+
+| `lz20` contra | a 24M | a 48M |
+|---|---|---|
+| `s20` a 12M | −2,20 · 0/16 | +0,15 · 9/16 |
+| `s20` a 24M | −2,93 · 0/16 | −0,81 · 0/16 |
+| `s20` 36M | −2,98 · 0/16 | −0,86 · 0/16 |
+| `l20` | −3,56 · 0/16 | −1,40 · 0/16 |
+
+**Aprende mucho más lento que el self-play:** a 48M llega al nivel de `s20` a 12M (4 veces más
+partidas). Por datos (1 de 2 asientos) tendría que llegar al de 24M, así que entrenar contra versiones
+viejas también lo frena. `e20xz` (explotador, tasa 5e-5, 24M) le saca +1,14 (51 %), pero no es
+comparable: `lz20` todavía no terminó de aprender y cualquier entrenamiento extra lo mejora. **La liga
+conviene como etapa final sobre un agente ya entrenado (`l20`), no desde cero.**
