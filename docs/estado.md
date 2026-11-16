@@ -269,7 +269,7 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 > **16/11 06:50: noche terminada; VPN apagada.** Reporte en `docs/reportes/2026-11-15.md`. La liga
 > no aporta con 3 jugadores y con 7 queda apenas por debajo del control. Falta `e70xc` (cortado a las
-> 06:55 con estado en la -13; retomar con `--resume`). A las 06:28 una consulta al slot 1 cayó en la
+> 06:55 en 15,7M de 24M, estado respaldado; retomar con `--resume`). A las 06:28 una consulta al slot 1 cayó en la
 > -09, pero a las 06:47 volvió a la -13, que no se había reiniciado: fue momentáneo. `c70` (24M)
 > respaldado.
 >
