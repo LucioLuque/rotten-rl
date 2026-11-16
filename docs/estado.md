@@ -267,10 +267,11 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
-> **16/11 06:45: noche terminada; VPN apagada.** Reporte en `docs/reportes/2026-11-15.md`. La liga
-> no aporta con 3 jugadores y con 7 queda apenas por debajo del control (falta `e70xc`). **A las 06:28
-> el slot 1 (`labs004`) pasó a la labo-s004-09** (la -13 estaría apagada); el slot 2 (`labs004b`)
-> sigue en la -14. De la -13 quedó respaldado hasta las 04:56: `c70` a 21M (se retoma) y no `e70xc`.
+> **16/11 06:50: noche terminada; VPN apagada.** Reporte en `docs/reportes/2026-11-15.md`. La liga
+> no aporta con 3 jugadores y con 7 queda apenas por debajo del control. Falta `e70xc` (cortado a las
+> 06:55 con estado en la -13; retomar con `--resume`). A las 06:28 una consulta al slot 1 cayó en la
+> -09, pero a las 06:47 volvió a la -13, que no se había reiniciado: fue momentáneo. `c70` (24M)
+> respaldado.
 >
 > **15/11 21:15: liga con 7 jugadores en la -13** (la GPU estaba libre desde el 14/11 18:54), en
 > paralelo con la de 3 en la -14: `queue21` (`docs/robustness/queue21.txt`): `l70` (desde `u72`, liga
