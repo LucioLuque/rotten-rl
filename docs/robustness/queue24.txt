@@ -1,0 +1,4 @@
+e30xc_to48M --resume ~/scratch/runs/e30xc_* --games 48000000 --eval_every 1000000
+e30xl_to48M --resume ~/scratch/runs/e30xl_* --games 48000000 --eval_every 1000000
+e70xc_to48M --resume ~/scratch/runs/e70xc_* --games 48000000 --eval_every 1000000
+e70xl_to48M --resume ~/scratch/runs/e70xl_* --games 48000000 --eval_every 1000000

@@ -273,6 +273,10 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 1. ~~Terminar `e70xc`~~ (16/11 09:27): +0,02 contra `c70`. Con 7 jugadores no hay agujero (ni en la
    liga ni en el control) y la liga no aporta. La -13 quedó libre.
+   **Pero** los explotadores de 3 y 7 jugadores seguían subiendo al cortarse a las 24M (reciben 1/n
+   de los datos por partida): `queue24` (programada el 16/11 a las 18:25 en la -14) los retoma hasta
+   48M (`e30xc`, `e30xl`, `e70xc`, `e70xl`; ~7 h 30 min). Si el del control crece más que el de la
+   liga, la liga sirve también con 3 o 7.
 2. **Liga con el que aprende en varios asientos**: con 3 y 7 jugadores la liga rinde menos que el
    control, probablemente porque el que aprende recibe 1/n de los datos. Cambiar `train_ppo --league`
    para que ocupe varios asientos (y que los demás sean rivales de la liga) y repetir `l30`/`l70`.

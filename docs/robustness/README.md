@@ -172,3 +172,9 @@ Resumen de la liga (desde el agente, 24M):
 
 Solo con 2 jugadores la liga cierra un agujero real. Con 3 los dos tienen un agujero chico y la liga es
 más débil; con 7 no hay agujero.
+
+**Pero los explotadores de 3 y 7 jugadores no terminaron de buscar:** con 2 jugadores `e20il` ya
+estaba en +0,70 a las 12M; con 3 y 7 todos seguían subiendo al cortarse a las 24M (`e30xl` +0,12 →
++0,36 entre 16M y 24M, `e70xc` −0,22 → +0,02 entre 12M y 24M). El que aprende recibe 1/n de los datos
+por partida: 24M partidas son ~12M de self-play con 2 jugadores, ~8M con 3 y ~3,4M con 7.
+`queue24` los retoma hasta 48M.
