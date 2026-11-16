@@ -76,3 +76,28 @@ def test_action_values_cover_the_legal_actions(n):
     a = int(pimc.pimc_action(params, s, jax.random.PRNGKey(0), num_samples=8))
     assert a in legal
     assert 0.0 <= float(ok) <= 1.0
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_bid_likelihood_with_the_true_hands_replays_the_bids(n):
+    """Bids made by the network: with the true hands (mid-play), bid_log_likelihood equals the sum
+    of the log-probabilities the network gave the others' bids when they made them."""
+    cfg = ppo.Config(num_players=n, hidden=(32,))
+    params = ppo.init(jax.random.PRNGKey(4), cfg).policy
+    s = _midround_state(n, round_ptr=4, plays=0, seed=11)        # start of a round of 5, bidding
+    rng = np.random.RandomState(0)
+    logps = {}
+    while int(s.phase) == jg.BIDDING:
+        q = int(s.current)
+        logits = jnp.where(jg.legal_mask(s), ppo.mlp(params, jg.observation(s, q)[None, :])[0],
+                           ppo.ILLEGAL)
+        lp = np.asarray(jax.nn.log_softmax(logits))
+        a = int(rng.choice(np.flatnonzero(np.asarray(jg.legal_mask(s)))))
+        logps[q] = lp[a]
+        s, _ = jg.step(s, a)
+    for _ in range(n + 1):                                       # a few cards into the play
+        s, _ = jg.step(s, int(np.flatnonzero(np.asarray(jg.legal_mask(s)))[0]))
+    p = int(s.current)
+    got = float(pimc.bid_log_likelihood(params, s, s.hands, p))
+    want = sum(v for q, v in logps.items() if q != p)
+    assert abs(got - want) < 1e-4

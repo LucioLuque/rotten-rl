@@ -269,7 +269,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 > **16/11 14:00, etapa A en marcha.** Ronda de 1 carta contra el equilibrio: `s20`, `s30` y `u72`
 > cantan en equilibrio (pierden 0,001–0,003 puntos por ronda; `docs/primera-ronda/README.md`). PIMC
-> escrito y con tests (`rotten_rl/search/`, `docs/search/`); falta la primera corrida en la GPU. Ronda
+> escrito y con tests (`rotten_rl/search/`, `docs/search/`): **juega peor que la red** (−5,2 por partida
+> con 2 jugadores, aun pesando los repartos por los cantos), así que no sirve como rival fuerte. Ronda
 > de 2 cartas: el servidor no tiene compilador; va en la -14 (tabla de 3 jugadores en
 > `runs/lab/labo-s004-19/round2/n3_b.bin`; la de 2 jugadores hay que calcularla).
 

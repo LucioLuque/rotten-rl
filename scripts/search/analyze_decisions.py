@@ -5,8 +5,9 @@ Plays `--matches` whole matches on the device (JAX, all at once) and, at every d
 (rotten_rl/search/pimc.py) for the value of each legal action. Two modes:
 
   analyze  The agent plays itself (greedy, every seat). At each decision: the gap between PIMC's
-           best action and the agent's action (in round points, PIMC's own estimate) and whether
-           they agree. Report by phase (bid / play) and hand size. A large gap means PIMC thinks
+           best action and the agent's action (in round points, PIMC's own estimate; the best
+           action is picked with one set of samples and the gap measured with another, so the
+           noise does not inflate it, and it can come out negative) and whether they agree. Report by phase (bid / play) and hand size. A large gap means PIMC thinks
            the agent left points on the table there (PIMC is noisy and has its own blind spots:
            read it as a lead, not a verdict).
   play     PIMC in one seat and the agent in the others, against the agent in that seat with the
@@ -51,10 +52,15 @@ def analyze(params, n, matches, samples, key):
     def one_step(state, k):
         live = ~jg.is_terminal(state)
         a = greedy(params, state)
-        actions, values, valid, ok = pimc.action_values(params, state, k, samples)
+        # Two independent sets of samples: one picks PIMC's best action, the other measures the
+        # gap. With a single set, the max over noisy estimates inflates the gap (winner's curse).
+        k_pick, k_measure = jax.random.split(k)
+        actions, pick, valid, ok = pimc.action_values(params, state, k_pick, samples)
+        _, values, _, _ = pimc.action_values(params, state, k_measure, samples)
         slot = jnp.argmax((actions == a) & valid)
-        gap = (values.max() - values[slot]) * POINTS
-        rec = dict(live=live, gap=gap, agree=actions[jnp.argmax(values)] == a,
+        best = jnp.argmax(pick)
+        gap = (values[best] - values[slot]) * POINTS
+        rec = dict(live=live, gap=gap, agree=actions[best] == a,
                    bidding=state.phase == jg.BIDDING, h=jg.hand_size(state), nlegal=valid.sum(),
                    sampled_ok=ok)
         state, _ = jg.step(state, a)
@@ -70,16 +76,19 @@ def analyze(params, n, matches, samples, key):
     return {k: np.asarray(v) for k, v in rec.items()}
 
 
-def play(params, n, matches, samples, key):
+def play(params, n, matches, samples, key, phase="all", infer_bids=False):
     """PIMC in seat `seat`, the agent elsewhere, against the agent everywhere, on the same deals.
-    Returns float[n, B]: (PIMC's match points over the rivals' mean) - (the agent's, same seat)."""
+    Returns float[n, B]: (PIMC's match points over the rivals' mean) - (the agent's, same seat).
+    phase: "all" (PIMC bids and plays), "play" (the network bids, PIMC plays the cards) or "bid"."""
     T = match_length(n)
 
     def run(k_deal, k_run, seat, use_pimc):
         def one_step(state, k):
             a = greedy(params, state)
-            a = jnp.where(use_pimc & (state.current == seat),
-                          pimc.pimc_action(params, state, k, samples), a)
+            mine = {"all": True, "play": state.phase == jg.PLAYING,
+                    "bid": state.phase == jg.BIDDING}[phase]
+            a = jnp.where(use_pimc & (state.current == seat) & mine,
+                          pimc.pimc_action(params, state, k, samples, infer_bids=infer_bids), a)
             state, r = jg.step(state, a)
             return state, r[seat]
         s = jg.random_game(k_deal, n)
@@ -120,18 +129,21 @@ def report_analyze(rec, name, n, matches, samples):
         f"{samples} repartos por decisión (repartos que respetan los palos conocidos: "
         f"{rec['sampled_ok'][live].mean():.1%}). Solo decisiones con más de una opción.", "",
         "Diferencia = valor de la mejor jugada según PIMC menos el de la del agente, en puntos de "
-        "la ronda sobre el promedio de los rivales (estimación de PIMC, con su ruido).", "",
+        "la ronda sobre el promedio de los rivales. La mejor se elige con un grupo de repartos y la "
+        "diferencia se mide con otro (si no, el ruido la infla); puede salir negativa.", "",
         table(rows, ["", "decisiones", "diferencia media", "> 0,5 pts", "> 2 pts",
                      "coincide con PIMC"]), ""])
 
 
-def report_play(diff, name, n, matches, samples):
+def report_play(diff, name, n, matches, samples, phase="all", infer=False):
     rows = [[f"asiento {k + 1}", f"{diff[k].mean():+.2f} ± {diff[k].std() / np.sqrt(matches):.2f}"]
             for k in range(n)]
     allv = diff.ravel()
     rows.append(["todos", f"{allv.mean():+.2f} ± {allv.std() / np.sqrt(allv.size):.2f}"])
     return "\n".join([
-        f"# PIMC jugando contra {name}", "",
+        f"# PIMC jugando contra {name}"
+        + {"all": "", "play": " (solo las cartas; canta la red)", "bid": " (solo el canto)"}[phase]
+        + (" — repartos pesados por los cantos" if infer else ""), "",
         f"{n} jugadores, {matches} repartos por asiento, PIMC con {samples} repartos por decisión "
         "(sus simulaciones juegan con la red). Diferencia por partida de PIMC en un asiento contra "
         "la red en ese asiento, con los mismos repartos y los mismos rivales (la red).", "",
@@ -143,6 +155,10 @@ def main():
     p.add_argument("--run", required=True, help="<run> or <run>@<ep>")
     p.add_argument("--players", type=int, required=True)
     p.add_argument("--mode", choices=["analyze", "play"], default="analyze")
+    p.add_argument("--phase", choices=["all", "play", "bid"], default="all",
+                   help="play mode: where PIMC decides (the network does the rest)")
+    p.add_argument("--infer_bids", action="store_true",
+                   help="weight the sampled deals by how likely they make the others' bids")
     p.add_argument("--matches", type=int, default=256)
     p.add_argument("--samples", type=int, default=32)
     p.add_argument("--seed", type=int, default=2026)
@@ -156,8 +172,8 @@ def main():
         text = report_analyze(analyze(params, a.players, a.matches, a.samples, key),
                               name, a.players, a.matches, a.samples)
     else:
-        text = report_play(play(params, a.players, a.matches, a.samples, key),
-                           name, a.players, a.matches, a.samples)
+        text = report_play(play(params, a.players, a.matches, a.samples, key, a.phase, a.infer_bids),
+                           name, a.players, a.matches, a.samples, a.phase, a.infer_bids)
     text += f"\n({time.perf_counter() - t0:.0f} s)\n"
     print(text)
     if a.out:

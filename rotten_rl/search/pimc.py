@@ -95,6 +95,37 @@ def rollout_round(params, state, key, sample=False, reward_scheme="relative"):
     return total
 
 
+def bid_log_likelihood(params, state, hands, player):
+    """log P(the other players' bids this round | their hands are `hands`), under `params` (the
+    network's bidding policy): the round is rebuilt at its start with `hands` plus the cards each one
+    already played, and the bids made so far are replayed in order. Used to weight the sampled deals
+    (deals that do not fit the bids count little)."""
+    n = state.hands.shape[0]
+    start_hands = hands | (state.played_by[None, :] == jnp.arange(n)[:, None])
+    s0 = state._replace(
+        hands=start_hands, bids=jnp.full((n,), -1, jnp.int32), phase=jnp.int32(jg.BIDDING),
+        current=((state.dealer + 1) % n).astype(jnp.int32), tricks_won=jnp.zeros((n,), jnp.int32),
+        lead_suit=jnp.int32(-1), trick=jnp.full((n,), -1, jnp.int32), trick_len=jnp.int32(0),
+        tricks_done=jnp.int32(0), played_by=jnp.full((52,), -1, jnp.int32),
+        voids=jnp.zeros((n, 4), bool))
+
+    def body(carry, _):
+        s, logp = carry
+        q = s.current
+        made = state.bids[q] >= 0
+        a = jg.BID_OFFSET + jnp.maximum(state.bids[q], 0)
+        obs = jg.observation(s, q)
+        logits = jnp.where(jg.legal_mask(s), mlp(params, obs[None, :])[0], ILLEGAL)
+        lp = jax.nn.log_softmax(logits)[a]
+        logp = logp + jnp.where(made & (q != player), lp, 0.0)
+        s2, _ = jg.step(s, a)
+        s = jax.tree_util.tree_map(lambda x, y: jnp.where(made, y, x), s, s2)
+        return (s, logp), None
+
+    (_, logp), _ = jax.lax.scan(body, (s0, jnp.float32(0.0)), None, length=n)
+    return logp
+
+
 def legal_actions(state):
     """(actions int[MAX_LEGAL], valid bool[MAX_LEGAL]): the legal actions of the current player,
     padded."""
@@ -105,10 +136,12 @@ def legal_actions(state):
 
 
 def action_values(params, state, key, num_samples=32, sample_rollouts=False,
-                  reward_scheme="relative"):
+                  reward_scheme="relative", infer_bids=False):
     """PIMC values of the current player's legal actions.
     Returns (actions int[8], values float[8] (-inf where not valid), valid bool[8], sampled_ok):
-    values = mean round reward of the current player over `num_samples` sampled deals."""
+    values = mean round reward of the current player over `num_samples` sampled deals; with
+    `infer_bids`, a mean weighted by how likely each deal makes the others' bids
+    (`bid_log_likelihood`)."""
     p = state.current
     actions, valid = legal_actions(state)
     k_deal, k_roll = jax.random.split(key)
@@ -124,15 +157,18 @@ def action_values(params, state, key, num_samples=32, sample_rollouts=False,
             rest = rollout_round(params, s1, k, sample_rollouts, reward_scheme)
             return jnp.where(closed, r, rest)[p]
 
-        return jax.vmap(per_action)(actions, jax.random.split(kr, MAX_LEGAL)), ok
+        logw = bid_log_likelihood(params, state, hands, p) if infer_bids else jnp.float32(0.0)
+        return jax.vmap(per_action)(actions, jax.random.split(kr, MAX_LEGAL)), ok, logw
 
-    vals, oks = jax.vmap(per_sample)(jax.random.split(k_deal, num_samples),
-                                     jax.random.split(k_roll, num_samples))
-    values = jnp.where(valid, vals.mean(axis=0), -jnp.inf)
+    vals, oks, logw = jax.vmap(per_sample)(jax.random.split(k_deal, num_samples),
+                                           jax.random.split(k_roll, num_samples))
+    w = jax.nn.softmax(logw)                                     # uniform without infer_bids
+    values = jnp.where(valid, (w[:, None] * vals).sum(axis=0), -jnp.inf)
     return actions, values, valid, oks.mean()
 
 
-def pimc_action(params, state, key, num_samples=32, sample_rollouts=False):
+def pimc_action(params, state, key, num_samples=32, sample_rollouts=False, infer_bids=False):
     """The action PIMC plays: the legal one with the highest value."""
-    actions, values, _, _ = action_values(params, state, key, num_samples, sample_rollouts)
+    actions, values, _, _ = action_values(params, state, key, num_samples, sample_rollouts,
+                                          infer_bids=infer_bids)
     return actions[jnp.argmax(values)]

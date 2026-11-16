@@ -36,6 +36,27 @@ por eso primero va como rival y analizador.
   - `--mode play`: PIMC en un asiento y la red en los demás, contra la red en ese asiento con los
     mismos repartos: ¿PIMC le gana a la red?
 
-## Resultados
+- `bid_log_likelihood` (opción `infer_bids`): pesa cada reparto inventado por la probabilidad de que,
+  con esas cartas, los rivales hubieran cantado lo que cantaron (según la red). Es la inferencia de
+  los programas de Skat.
 
-Pendiente: primera corrida en la -14 (16/11 a la noche).
+## Resultados (16/11, `s20`, 2 jugadores, GPU de la -14)
+
+PIMC jugando en un asiento contra la red en los demás, contra la red en ese asiento con los mismos
+repartos (256 por asiento; puntos por partida):
+
+| PIMC decide | Sin pesar por cantos (32 repartos) | Pesando por cantos (64 repartos) |
+|---|---|---|
+| Solo las cartas (canta la red) | −5,77 ± 0,88 | −3,37 ± 0,79 |
+| Solo el canto (juega la red) | −5,52 ± 1,14 | — |
+| Canto y cartas | −12,72 ± 2,64 (64 repartos por asiento) | −5,16 ± 1,19 |
+
+**PIMC guiado por la red juega peor que la propia red**, como en Wizard. Pesar por los cantos lo
+mejora mucho pero no alcanza. Así que no sirve como rival más fuerte, y su medida de errores tampoco
+es confiable (un juez más débil que el agente). El análisis (`--mode analyze`, 64 partidas, 32
+repartos, diferencia con dos grupos de repartos) dio −0,03 puntos de media: PIMC no encuentra
+jugadas mejores que las del agente. Tiempo: 9 a 45 segundos por corrida con 64 a 256 partidas.
+
+Ideas si se retoma: más repartos y simulaciones que muestreen en vez de jugar la acción más
+probable; pesar también por las cartas jugadas; usar PIMC solo en las últimas bazas, donde las manos
+están muy restringidas.
