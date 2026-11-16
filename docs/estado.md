@@ -267,6 +267,10 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Qué sigue (16/11/2026 07:00)
 
+> **16/11 08:35 (programado):** `queue22` en la -14 (liga desde cero con 2 jugadores, `lz20`, 48M;
+> torneo `t_lz20`; explotador `e20xz`) y `queue23` en la -13 solo para terminar `e70xc`. **Después la
+> -13 no se usa más por ahora** (se la dejo al otro usuario); todo lo nuevo va a la -14.
+
 1. **Terminar `e70xc`** (explotador contra el control de 7, cortado en 15,7M de 24M; estado en la -13
    y respaldado en `runs/lab/labo-s004-13/runs/`): `--resume` con `--games 24000000 --eval_every
    1000000`, ~50 minutos. Con eso se cierra la comparación liga contra control con 7 jugadores.
