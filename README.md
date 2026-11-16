@@ -9,49 +9,55 @@ sobre [OpenSpiel](https://github.com/google-deepmind/open_spiel).
 rotten_rl/                    paquete
   engine.py                   motor del juego en Python puro: reglas, cantos, bazas y puntaje
   openspiel_game.py           wrapper pyspiel.Game/State y observación (2 a 7 jugadores)
+  jax_engine/                 el juego y PPO en JAX, todo en la GPU (lo que se usa para entrenar;
+                              ver su README.md): game.py, tricks.py, ppo.py (self-play,
+                              explotador contra una red congelada, liga), evaluate.py
   evaluation.py               rivales de referencia (azar, heurística, redes) y métricas
-  training.py                 loop de partidas de a una (opción: cada ronda es un episodio)
-  vector.py                   muchas partidas a la vez, con la red decidiendo en lote
-  algorithms/                 algoritmos con una interfaz común (base.py):
-    nfsp.py                   NFSP de OpenSpiel, un agente por asiento
-    dqn.py                    DQN con una red compartida por todos los asientos
-    ppo.py                    PPO con política y crítico compartidos (self-play)
+  tournament_report.py        tablas y ranking de los torneos
+  match_value/                probabilidad de ganar la partida según los puntajes (docs/match_value/)
+  profiles/                   perfiles de juego (reglas, partidas guardadas) para medir contra estilos
   exact/                      partes del juego resueltas sin RL (ver su README.md)
     round1.py                 la ronda de 1 carta: equilibrio (CFR) y comparaciones
     round2/                   la ronda de 2 cartas, en C++ (MCCFR)
-  checkpoint.py               checkpoints completos para cortar y retomar
-  buffers.py                  buffers de NFSP/DQN con el info-state comprimido (sin pérdida)
+  algorithms/                 el entrenamiento viejo en PyTorch (base.py, nfsp.py, dqn.py, ppo.py)
+  training.py, vector.py      loops del entrenamiento en PyTorch
+  checkpoint.py, buffers.py   checkpoints y buffers del entrenamiento en PyTorch
+  lab_hours.py                ventanas del laboratorio según el calendario del aula
   run_logger.py               logging a TensorBoard, CSV y config.json en runs/
   renderer.py                 render con Pygame
 scripts/
-  train.py                    entrenamiento: --algo nfsp|dqn|ppo, --vector_games, --resume, ...
-  run_queue.py                cola de experimentos para el laboratorio
+  train.py                    entrenamiento en PyTorch: --algo nfsp|dqn|ppo (anterior al de JAX)
+  run_queue.py                cola de experimentos para el laboratorio (con --script, cualquier script)
   play.py                     partida jugable contra la heurística, un perfil o un modelo
-  eval/                       evaluar agentes ya entrenados
-    tournament.py             torneo entre agentes (políticas guardadas, heurística, azar)
-    summarize_runs.py         tabla comparativa de corridas
-  exact/
-    solve_round1.py           resuelve la ronda de 1 carta de 2 a 7 jugadores
-    analyze_round2.py         preguntas sobre la estrategia de la ronda de 2 cartas
+  jax_engine/
+    train_ppo.py              entrenamiento en JAX: PPO self-play, --opponent (explotador), --league
+    tournament.py             torneo entre agentes en la GPU (segundos)
+    tournament_groups.py      el torneo resumido por corrida (promedio de semillas)
+    bench_*.py, profile_ppo.py, lab_bench.sh   mediciones de velocidad
+  lab/                        el laboratorio: watch_queue.sh (vigilante), backup_loop.sh y
+                              pull_from_lab.sh (respaldo), start_queue.sh, setup_machine.sh,
+                              thin_policies.sh (LAB_SSH=labs004b para la segunda máquina)
+  eval/                       torneo y resumen de corridas en PyTorch
+  exact/                      resolver la ronda de 1 carta, analizar la de 2 y comparar el agente
+  match_value/fit_win_prob.py ajuste de la probabilidad de ganar
+  profiles/screenshots.py     capturas de la interfaz sin ventana
   dev/                        herramientas de desarrollo
-    bench_parallel.py         cuántas corridas conviene correr a la vez
-    diag_dqn.py               diagnóstico: DQN solo contra rivales fijos
-    make_obs_fixture.py       regenera tests/data/info_states.npz
 tests/                        tests con pytest (tests/data: observaciones de referencia)
 docs/                         documentación (índice en docs/README.md)
 ```
 
 ## Qué hay
 
-- **Entrenamiento con RL** (`scripts/train.py`): agentes que aprenden jugando contra sí mismos
-  (self-play). Hoy el mejor es PPO con una red compartida por todos los asientos; el estado y los
-  resultados están en `docs/estado.md` y en los reportes de cada noche (`docs/reportes/`).
-- **Evaluación** (`rotten_rl/evaluation.py`, `scripts/eval/`): contra el azar, una heurística y
-  versiones anteriores, con repartos duplicados y error estándar, y un torneo entre agentes.
-- **Partes resueltas sin RL** (`rotten_rl/exact/`): las partes del juego lo bastante chicas para
-  calcular cómo conviene jugar de forma exacta: la ronda de 1 carta y la de 2 (en C++). Sirven para entender el
-  juego y para controlar si el agente aprendió bien en un caso con respuesta conocida. Ver
-  `rotten_rl/exact/README.md` y `docs/primera-ronda/`.
+- **Entrenamiento en JAX** (`scripts/jax_engine/train_ppo.py`): PPO con una red compartida por todos
+  los asientos, el juego entero en la GPU (~30 veces más rápido que el de PyTorch). Self-play, o
+  contra una red congelada (`--opponent`) o una liga de redes (`--league`). Estado y resultados en
+  `docs/estado.md`, plan en `docs/plan.md` y un reporte por noche en `docs/reportes/`.
+- **Evaluación** (`rotten_rl/jax_engine/evaluate.py`, `scripts/jax_engine/tournament.py`): contra el
+  azar, una heurística y otras redes, con repartos duplicados (cada reparto con el agente en cada
+  asiento) y error estándar.
+- **Partes resueltas sin RL** (`rotten_rl/exact/`): la ronda de 1 carta y la de 2 (en C++), para
+  entender el juego y controlar si el agente aprendió bien en casos con respuesta conocida. Ver
+  `rotten_rl/exact/README.md`, `docs/primera-ronda/` y `docs/segunda-ronda/`.
 
 ## Instalación
 
@@ -65,14 +71,12 @@ Hace falta `open_spiel` 2.0 o más nuevo (Python 3.11+): las versiones 1.x de pi
 ## Uso
 
 ```bash
-python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 2 --run_name ppo2p
-# 32 partidas a la vez, decidiendo en lote en la GPU (DQN y PPO; mucho más rápido):
-python scripts/train.py --algo ppo --round_episodes --reward_scheme relative --players 3 \
-    --vector_games 32 --device cuda --run_name ppo3p
-tensorboard --logdir runs
+# entrenar en JAX (en el lab, con su entorno: ver docs/tecnico/lab-s004.md)
+python scripts/jax_engine/train_ppo.py --players 2 --seeds 0,1,2,3 --games 12000000 \
+    --rollout_games 512 --minibatch 1024 --epochs 2 --ent_coef 0.06 --run_name s20
+# torneo entre corridas (ver el docstring para el formato de --agents)
+python scripts/jax_engine/tournament.py --players 2 --agents heuristic,runs/s20_* --out torneo.md
 python scripts/play.py      # jugar; con --profile guarda tus decisiones (docs/profiles/)
-# torneo entre agentes guardados (ver el docstring para el formato de --agents)
-python scripts/eval/tournament.py --players 3 --deals 1000 --agents heuristic,runs/<corrida>
 python scripts/exact/solve_round1.py      # la ronda de 1 carta resuelta (CPU, ~30–40 min)
-pytest
+pytest                      # los tests de JAX necesitan un procesador con AVX2 (el servidor no tiene)
 ```
