@@ -156,3 +156,19 @@ Torneo `t_l70` (16/11 05:24), promedio de 4 semillas (empate 14,3 %):
 Igual que con 3 jugadores: la liga queda un poco por debajo del control (el que aprende recibe 1/7 de
 los datos por partida) y casi no mejora a `u72`. Explotadores `e70xl` (-14) y `e70xc` (-13, cortado
 a las 06:55; se retoma con `--resume`).
+
+`e70xc` (retomado el 16/11 en la -13, terminado a las 09:27): contra `c70` 14,6 %, **+0,02** (empate,
+±0,13 por semilla). **Con 7 jugadores ni la liga ni el control tienen agujeros** que este explotador
+encuentre (+0,07 y +0,02): `u72` y sus continuaciones ya son robustas a este método, y la liga no
+aporta (además queda apenas por debajo del control).
+
+Resumen de la liga (desde el agente, 24M):
+
+| | 2 jugadores | 3 jugadores | 7 jugadores |
+|---|---|---|---|
+| Explotador contra la liga | 0,00 | +0,36 | +0,07 |
+| Explotador contra el control | +0,99 | +0,19 | +0,02 |
+| Liga contra control | 0,00 | −0,26 | −0,07 |
+
+Solo con 2 jugadores la liga cierra un agujero real. Con 3 los dos tienen un agujero chico y la liga es
+más débil; con 7 no hay agujero.
