@@ -273,6 +273,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > una noche: corta a las 06:55 y se retoma con `--resume`. `~/scratch/queue21_start.sh` tiene un guardia:
 > si otro usuario usa la GPU, corta la cola (el entrenamiento guarda su estado) y hay que pasar lo que
 > falte a la -14. Vigilante y respaldo de la -13: `podrida-watch13`, `podrida-backup13` (cada 2 h).
+> Reparto (21:30): `e70xl` pasó al final de `queue20` (-14, en lugar de `e70il`, que medía lo mismo
+> que `e70xc`); `podrida-copy-l70` (servidor) copia `l70` de la -13 a la -14 cuando termina.
 >
 > **15/11 20:51: liga con 3 jugadores en la -14** (agregada a `queue20`): `l30` (desde `s30`, 24M,
 > liga de `s30` final y a 12M, `e30i`, `e30z`), control `c30`, torneo `t_l30`, explotadores
