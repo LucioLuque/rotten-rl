@@ -8,7 +8,8 @@
 # Output (one line, it only exits for these): FIN | FALLA <detail>.
 # - No backups from 10 minutes before the lab closes until it reopens (rotten_rl/lab_hours.py: room
 #   calendar with its margins, weekday reboot at 07:30). One last backup 15 minutes before it closes.
-# - If a backup fails twice in a row it exits with FALLA.
+# - A failed backup is retried 3, 6, 9 and 12 minutes later; if it fails 5 times in a row it
+#   exits with FALLA.
 cd "$(dirname "$0")"
 until_epoch=$(date -d "$1" +%s) || exit 2
 every=$((${2:-60} * 60))
@@ -35,8 +36,13 @@ while [ "$(date +%s)" -lt "$until_epoch" ]; do
       last=$(date +%s); fails=0
       if [ $slot -eq 1 ]; then last_slot=$closes; fi
     else
+      # A failed pull is retried 3, 6, 9 and 12 minutes later before giving up (~30 minutes):
+      # with two machines the lab's limit of simultaneous connections can refuse one now and then
+      # (15/11 21:58: two failures a minute apart ended the loop).
       fails=$((fails + 1))
-      if [ $fails -ge 2 ]; then echo "FALLA $(date +%H:%M) $(echo "$output" | tail -1)"; exit 1; fi
+      if [ $fails -ge 5 ]; then echo "FALLA $(date +%H:%M) $(echo "$output" | tail -1)"; exit 1; fi
+      echo "$(date +%H:%M:%S) reintento $fails: $(echo "$output" | tail -1)" >> ../../runs/lab/backup.log
+      sleep $((180 * fails - 60))
     fi
   fi
   sleep 60

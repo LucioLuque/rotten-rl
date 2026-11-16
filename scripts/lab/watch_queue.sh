@@ -41,6 +41,11 @@ while true; do
   f=$(echo "$out" | sed -n 3p); running=$(echo "$out" | sed -n 4p)
   if ! [[ "$running" =~ ^[0-9]+$ ]]; then
     fails=$((fails + 1))
+    # Refused by the lab's limit of simultaneous connections (two machines, watchers and backups):
+    # the lab is fine, so allow up to ~15 minutes of refusals before FALLA.
+    if grep -q "Too many simultaneous connections" "$err" && [ $fails -lt 6 ]; then
+      sleep 150; continue
+    fi
     if [ $fails -ge 2 ]; then
       ssh -O exit "$LAB" >/dev/null 2>&1
       echo "FALLA $(date +%H:%M) $(tail -1 "$err")"; exit 1
