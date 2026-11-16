@@ -115,6 +115,22 @@ ronda y con 4 (`b40`) 0.060; la heurística, 1.24 y 0.79. Elige el mismo canto q
 de las veces y la misma carta el 77–79%. **El agente ya juega la ronda 2 casi en equilibrio.**
 Detalle en `docs/reportes/2026-10-29.md`.
 
+## Los agentes actuales contra la tabla (16/11/2026)
+
+En la -14 (`scripts/exact/compare_round2_agent.py --deals 20000`, última versión de la semilla 0).
+Con 2 jugadores calculé la tabla por primera vez (`round2 solve --n 2 --iters 30000000 --abstraction
+b`, 26 segundos, 109.454 situaciones; copia en `runs/lab/labo-s004-14/round2/n2_b.bin`). Diferencia
+contra la tabla en la misma posición (puntos por ronda; positivo = el agente saca más):
+
+| Agente | Acción más probable | Muestreando | Heurística | Mismo canto | Misma carta |
+|---|---|---|---|---|---|
+| `s20` (2 jugadores, 36M) | +0,024 | −0,027 | −1,947 | 97,3 % | 91,6 % |
+| `s30` (3 jugadores, 24M) | +0,020 | −0,007 | −1,239 | 97,3 % | 84,1 % |
+
+**Los dos juegan la ronda de 2 cartas en equilibrio** (dentro del error, ±0,015 a ±0,03; la tabla es
+aproximada y el agente a veces saca apenas más). Con 3 jugadores, mejor que `c10` el 30/10 (−0,035).
+Con 7 jugadores no hay tabla (agrupación C, pendiente).
+
 ## Pendiente
 
 - **Agrupación C** (plan del 30/10/2026): para la jugada, en vez de cada carta tirada y los cantos

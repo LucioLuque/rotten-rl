@@ -271,8 +271,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > cantan en equilibrio (pierden 0,001–0,003 puntos por ronda; `docs/primera-ronda/README.md`). PIMC
 > escrito y con tests (`rotten_rl/search/`, `docs/search/`): **juega peor que la red** (−5,2 por partida
 > con 2 jugadores, aun pesando los repartos por los cantos), así que no sirve como rival fuerte. Ronda
-> de 2 cartas: el servidor no tiene compilador; va en la -14 (tabla de 3 jugadores en
-> `runs/lab/labo-s004-19/round2/n3_b.bin`; la de 2 jugadores hay que calcularla).
+> de 2 cartas (18:44, CPU de la -14): `s20` y `s30` juegan en equilibrio (+0,02 por ronda, 97 % del
+> mismo canto; `docs/segunda-ronda/README.md`); la tabla de 2 jugadores se calculó por primera vez.
 
 > **16/11 08:35 (programado):** `queue22` en la -14 (liga desde cero con 2 jugadores, `lz20`, 48M;
 > torneo `t_lz20`; explotador `e20xz`) y `queue23` en la -13 solo para terminar `e70xc`. **Después la
