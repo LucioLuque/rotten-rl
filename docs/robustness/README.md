@@ -124,3 +124,16 @@ Promedio de 4 semillas; diferencia, win rate de la fila (empate 50 %) y cruces g
 `e20xl` contra `l20`: 50,2 %, **0,00**. `e20xc` contra `c20`: 51,2 %, **+0,99** (las 4 semillas
 positivas). La liga cierra el agujero que `s20` tenía y el control conserva: la robustez viene de la
 liga, no de entrenar más.
+
+## La liga con 3 jugadores (15–16/11, -14)
+
+Torneo `t_l30` (16/11 00:52), promedio de 4 semillas (empate 33,3 %):
+
+| Fila vs columna | `s30` 24M | `l30` (liga) | `c30` (control) | `e30i` | `e30z` | heurística |
+|---|---|---|---|---|---|---|
+| `l30` | +0,12 · 10/16 | — | −0,40 · 1/16 | +0,62 · 16/16 | +1,88 · 16/16 | 62,1 % |
+| `c30` | +0,42 · 16/16 | +0,26 · 14/16 | — | +0,94 · 16/16 | +2,02 · 16/16 | 62,7 % |
+
+Con 3 jugadores la liga queda **por debajo del control** (−0,26 a −0,40) y apenas mejora a `s30`;
+el control le gana a `s30` por +0,42. Probable causa: con 3 jugadores el que aprende en la liga recibe
+un tercio de los datos por partida (con 2, la mitad). Falta ver los explotadores `e30xl`/`e30xc`.
