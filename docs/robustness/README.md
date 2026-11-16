@@ -137,3 +137,9 @@ Torneo `t_l30` (16/11 00:52), promedio de 4 semillas (empate 33,3 %):
 Con 3 jugadores la liga queda **por debajo del control** (−0,26 a −0,40) y apenas mejora a `s30`;
 el control le gana a `s30` por +0,42. Probable causa: con 3 jugadores el que aprende en la liga recibe
 un tercio de los datos por partida (con 2, la mitad). Falta ver los explotadores `e30xl`/`e30xc`.
+
+Explotadores nuevos (tasa 5e-5, 24M): `e30xl` contra `l30`: 33,7 %, **+0,36**; `e30xc` contra `c30`:
+33,7 %, **+0,19** (las 4 semillas positivas en los dos). **Con 3 jugadores la liga no aporta**: es
+algo más débil que el control y no es menos explotable (los dos tienen un agujero chico, menor que el
+de `s20` con 2 jugadores). Lo atribuyo a que el que aprende recibe un tercio de los datos por partida.
+Idea para probar: que el que aprende ocupe varios asientos en las partidas de la liga.
