@@ -265,6 +265,19 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ## Próximos pasos
 
+### Qué sigue (16/11/2026 07:00)
+
+1. **Terminar `e70xc`** (explotador contra el control de 7, cortado en 15,7M de 24M; estado en la -13
+   y respaldado en `runs/lab/labo-s004-13/runs/`): `--resume` con `--games 24000000 --eval_every
+   1000000`, ~50 minutos. Con eso se cierra la comparación liga contra control con 7 jugadores.
+2. **Liga con el que aprende en varios asientos**: con 3 y 7 jugadores la liga rinde menos que el
+   control, probablemente porque el que aprende recibe 1/n de los datos. Cambiar `train_ppo --league`
+   para que ocupe varios asientos (y que los demás sean rivales de la liga) y repetir `l30`/`l70`.
+3. **Decidir si la liga pasa a ser la forma normal de entrenar** (con 2 jugadores cierra el agujero de
+   ~1 punto de `s20` sin perder fuerza; con 3 y 7, todavía no).
+4. Descartado por ahora: red más grande (1024 no mejora con 2, 3 ni 7) y premio por ganar la partida.
+5. Pendiente con IT (Stefano): si el límite de 2 conexiones SSH es por usuario o por máquina.
+
 ### Para retomar desde otra sesión (13/11/2026 08:50)
 
 > **16/11 06:50: noche terminada; VPN apagada.** Reporte en `docs/reportes/2026-11-15.md`. La liga
