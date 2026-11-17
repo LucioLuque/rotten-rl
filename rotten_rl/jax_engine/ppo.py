@@ -110,6 +110,7 @@ class Config(NamedTuple):
     max_grad_norm: float = 0.5
     total_games: int = 1_000_000    # the learning rate reaches 0 here (--ppo_anneal_lr)
     anneal: bool = True
+    lr_warmup: int = 0              # games over which the rate rises linearly from 0 (0 = none)
     reward_scheme: str = "relative"
     dtype: str = "float32"          # "bfloat16": matmuls (and stored observations) in bf16
     episode: str = "round"          # "match": GAE runs over the whole match (rounds don't cut it)
@@ -439,7 +440,8 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
         explained = 1 - jnp.var(flat["ret"] - values) / (jnp.var(flat["ret"]) + 1e-8)
         flat["adv"] = (flat["adv"] - flat["adv"].mean()) / (flat["adv"].std() + 1e-8)
         frac = jnp.maximum(0.0, 1.0 - ts.games_done / cfg.total_games) if cfg.anneal else 1.0
-        lr = base_lr * frac
+        warm = jnp.minimum(1.0, ts.games_done / cfg.lr_warmup) if cfg.lr_warmup else 1.0
+        lr = base_lr * frac * warm
 
         def epoch(carry, k):
             params, opt_state = carry

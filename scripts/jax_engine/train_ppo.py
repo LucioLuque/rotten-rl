@@ -67,13 +67,14 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
-               "league_add_every", "league_self", "league_seats", "aux_hands")
+               "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
                    "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
-                   "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0}
+                   "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0,
+                   "lr_warmup": 0}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -253,6 +254,14 @@ def main():
     p.add_argument("--eval_engine", default="jax", choices=["jax", "pyspiel"])
     p.add_argument("--checkpoint_every", type=int, default=25000)
     p.add_argument("--no_eval", action="store_true", help="only train and save (to measure speed)")
+    p.add_argument("--lr_warmup", type=int, default=0,
+                   help="games over which the learning rate rises linearly from 0 at the start")
+    p.add_argument("--stop_games", type=int, default=0,
+                   help="save and stop at this many games, keeping the schedule of --games (to "
+                        "look at the start of a long run)")
+    p.add_argument("--eval_against", default=None,
+                   help="run folder(s) evaluated against at every evaluation, as \"against\" (one "
+                        "for every seed or one per seed in order), e.g. the run this one started from")
     p.add_argument("--stop_at", default=None,
                    help="HH:MM, 'YYYY-MM-DD HH:MM' or lab (rotten_rl/lab_hours.py): save and stop")
     p.add_argument("--resume", default=None,
@@ -260,7 +269,7 @@ def main():
     p.add_argument("--runs_dir", default="runs")
     p.add_argument("--run_name", default="jax_ppo")
     a = p.parse_args()
-    for k in ("resume", "init_from", "opponent", "league"):
+    for k in ("resume", "init_from", "opponent", "league", "eval_against"):
         setattr(a, k, expand_runs(getattr(a, k)))
 
     if a.resume:
@@ -345,7 +354,7 @@ def main():
                      minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
                      dtype=a.dtype, episode=a.episode, match_bonus=members[0][3],
                      rank_weight=a.rank_weight, round_var=tuple(a.round_var),
-                     aux_coef=float(a.aux_hands))
+                     aux_coef=float(a.aux_hands), lr_warmup=int(a.lr_warmup))
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
           "ent_coef": np.array([m[2] for m in members], np.float32),
           "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None
@@ -438,6 +447,14 @@ def main():
         return ppo.unstack(ts, i) if multi else ts
 
     evaluate = None if a.no_eval else (JaxEval(a) if a.eval_engine == "jax" else PyspielEval(a, hidden))
+    against = None                           # fixed networks to evaluate against (--eval_against)
+    if a.eval_against:
+        ag = [x for x in a.eval_against.split(",")]
+        uniq = list(dict.fromkeys(seeds))
+        if len(ag) not in (1, len(uniq)):
+            sys.exit(f"--eval_against: {len(ag)} runs for {len(uniq)} seeds")
+        ag_of = dict(zip(uniq, ag * len(uniq) if len(ag) == 1 else ag))
+        against = [load_policy(ag_of[m[0]]) for m in members]
     past = [None] * len(seeds)
     if a.resume and not opp_of:              # with --opponent, "frozen" is evaluated instead                             # the snapshot of the last evaluation is "past"
         for i, d in enumerate(snap_dirs):
@@ -458,11 +475,14 @@ def main():
                 f.flush()
                 os.fsync(f.fileno())
             if evaluate is not None:
-                for name in (EVAL_OPPONENTS[:2] + ("frozen",) if opp_of else
-                             EVAL_OPPONENTS + (("league0",) if league is not None else ())):
+                for name in ((EVAL_OPPONENTS[:2] + ("frozen",) if opp_of else
+                              EVAL_OPPONENTS + (("league0",) if league is not None else ()))
+                             + (("against",) if against is not None else ())):
                     if name == "past" and past[i] is None:
                         continue
-                    if name == "frozen":
+                    if name == "against":
+                        m = evaluate(policy, "past", against[i])
+                    elif name == "frozen":
                         m = evaluate(policy, "past", ppo.unstack(opponents, i) if multi else opponents)
                     elif name == "league0":
                         first = ppo.unstack(league["pool"], i) if multi else league["pool"]
@@ -557,6 +577,8 @@ def main():
             next_eval += a.eval_every
         if deadline is not None and deadline.reached():
             stop["why"] = f"--stop_at {a.stop_at}"
+        if a.stop_games and games >= a.stop_games and games < a.games:
+            stop["why"] = f"--stop_games {a.stop_games}"
         if games >= next_ckpt or games >= a.games or stop["why"]:
             checkpoint()
             next_ckpt += a.checkpoint_every

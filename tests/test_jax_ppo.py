@@ -360,3 +360,17 @@ def test_league_update_with_several_seats_runs():
     assert all(np.isfinite(float(v)) for v in stats.values())
     with pytest.raises(ValueError):
         ppo.make_update(cfg, league_groups=2, league_seats=3)
+
+
+def test_lr_warmup_starts_at_zero_and_rises():
+    cfg = ppo.Config(num_players=2, hidden=(16,), rollout_games=4, minibatch=62, total_games=1000,
+                     learning_rate=1e-3, lr_warmup=16)
+    update = ppo.make_update(cfg)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    lrs = []
+    for _ in range(5):
+        ts, stats = update(ts)
+        lrs.append(float(stats["learning_rate"]))
+    assert lrs[0] == 0.0                                  # games_done = 0 at the first update
+    np.testing.assert_allclose(lrs[1], 1e-3 * (4 / 16) * (1 - 4 / 1000), rtol=1e-5)
+    assert lrs[4] == pytest.approx(1e-3 * (1 - 16 / 1000), rel=1e-5)
