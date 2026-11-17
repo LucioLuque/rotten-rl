@@ -18,5 +18,6 @@
 | Búsqueda (PIMC): rival más fuerte, análisis de decisiones y, más adelante, jugador | `search/` |
 | Tarea auxiliar: adivinar las manos ajenas (`train_ppo --aux_hands`) | `aux_hands/` |
 | Cómo retomar un agente entrenado (tasa al retomar, de cero contra en tramos) | `resume/` |
+| Canto y juego en redes separadas (etapa B) | `split_policy/` |
 | 4, 5 y 6 jugadores (etapa C) | `players_456/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

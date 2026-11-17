@@ -23,6 +23,34 @@ Duraciones estimadas, según las noches de lab que haya.
 Lo exacto de la ronda 2 con 5 a 7 jugadores (agrupación C, `docs/segunda-ronda/`) entra en C solo si
 hace falta como control. El plan del 9/11 (abajo) queda como historia.
 
+### Estado al 17/11
+
+Regla: el plan se sigue en orden; si algo se saltea, se reordena o se descarta, lo decido yo y queda
+anotado acá con fecha y motivo.
+
+**A. Medir**, casi terminada:
+- Hecho: explotadores de 3 y 7 a 48M (no les faltaba tiempo; `docs/robustness/`); ronda 1 contra el
+  equilibrio con 2, 3 y 7 y ronda 2 con 2 y 3 (`docs/primera-ronda/`, `docs/segunda-ronda/`); PIMC
+  como rival y analizador (juega peor que la red: descartado como rival, `docs/search/`).
+- Pendiente: panel fijo de rivales (va mientras corre la B, no ocupa el lab); mi perfil (necesita
+  partidas mías).
+
+**B. Mejorar la receta**, en curso:
+- Pérdida auxiliar de las manos ajenas: hecha, no mejora (`docs/aux_hands/`).
+- Liga con el que aprende en varios asientos: con 3 hecha, no lo hace más robusto; con 7 (`l70m`)
+  corriendo el 17/11 (`docs/robustness/`).
+- Canto y juego en redes separadas: programado el 17/11 (`--split_policy`), primera prueba con 2
+  jugadores (`h20` contra `s20full`, la misma receta de cero a 24M) en la noche del 17/11
+  (`docs/split_policy/`).
+- ~~MMD~~: descartado por ahora (17/11): más caro y sin un resultado en juegos parecidos que lo
+  justifique. Se puede probar más adelante.
+- También el 17/11: `s20full`, `s30full` y `u72full` (2, 3 y 7 de cero a 24M de una vez), porque los
+  agentes de 2 y 7 que tenía estaban hechos en tramos retomados; son además la base contra la que se
+  compara cada mejora de la B.
+
+**C. 4, 5 y 6 jugadores**: empieza cuando termine la B, con la mejor receta. El 17/11 la había
+empezado antes de tiempo (`f40`, `f50`, `f60` en la cola) y la saqué.
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
