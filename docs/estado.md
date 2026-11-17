@@ -267,6 +267,11 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Qué sigue (16/11/2026 07:00)
 
+> **17/11 02:00.** Explotadores a 48M: no crecen (3 jugadores: agujero chico y estable; 7: ninguno).
+> La liga solo ayuda con 2 jugadores. Ya están programados la tarea auxiliar (`--aux_hands`) y la liga
+> con varios asientos (`--league_seats`). Corre `a20` → `a30` → `a70` (`docs/aux_hands/`) en la -14.
+> Reporte: `docs/reportes/2026-11-16.md`.
+
 > **16/11 14:00, etapa A en marcha.** Ronda de 1 carta contra el equilibrio: `s20`, `s30` y `u72`
 > cantan en equilibrio (pierden 0,001–0,003 puntos por ronda; `docs/primera-ronda/README.md`). PIMC
 > escrito y con tests (`rotten_rl/search/`, `docs/search/`): **juega peor que la red** (−5,2 por partida

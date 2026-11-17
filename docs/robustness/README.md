@@ -205,3 +205,9 @@ asientos al azar y las redes de la liga los demás, así recibe m/n de los datos
 (explotador) sigue con un asiento, porque ahí la idea es medir. Tests en `tests/test_jax_ppo.py`
 (ocupa exactamente m asientos, entrena; con m = 1 todo igual que antes) y prueba de punta a punta en
 la -14. Propuesto: repetir `l30` con m = 2 y `l70` con m = 4 o 5, con sus explotadores.
+
+## Explotadores de 3 y 7 a 48M (16–17/11)
+
+`e30xc` +0,18 → +0,11, `e30xl` +0,36 → +0,35, `e70xc` +0,02 → −0,01, `e70xl` +0,07 → +0,07 (de 24M a
+48M). **No les faltaba tiempo**: ninguno crece con el doble de partidas. Con 3 jugadores, agujero chico
+y estable en los dos (la liga algo más); con 7, ninguno. Detalle en `docs/reportes/2026-11-16.md`.
