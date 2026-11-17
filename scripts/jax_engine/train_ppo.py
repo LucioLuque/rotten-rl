@@ -67,13 +67,13 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
-               "league_add_every", "league_self", "aux_hands")
+               "league_add_every", "league_self", "league_seats", "aux_hands")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
                    "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
-                   "league_add_every": 0, "league_self": False, "aux_hands": 0.0}
+                   "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -234,6 +234,9 @@ def main():
                    help="opponents drawn from the pool per update (divides --rollout_games)")
     p.add_argument("--league_add_every", type=int, default=0,
                    help="add the learner's own policy to its pool every N games (0: never)")
+    p.add_argument("--league_seats", type=int, default=1,
+                   help="seats the learner takes in each league match (the league's networks take the "
+                        "others): with more than 2 players, more seats = more data per match")
     p.add_argument("--league_self", action="store_true",
                    help="one of the drawn opponents is the current policy")
     p.add_argument("--aux_hands", type=float, default=0.0,
@@ -513,7 +516,8 @@ def main():
 
     update = ppo.make_update(cfg, multi_seed=multi, exploit=bool(opp_of),
                              league_groups=a.league_groups if league else 0,
-                             league_self=bool(league) and a.league_self)
+                             league_self=bool(league) and a.league_self,
+                             league_seats=a.league_seats if league else 1)
     next_add = ((games // a.league_add_every + 1) * a.league_add_every
                 if league is not None and a.league_add_every else None)
     if games == 0:

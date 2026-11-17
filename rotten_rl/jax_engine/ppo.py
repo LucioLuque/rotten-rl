@@ -173,17 +173,24 @@ def _opponent_logits(opponent, obs, dt, groups):
     return jax.vmap(lambda p, o: mlp(p, o, dt))(opponent, x).reshape(B, -1)
 
 
-def _rollout(policy, value, key, cfg, opponent=None, groups=0):
+def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
     """Plays `rollout_games` whole matches. Returns per-step arrays [T, B].
     With `opponent` (the policy params of a frozen network, any hidden sizes), each match has one
     seat at random for `policy` (sampling) and the others for `opponent`, greedy as in the
     evaluations and tournaments; traj["learner"] [T, B] marks the learner's decisions and
     traj["learner_seat"] [B] its seat. With groups > 0, `opponent` is a stack of that many
-    networks (leading axis) and each plays a block of B / groups consecutive matches."""
+    networks (leading axis) and each plays a block of B / groups consecutive matches. With seats = m
+    > 1, the learner takes m seats at random in each match (the opponents the other n - m) and
+    traj["learner_seats"] bool[B, n] marks them."""
     n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players)
     k_games, k_seat, key = jax.random.split(key, 3)
     states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(k_games, B))
     learner_seat = jax.random.randint(k_seat, (B,), 0, n)
+    if seats == 1:
+        learner_seats = jnp.arange(n)[None, :] == learner_seat[:, None]
+    else:                                              # m seats at random per match
+        rank = jnp.argsort(jnp.argsort(jax.random.uniform(k_seat, (B, n)), axis=1), axis=1)
+        learner_seats = rank < seats
     step = jax.vmap(lambda s, a: jg.step(s, a, cfg.reward_scheme))
     dt = compute_dtype(cfg)
 
@@ -203,7 +210,7 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0):
         if cfg.aux_coef:                               # targets of the auxiliary task
             out.update(_aux_targets(states, player))
         if opponent is not None:
-            learner = player == learner_seat
+            learner = learner_seats[jnp.arange(B), player]
             theirs = jnp.argmax(jnp.where(mask, _opponent_logits(opponent, obs, dt, groups), ILLEGAL),
                                 axis=1)
             action = jnp.where(learner, action, theirs.astype(jnp.int32))
@@ -216,6 +223,7 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0):
     traj["final_scores"] = states.scores                 # [B, n]: every match ends at T
     if opponent is not None:
         traj["learner_seat"] = learner_seat
+        traj["learner_seats"] = learner_seats
     return traj
 
 
@@ -365,7 +373,8 @@ def unstack(tree, i):
     return jax.tree_util.tree_map(lambda x: x[i], tree)
 
 
-def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_self=False):
+def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_self=False,
+                league_seats=1):
     """One compiled step: play a batch of matches and run every PPO minibatch update on it.
     With exploit, the step is `update(ts, hp, opponent)`: it trains against the frozen policy
     `opponent` (with multi_seed, one per stacked state) instead of self-play. Only the learner's
@@ -376,7 +385,8 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     `update(ts, hp, pool, pool_count)`: `pool` is a stack of frozen policies (leading axis of a fixed
     size, the first `pool_count` valid); each update draws K of them at random (with replacement)
     and each plays B / K of the matches. With league_self, the first of the K is the current
-    policy itself (greedy, like the others).
+    policy itself (greedy, like the others). With league_seats = m, the learner takes m seats of
+    each match (m * T / n decisions trained on per match instead of T / n).
     With multi_seed, the step takes a stacked TrainState (`init_seeds`) and trains every seed at
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
     The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
@@ -388,7 +398,9 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     exploit = exploit or league_groups > 0
     if league_groups and B % league_groups:
         raise ValueError(f"rollout_games ({B}) must be a multiple of league_groups ({league_groups})")
-    L = T // n if exploit else T                       # decisions trained on per match
+    if not 1 <= league_seats < n:
+        raise ValueError(f"league_seats must be between 1 and {n - 1}")
+    L = T * league_seats // n if exploit else T        # decisions trained on per match
     size = L * B
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
 
@@ -404,15 +416,15 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
             if league_self:
                 opponent = jax.tree_util.tree_map(lambda o, p: o.at[0].set(p), opponent, ts.policy)
         traj = _rollout(ts.policy, ts.value, k_roll, cfg, opponent if exploit else None,
-                        league_groups)
+                        league_groups, league_seats)
         adv, ret = _advantages(traj, cfg, match_bonus)
         if exploit:                                    # keep the learner's T / n decisions per match
             idx = jax.vmap(lambda col: jnp.nonzero(col, size=L)[0], in_axes=1, out_axes=1)(
                 traj["learner"])                       # [L, B]
             cols = jnp.arange(B)[None, :]
             pick = lambda x: x[idx, cols]              # noqa: E731
-            seat = traj["learner_seat"]
-            reward = traj["rewards"].sum(axis=0)[jnp.arange(B), seat].mean()
+            totals = traj["rewards"].sum(axis=0)                     # [B, n]
+            reward = (totals * traj["learner_seats"]).sum() / (B * league_seats)
         else:
             pick = lambda x: x                         # noqa: E731
             reward = traj["rewards"][:, :, 0].sum(axis=0).mean()

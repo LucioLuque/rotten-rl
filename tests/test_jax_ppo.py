@@ -335,3 +335,28 @@ def test_old_checkpoints_without_aux_still_load():
     blob = pickle.dumps(jax.tree_util.tree_map(np.asarray, ppo.TrainState(*old)))
     back = pickle.loads(blob)
     assert back.aux is None and ppo.trainable(back) == (back.policy, back.value)
+
+
+@pytest.mark.parametrize("n,m", [(3, 2), (4, 3)])
+def test_league_learner_takes_m_seats(n, m):
+    cfg = ppo.Config(num_players=n, hidden=(16,), rollout_games=8)
+    learner = ppo.init(jax.random.PRNGKey(0), cfg)
+    frozen = ppo.init(jax.random.PRNGKey(1), cfg).policy
+    traj = ppo._rollout(learner.policy, learner.value, jax.random.PRNGKey(3), cfg, frozen, 0, m)
+    seats = np.asarray(traj["learner_seats"])
+    assert (seats.sum(axis=1) == m).all()
+    is_l, player = np.asarray(traj["learner"]), np.asarray(traj["player"])
+    np.testing.assert_array_equal(is_l, seats[np.arange(8)[None, :], player])
+    assert (is_l.sum(axis=0) == ppo.match_length(n) * m // n).all()
+
+
+def test_league_update_with_several_seats_runs():
+    cfg = ppo.Config(num_players=3, hidden=(16,), rollout_games=4, minibatch=50, total_games=100)
+    pool = jax.tree_util.tree_map(lambda *x: jax.numpy.stack(x),
+                                  *[ppo.init(jax.random.PRNGKey(10 + i), cfg).policy for i in range(3)])
+    update = ppo.make_update(cfg, league_groups=2, league_seats=2)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    ts2, stats = update(ts, None, pool, 3)
+    assert all(np.isfinite(float(v)) for v in stats.values())
+    with pytest.raises(ValueError):
+        ppo.make_update(cfg, league_groups=2, league_seats=3)

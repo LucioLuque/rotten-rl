@@ -196,3 +196,12 @@ partidas). Por datos (1 de 2 asientos) tendría que llegar al de 24M, así que e
 viejas también lo frena. `e20xz` (explotador, tasa 5e-5, 24M) le saca +1,14 (51 %), pero no es
 comparable: `lz20` todavía no terminó de aprender y cualquier entrenamiento extra lo mejora. **La liga
 conviene como etapa final sobre un agente ya entrenado (`l20`), no desde cero.**
+
+## Liga con el que aprende en varios asientos (17/11, código listo)
+
+`train_ppo.py --league ... --league_seats m`: en cada partida de la liga el que aprende ocupa m
+asientos al azar y las redes de la liga los demás, así recibe m/n de los datos por partida en vez de
+1/n (con 3 y 7 jugadores la liga rendía menos que el control, probablemente por eso). `--opponent`
+(explotador) sigue con un asiento, porque ahí la idea es medir. Tests en `tests/test_jax_ppo.py`
+(ocupa exactamente m asientos, entrena; con m = 1 todo igual que antes) y prueba de punta a punta en
+la -14. Propuesto: repetir `l30` con m = 2 y `l70` con m = 4 o 5, con sus explotadores.
