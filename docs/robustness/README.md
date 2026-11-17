@@ -211,3 +211,11 @@ la -14. Propuesto: repetir `l30` con m = 2 y `l70` con m = 4 o 5, con sus explot
 `e30xc` +0,18 → +0,11, `e30xl` +0,36 → +0,35, `e70xc` +0,02 → −0,01, `e70xl` +0,07 → +0,07 (de 24M a
 48M). **No les faltaba tiempo**: ninguno crece con el doble de partidas. Con 3 jugadores, agujero chico
 y estable en los dos (la liga algo más); con 7, ninguno. Detalle en `docs/reportes/2026-11-16.md`.
+
+## Liga de 3 jugadores con 2 asientos (`queue26`, 17/11)
+
+Torneo `t_l30m`: `l30m` contra `s30` +0,29 a +0,31 (16/16; `l30` daba +0,12), contra `c30` −0,11 a
+−0,21 (`l30` daba −0,26 a −0,40), contra `l30` +0,06 a +0,15. Más asientos la hace más fuerte, pero
+sigue debajo del control. Explotador `e30xm` (tasa 5e-5, 24M): **+0,48**, 34,2 % (las 4 semillas
+positivas), más que contra `l30` (+0,36) y `c30` (+0,18 a 24M). **Con 3 jugadores la liga no hace al
+agente más robusto, con 1 o 2 asientos.**
