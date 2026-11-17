@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 play = ["pygame"]
-dev = ["pytest"]
+dev = ["pytest", "matplotlib"]
 jax = ["jax", "optax"]   # CPU; on the lab GPU: "jax[cuda12]" in its own venv
 
 [tool.setuptools.packages.find]
