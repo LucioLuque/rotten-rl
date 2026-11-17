@@ -31,3 +31,10 @@ De cero, que es donde una representación mejor debería notarse más: `a20`, `a
 contra esos a 12M (`@12000256`, el final de su tramo de 12M, con la misma tasa que baja a 0). Lista en
 `queue25.txt`; agregada al final de `queue24` en la -14 el 17/11 a la 01:05 (arranca después de
 `e70xl`, ~02:00). `a70` no llega antes del corte de las 06:55: se retoma con `--resume` desde las 08:00.
+
+## Resultados
+
+**2 jugadores (`t_a20`, 17/11 02:53):** `a20` (12M con `--aux_hands 0.5`) contra `s20` a 12M: +0,10,
+50,3 % de win rate, 9/16 cruces: **empate**. Contra la heurística, igual (82,3 %). La red aprende a
+predecir (`aux_loss` 0,20; con solo la proporción de cartas daría ~0,33), pero no juega mejor. ~15 %
+más lenta (3.379 partidas/s por semilla). Con 2 jugadores hay poco oculto; falta 3 y 7.
