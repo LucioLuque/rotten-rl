@@ -1,0 +1,1 @@
+f60_resume --resume ~/scratch/runs/f60_* --games 24000000 --eval_every 1000000
