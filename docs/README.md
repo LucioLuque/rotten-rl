@@ -17,4 +17,5 @@
 | Tamaño de la red: prueba con 1024 | `net_size/` |
 | Búsqueda (PIMC): rival más fuerte, análisis de decisiones y, más adelante, jugador | `search/` |
 | Tarea auxiliar: adivinar las manos ajenas (`train_ppo --aux_hands`) | `aux_hands/` |
+| Cómo retomar un agente entrenado (tasa al retomar, de cero contra en tramos) | `resume/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |
