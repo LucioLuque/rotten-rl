@@ -37,8 +37,8 @@ anotado acá con fecha y motivo.
 
 **B. Mejorar la receta**, en curso:
 - Pérdida auxiliar de las manos ajenas: hecha, no mejora (`docs/aux_hands/`).
-- Liga con el que aprende en varios asientos: con 3 hecha, no lo hace más robusto; con 7 (`l70m`)
-  corriendo el 17/11 (`docs/robustness/`).
+- Liga con el que aprende en varios asientos: hecha, no mejora ni con 3 ni con 7 (empata con seguir
+  sin liga; con 3 no lo hace más robusto y con 7 no hay agujero que tapar; `docs/robustness/`).
 - Canto y juego en redes separadas: programado el 17/11 (`--split_policy`), primera prueba con 2
   jugadores (`h20` contra `s20full`, la misma receta de cero a 24M) en la noche del 17/11
   (`docs/split_policy/`).

@@ -232,4 +232,7 @@ heurística 38,1 % (`c70` 38,5 %, `l70` 37,7 %). Igual que con 3 jugadores: más
 mejor que con uno, pero termina en el mismo lugar que seguir entrenando sin liga (`c70`). Métricas de
 entrenamiento: las tres corridas (desde `u72`, tasa 1e-4) bajan ~0,4 puntos contra la heurística al
 empezar y se recuperan; `l70m` queda entre `l70` y `c70` en todo (puntos, varianza explicada, KL y
-pasos recortados). Falta su explotador (`e70xm`, corriendo) para saber si es más robusta.
+pasos recortados). Explotador `e70xm` (tasa 5e-5, 24M): **+0,02** por partida, 14,3 % (s0 −0,16, s1 +0,13, s2 −0,03,
+s3 +0,12): no encuentra agujero, como los de `c70` (+0,02) y `l70` (+0,07 a 48M). Con 7 jugadores
+ningún agente tiene un agujero explotable, con o sin liga, así que la liga no tiene nada que arreglar.
+**Conclusión de la liga con varios asientos (etapa B): no mejora ni con 3 ni con 7 jugadores.**
