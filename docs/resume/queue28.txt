@@ -1,0 +1,2 @@
+u72full_resume --resume ~/scratch/runs/u72full_* --games 24000000 --eval_every 1000000
+t_u72full --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,~/scratch/runs/u72_jaxppo7p*@12000256,~/scratch/runs/u72_jaxppo7p*,~/scratch/runs/u72full_* --out ~/scratch/torneo_u72full.md
