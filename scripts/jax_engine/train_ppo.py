@@ -67,13 +67,13 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
-               "league_add_every", "league_self")
+               "league_add_every", "league_self", "aux_hands")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
                    "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
-                   "league_add_every": 0, "league_self": False}
+                   "league_add_every": 0, "league_self": False, "aux_hands": 0.0}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -236,6 +236,9 @@ def main():
                    help="add the learner's own policy to its pool every N games (0: never)")
     p.add_argument("--league_self", action="store_true",
                    help="one of the drawn opponents is the current policy")
+    p.add_argument("--aux_hands", type=float, default=0.0,
+                   help="weight of the auxiliary task: predict the other players' unseen cards from "
+                        "the policy's last hidden layer (0 = off)")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -338,7 +341,8 @@ def main():
                      ent_coef=members[0][2], rollout_games=a.rollout_games, epochs=a.epochs,
                      minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
                      dtype=a.dtype, episode=a.episode, match_bonus=members[0][3],
-                     rank_weight=a.rank_weight, round_var=tuple(a.round_var))
+                     rank_weight=a.rank_weight, round_var=tuple(a.round_var),
+                     aux_coef=float(a.aux_hands))
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
           "ent_coef": np.array([m[2] for m in members], np.float32),
           "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None
@@ -372,10 +376,10 @@ def main():
         states = [ppo.init(jax.random.PRNGKey(m[0]), cfg) for m in members]
         if a.init_from:                      # the networks of those runs; the rest starts fresh
             loaded = {s: load_checkpoint(r) for s, r in init_of.items()}
-            states = [ts._replace(policy=loaded[m[0]].policy, value=loaded[m[0]].value,
-                                  opt_state=ppo.make_optimizer(cfg).init(
-                                      (loaded[m[0]].policy, loaded[m[0]].value)))
+            states = [ts._replace(policy=loaded[m[0]].policy, value=loaded[m[0]].value)
                       for ts, m in zip(states, members)]
+            states = [ts._replace(opt_state=ppo.make_optimizer(cfg).init(ppo.trainable(ts)))
+                      for ts in states]
             print("starting from " + ", ".join(f"s{s}: {r} (game {int(loaded[s].games_done)})"
                                                for s, r in init_of.items()), flush=True)
             del loaded
@@ -538,8 +542,12 @@ def main():
         if games >= next_eval or games >= a.games:
             ent = np.asarray(stats["entropy"]).ravel()
             lr_now = np.asarray(stats["learning_rate"]).ravel()
+            # The aux loss (lower = better) says more than its accuracy: most unseen cards are not
+            # in a given hand, so "never there" is already ~94% accurate.
+            aux = (f"aux_loss={' '.join(f'{x:.3f}' for x in np.asarray(stats['loss_aux']).ravel())} "
+                   if "loss_aux" in stats else "")
             print(f"[{games}] {speed:,.0f} games/s per member ({speed * len(members):,.0f} in total) | "
-                  f"ent={' '.join(f'{e:.3f}' for e in ent)} "
+                  f"ent={' '.join(f'{e:.3f}' for e in ent)} {aux}"
                   f"lr={' '.join(f'{x:.2e}' for x in sorted(set(lr_now.tolist())))}", flush=True)
             save_and_eval(games)
             next_eval += a.eval_every

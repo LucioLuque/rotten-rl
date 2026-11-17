@@ -11,7 +11,8 @@ rotten_rl/                    paquete
   openspiel_game.py           wrapper pyspiel.Game/State y observación (2 a 7 jugadores)
   jax_engine/                 el juego y PPO en JAX, todo en la GPU (lo que se usa para entrenar;
                               ver su README.md): game.py, tricks.py, ppo.py (self-play,
-                              explotador contra una red congelada, liga), evaluate.py
+                              explotador contra una red congelada, liga, tarea auxiliar de
+                              adivinar manos), evaluate.py
   evaluation.py               rivales de referencia (azar, heurística, redes) y métricas
   tournament_report.py        tablas y ranking de los torneos
   match_value/                probabilidad de ganar la partida según los puntajes (docs/match_value/)

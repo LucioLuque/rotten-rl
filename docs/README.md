@@ -16,4 +16,5 @@
 | Robustez: un explotador entrenado contra el agente congelado (`train_ppo --opponent`) | `robustness/` |
 | Tamaño de la red: prueba con 1024 | `net_size/` |
 | Búsqueda (PIMC): rival más fuerte, análisis de decisiones y, más adelante, jugador | `search/` |
+| Tarea auxiliar: adivinar las manos ajenas (`train_ppo --aux_hands`) | `aux_hands/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

@@ -44,6 +44,17 @@ def init_mlp(key, sizes):
     return params
 
 
+def mlp_features(params, x, dtype=None):
+    """The last hidden layer of the MLP `params` (everything but its output layer), as `mlp`."""
+    for w, b in params[:-1]:
+        if dtype is None:
+            x = jax.nn.relu(x @ w + b)
+        else:
+            x = jax.nn.relu(jnp.dot(x.astype(dtype), w.astype(dtype),
+                                    preferred_element_type=jnp.float32) + b)
+    return x
+
+
 def mlp(params, x, dtype=None):
     """With `dtype` (e.g. bfloat16), every matmul takes its inputs and weights in that type and
     accumulates in float32; biases, activations' sums and the output stay float32. The weights
@@ -108,6 +119,13 @@ class Config(NamedTuple):
     # probability of winning the match), rotten_rl/match_value/win_prob.py with these per-round
     # variances (13 floats, from scripts/match_value/fit_win_prob.py).
     round_var: tuple = ()
+    # Auxiliary task (--aux_hands): a head on the policy's last hidden layer predicts which unseen
+    # cards each other player holds (sigmoid per relative seat and card); its loss, times this, is
+    # added to PPO's. 0 = off (no head).
+    aux_coef: float = 0.0
+
+
+AUX_SEATS = 6                       # other players, by relative position 1..6 (padded)
 
 
 class TrainState(NamedTuple):
@@ -116,6 +134,12 @@ class TrainState(NamedTuple):
     opt_state: tuple
     games_done: jnp.ndarray
     key: jnp.ndarray
+    aux: list = None                # the auxiliary head [(W, b)] when cfg.aux_coef > 0
+
+
+def trainable(ts):
+    """The parameters the optimizer updates: (policy, value) or (policy, value, aux)."""
+    return (ts.policy, ts.value) if ts.aux is None else (ts.policy, ts.value, ts.aux)
 
 
 def match_length(n):
@@ -133,8 +157,10 @@ def init(key, cfg):
     k_pi, k_v, key = jax.random.split(key, 3)
     policy = init_mlp(k_pi, [jg.OBS_SIZE, *cfg.hidden, jg.NUM_ACTIONS])
     value = init_mlp(k_v, [jg.OBS_SIZE, *cfg.hidden, 1])
-    opt_state = make_optimizer(cfg).init((policy, value))
-    return TrainState(policy, value, opt_state, jnp.int32(0), key)
+    aux = (init_mlp(jax.random.fold_in(k_pi, 1), [cfg.hidden[-1], AUX_SEATS * 52])
+           if cfg.aux_coef else None)
+    ts = TrainState(policy, value, None, jnp.int32(0), key, aux)
+    return ts._replace(opt_state=make_optimizer(cfg).init(trainable(ts)))
 
 
 def _opponent_logits(opponent, obs, dt, groups):
@@ -174,6 +200,8 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0):
         logp = jax.nn.log_softmax(logits)[jnp.arange(B), action]
         v = mlp(value, obs, dt)[:, 0]
         out = dict(obs=obs, mask=mask, action=action, logp=logp, value=v, player=player)
+        if cfg.aux_coef:                               # targets of the auxiliary task
+            out.update(_aux_targets(states, player))
         if opponent is not None:
             learner = player == learner_seat
             theirs = jnp.argmax(jnp.where(mask, _opponent_logits(opponent, obs, dt, groups), ILLEGAL),
@@ -189,6 +217,21 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0):
     if opponent is not None:
         traj["learner_seat"] = learner_seat
     return traj
+
+
+def _aux_targets(states, player):
+    """Targets of the auxiliary task at a decision of `player` (batched over matches): aux_hands
+    bool[B, AUX_SEATS, 52], the hand of the player at each relative seat 1..6 (False past n), and
+    aux_unseen bool[B, 52], the cards `player` cannot see (only those count in the loss)."""
+    B, n = states.hands.shape[:2]
+    rel = jnp.arange(1, AUX_SEATS + 1)
+    seat = (player[:, None] + rel[None, :]) % n                   # [B, 6]
+    hands = jnp.take_along_axis(states.hands, seat[:, :, None], axis=1)
+    hands = hands & (rel < n)[None, :, None]
+    mine = states.hands[jnp.arange(B), player]
+    unseen = (~mine & (states.played_by < 0)
+              & (jnp.arange(52)[None, :] != states.trump_card[:, None]))
+    return dict(aux_hands=hands, aux_unseen=unseen)
 
 
 def _round_ends(n):
@@ -275,9 +318,16 @@ def _advantages(traj, cfg, match_bonus=None):
 
 
 def _loss(params, batch, cfg, ent_coef):
-    policy, value = params
+    policy, value = params[0], params[1]
     dt = compute_dtype(cfg)
-    logits = jnp.where(batch["mask"], mlp(policy, batch["obs"], dt), ILLEGAL)
+    if cfg.aux_coef:
+        feats = mlp_features(policy, batch["obs"], dt)
+        w, b = policy[-1]
+        raw = (feats @ w + b if dt is None else
+               jnp.dot(feats.astype(dt), w.astype(dt), preferred_element_type=jnp.float32) + b)
+        logits = jnp.where(batch["mask"], raw, ILLEGAL)
+    else:
+        logits = jnp.where(batch["mask"], mlp(policy, batch["obs"], dt), ILLEGAL)
     logp_all = jax.nn.log_softmax(logits)
     logp = jnp.take_along_axis(logp_all, batch["action"][:, None], axis=1)[:, 0]
     ratio = jnp.exp(logp - batch["logp"])
@@ -290,6 +340,16 @@ def _loss(params, batch, cfg, ent_coef):
     stats = dict(loss_policy=loss_pi, loss_value=loss_v, entropy=entropy,
                  clip_frac=(jnp.abs(ratio - 1) > cfg.clip).mean(),
                  approx_kl=(batch["logp"] - logp).mean())
+    if cfg.aux_coef:                                   # binary cross-entropy on the unseen cards
+        aw, ab = params[2][0]
+        pred = (feats @ aw + ab).reshape(-1, AUX_SEATS, 52)
+        target = batch["aux_hands"].astype(jnp.float32)
+        m = (batch["aux_unseen"][:, None, :] & (batch["aux_seat_on"][:, :, None])).astype(jnp.float32)
+        bce = optax.sigmoid_binary_cross_entropy(pred, target)
+        loss_aux = (bce * m).sum() / jnp.maximum(m.sum(), 1.0)
+        acc = (((pred > 0) == batch["aux_hands"]) * m).sum() / jnp.maximum(m.sum(), 1.0)
+        loss = loss + cfg.aux_coef * loss_aux
+        stats.update(loss_aux=loss_aux, aux_accuracy=acc)
     return loss, stats
 
 
@@ -359,6 +419,10 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
         flat = dict(obs=pick(traj["obs"]).reshape(size, -1), mask=pick(traj["mask"]).reshape(size, -1),
                     action=pick(traj["action"]).reshape(size), logp=pick(traj["logp"]).reshape(size),
                     adv=pick(adv).reshape(size), ret=pick(ret).reshape(size))
+        if cfg.aux_coef:
+            flat["aux_hands"] = pick(traj["aux_hands"]).reshape(size, AUX_SEATS, 52)
+            flat["aux_unseen"] = pick(traj["aux_unseen"]).reshape(size, 52)
+            flat["aux_seat_on"] = jnp.broadcast_to(jnp.arange(1, AUX_SEATS + 1) < n, (size, AUX_SEATS))
         values = pick(traj["value"]).reshape(size)
         explained = 1 - jnp.var(flat["ret"] - values) / (jnp.var(flat["ret"]) + 1e-8)
         flat["adv"] = (flat["adv"] - flat["adv"].mean()) / (flat["adv"].std() + 1e-8)
@@ -381,12 +445,13 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
             return jax.lax.scan(minibatch, (params, opt_state), perm)
 
         (params, opt_state), stats = jax.lax.scan(
-            epoch, ((ts.policy, ts.value), ts.opt_state), jax.random.split(k_perm, cfg.epochs))
+            epoch, (trainable(ts), ts.opt_state), jax.random.split(k_perm, cfg.epochs))
         stats = jax.tree_util.tree_map(jnp.mean, stats)
         stats["explained_variance"] = explained
         stats["learning_rate"] = lr
         stats["reward_seat0"] = reward
-        new = TrainState(params[0], params[1], opt_state, ts.games_done + B, key)
+        new = TrainState(params[0], params[1], opt_state, ts.games_done + B, key,
+                         params[2] if cfg.aux_coef else None)
         return new, stats
 
     return jax.jit(jax.vmap(update) if multi_seed else update)

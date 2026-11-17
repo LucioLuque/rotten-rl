@@ -290,3 +290,48 @@ def test_league_update_single_and_multi_seed():
         got = ppo.unstack(stacked, i)
         for a, b in zip(jax.tree_util.tree_leaves(got.policy), jax.tree_util.tree_leaves(ts.policy)):
             np.testing.assert_allclose(np.asarray(a), np.asarray(b), atol=1e-5)
+
+
+def test_aux_targets_are_the_other_hands_and_unseen_cards():
+    from rotten_rl.jax_engine import game as jg
+    n = 3
+    states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(jax.random.PRNGKey(0), 4))
+    player = states.current
+    t = ppo._aux_targets(states, player)
+    hands, unseen = np.asarray(t["aux_hands"]), np.asarray(t["aux_unseen"])
+    H, P = np.asarray(states.hands), np.asarray(player)
+    for b in range(4):
+        for r in range(ppo.AUX_SEATS):
+            want = H[b, (P[b] + r + 1) % n] if r + 1 < n else np.zeros(52, bool)
+            np.testing.assert_array_equal(hands[b, r], want)
+        assert not (unseen[b] & H[b, P[b]]).any()
+        assert not unseen[b, int(states.trump_card[b])]
+        assert unseen[b].sum() == 52 - H[b, P[b]].sum() - 1
+
+
+def test_aux_update_trains_the_head_alone_and_stacked():
+    cfg = ppo.Config(num_players=3, hidden=(32, 16), rollout_games=4, minibatch=60, epochs=2,
+                     total_games=100, aux_coef=0.5)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    assert ts.aux is not None and ts.aux[0][0].shape == (16, ppo.AUX_SEATS * 52)
+    single = ppo.make_update(cfg)
+    ts2, stats = single(ts)
+    assert np.isfinite(float(stats["loss_aux"])) and 0 <= float(stats["aux_accuracy"]) <= 1
+    assert not np.allclose(np.asarray(ts.aux[0][0]), np.asarray(ts2.aux[0][0]))
+    stacked = ppo.init_seeds([0, 1], cfg)
+    stacked, stats = ppo.make_update(cfg, multi_seed=True)(stacked)
+    np.testing.assert_allclose(np.asarray(ppo.unstack(stacked, 0).aux[0][0]),
+                               np.asarray(ts2.aux[0][0]), atol=1e-5)
+    assert stats["loss_aux"].shape == (2,)
+    # The exported policy is the plain MLP (no head)
+    assert len(ppo.to_torch_state_dict(ts2.policy)) == 2 * 3
+
+
+def test_old_checkpoints_without_aux_still_load():
+    import pickle
+    cfg = ppo.Config(num_players=2, hidden=(16,))
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    old = tuple(ts)[:5]                                  # a TrainState saved before the aux field
+    blob = pickle.dumps(jax.tree_util.tree_map(np.asarray, ppo.TrainState(*old)))
+    back = pickle.loads(blob)
+    assert back.aux is None and ppo.trainable(back) == (back.policy, back.value)
