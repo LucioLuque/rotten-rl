@@ -38,3 +38,25 @@ contra esos a 12M (`@12000256`, el final de su tramo de 12M, con la misma tasa q
 50,3 % de win rate, 9/16 cruces: **empate**. Contra la heurística, igual (82,3 %). La red aprende a
 predecir (`aux_loss` 0,20; con solo la proporción de cartas daría ~0,33), pero no juega mejor. ~15 %
 más lenta (3.379 partidas/s por semilla). Con 2 jugadores hay poco oculto; falta 3 y 7.
+
+### Qué tan bien predice (17/11, `scripts/aux_hands/eval_aux.py`, semilla 0, 64 partidas)
+
+En cada decisión, sobre las cartas que el que decide no ve. **Error**: entropía cruzada, contra "a
+ciegas" (solo sabe cuántas cartas tiene cada uno). **Aciertos**: de las c cartas que cree más
+probables para un rival con c cartas, cuántas tiene de verdad, contra elegirlas al azar.
+
+| | Error | A ciegas | Aciertos | Al azar |
+|---|---|---|---|---|
+| `a20`, todas las decisiones | 0,199 | 0,208 | 14,2 % | 8,8 % |
+| `a20`, canto | 0,262 | 0,265 | 12,1 % | 10,3 % |
+| `a20`, juego | 0,181 | 0,192 | 15,1 % | 8,2 % |
+| `a30`, todas | 0,204 | 0,215 | 14,4 % | 9,1 % |
+| `a30`, canto | 0,260 | 0,265 | 12,9 % | 10,3 % |
+| `a30`, juego | 0,187 | 0,200 | 15,1 % | 8,5 % |
+
+Aprende algo (≈1,6 veces mejor que al azar en aciertos; ~5 % menos error que a ciegas), sobre todo
+durante el juego (los palos que faltan y las cartas que salieron dan pistas) y casi nada en el canto
+(solo están los cantos de los demás). Hay poca información para adivinar: la mayoría de las cartas no
+vistas ni siquiera están repartidas (quedan en el mazo). Y aun prediciendo algo, **no juega mejor**
+(empate con 2 jugadores, indicio chico con 3): la red ya usaba esa información sin la tarea extra, o
+no le alcanza para cambiar decisiones.
