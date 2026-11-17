@@ -281,6 +281,11 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.p
   (`--num_train_episodes`, `--eval_every`, `--checkpoint_every`, ...).
 - Verificado (25/10/2026): cortar y retomar, por `--stop_at` o por `SIGTERM`, da exactamente las
   mismas métricas que entrenar de corrido.
+- Cola que no entra en una noche: `scripts/lab/remaining_queue.py --queue <cola> --log <log de la
+  cola> --from <primera línea>` escribe la cola de lo que falta (las corridas cortadas, como
+  `--resume` hasta su `--games`; las que no empezaron, tal cual; lo terminado, afuera). Un timer del
+  servidor la arma y la lanza cuando reabre el lab (ejemplo: `runs/lab/launch_0805d.sh`), así no
+  hay que editar colas de noche.
 
 ## Velocidad medida (25/10/2026)
 

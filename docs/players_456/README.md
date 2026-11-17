@@ -15,7 +15,14 @@ Resto de la receta: tasa 3e-4 que baja a 0, 2 épocas, minilote 1024, lote de 51
 entropía de 4 a 6 no está barrida: con 2 y 3 jugadores la mejor fue 0,06 y con 7, 0,1; para 4, 5 y 6
 la interpolo.
 
-En la cola de la -14 desde el 17/11 (al final de `queue26`, después de `s30full`).
+En la cola de la -14 desde el 17/11, al final de `queue26`. Van **después** de `s20full` y `u72full`
+(2 y 7 jugadores de cero a 24M de una vez): los agentes de 2 y 7 que tengo están hechos en tramos
+retomados, y si `s30full` le gana a `s30` hay que rehacerlos antes de seguir con 4, 5 y 6. Si
+`s30full` empata con `s30`, los saco de la cola y 4, 5 y 6 se adelantan.
+
+La cola no termina en una noche. A las 08:05 del 18/11 un timer del servidor
+(`podrida-launch-0805d`) arma `queue30` con lo que quedó (`scripts/lab/remaining_queue.py`): retoma
+la corrida que cortó el cierre del lab y sigue con las que no empezaron.
 
 ## Resultados
 

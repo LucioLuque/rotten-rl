@@ -8,6 +8,10 @@ t_l70m --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,
 e70xm_jaxppo7p_exploit_l70m_lr5e-5_24M --players 7 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --eval_every 1000000 --checkpoint_every 250000 --learning_rate 5e-5 --games 24000000 --init_from ~/scratch/runs/l70m_* --opponent ~/scratch/runs/l70m_*
 s30full_jaxppo3p_ent0.06_24M --players 3 --rollout_games 512 --minibatch 1024 --epochs 2 --ent_coef 0.06 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
 t_s30full --script scripts/jax_engine/tournament.py --players 3 --agents heuristic,~/scratch/runs/s30_jaxppo3p*@12000256,~/scratch/runs/s30_jaxppo3p*,~/scratch/runs/s30full_* --out ~/scratch/torneo_s30full.md
+s20full_jaxppo2p_ent0.06_24M --players 2 --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_s20full --script scripts/jax_engine/tournament.py --players 2 --agents heuristic,~/scratch/runs/s20_jaxppo2p*@12000256,~/scratch/runs/s20_jaxppo2p*@24000000,~/scratch/runs/s20_jaxppo2p*,~/scratch/runs/s20full_* --out ~/scratch/torneo_s20full.md
+u72full_jaxppo7p_ent0.1_24M --players 7 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_u72full --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,~/scratch/runs/u72_jaxppo7p*@12000256,~/scratch/runs/u72_jaxppo7p*,~/scratch/runs/u72full_* --out ~/scratch/torneo_u72full.md
 f40_jaxppo4p_ent0.06_24M --players 4 --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
 f50_jaxppo5p_ent0.08_24M --players 5 --ent_coef 0.08 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
 f60_jaxppo6p_ent0.1_24M --players 6 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000

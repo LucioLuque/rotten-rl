@@ -1,1 +1,2 @@
-f60_resume --resume ~/scratch/runs/f60_* --games 24000000 --eval_every 1000000
+# queue30 is generated on the lab at 08:05 on 18/11 by runs/lab/launch_0805d.sh with
+# scripts/lab/remaining_queue.py: what is left of queue26 from s30full on (cut runs resumed).
