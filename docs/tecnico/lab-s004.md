@@ -306,3 +306,12 @@ Entrenamiento corto: 3 jugadores, 400 episodios, 3 evaluaciones de 30 partidas.
 - Memoria: una corrida NFSP de 2 jugadores con 50k episodios usa ~5.5 GB, y crece con el reservoir
   (hasta ~7 GB por agente con la capacidad de 2M). Es lo que limita cuántas corren a la vez.
 - La GPU por ahora no aporta: el cuello de botella es simular el juego en Python.
+
+## Ver las métricas de entrenamiento (TensorBoard)
+
+Los respaldos no traen `tb/`, pero sí los CSV de cada corrida. En el servidor,
+`scripts/lab/csv_to_tensorboard.py` (temporizador `podrida-tb-convert`, a los :20 de cada hora) los
+convierte a TensorBoard en `/srv/datos2/PodridaRL-tb/<máquina>/<corrida>/` (solo corridas de JAX), y
+`podrida-tensorboard` (servicio que arranca con el servidor) los sirve en
+**http://100.99.95.28:6006**, solo por Tailscale. Hay `train/*` (KL, recortes, entropía, varianza
+explicada, pérdidas, tasa, partidas/s) y `eval_<rival>/*` (win rate, diferencia, cantos exactos).
