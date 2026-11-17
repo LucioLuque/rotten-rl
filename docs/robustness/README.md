@@ -219,3 +219,10 @@ Torneo `t_l30m`: `l30m` contra `s30` +0,29 a +0,31 (16/16; `l30` daba +0,12), co
 sigue debajo del control. Explotador `e30xm` (tasa 5e-5, 24M): **+0,48**, 34,2 % (las 4 semillas
 positivas), más que contra `l30` (+0,36) y `c30` (+0,18 a 24M). **Con 3 jugadores la liga no hace al
 agente más robusto, con 1 o 2 asientos.**
+
+Métricas de entrenamiento de la liga de 3 (`graficos/liga3p_entrenamiento.png`, con
+`scripts/eval/plot_runs.py`): las tres corridas empiezan perdiendo ~0,6 puntos contra la heurística
+al retomar `s30` con tasa 1e-4 y recién vuelven al nivel de partida hacia las 20–24M; la KL (≤0,0012)
+y los pasos recortados (<1 %) son muy chicos y bajan a 0 con la tasa.
+
+![Liga de 3 jugadores](graficos/liga3p_entrenamiento.png)
