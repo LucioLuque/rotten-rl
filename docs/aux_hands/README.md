@@ -26,6 +26,8 @@ cargan). Probado de punta a punta en la -14 (CPU), con retomar.
 
 ## Experimento propuesto
 
-Con 2, 3 y 7 jugadores, retomar `s20`, `s30` y `u72` con `--aux_hands` (por ejemplo 0,5) contra el
-mismo retomar sin la tarea (control), a igual cantidad de partidas, y torneo entre los dos. También
-de cero, que es donde una representación mejor debería notarse más. Pendiente de lanzar.
+De cero, que es donde una representación mejor debería notarse más: `a20`, `a30` y `a70` con
+`--aux_hands 0.5` y exactamente la receta de `s20`, `s30` y `u72` (12M partidas, 4 semillas), y torneo
+contra esos a 12M (`@12000256`, el final de su tramo de 12M, con la misma tasa que baja a 0). Lista en
+`queue25.txt`; agregada al final de `queue24` en la -14 el 17/11 a la 01:05 (arranca después de
+`e70xl`, ~02:00). `a70` no llega antes del corte de las 06:55: se retoma con `--resume` desde las 08:00.
