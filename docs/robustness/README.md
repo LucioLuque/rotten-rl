@@ -223,3 +223,13 @@ agente más robusto, con 1 o 2 asientos.**
 Métricas de entrenamiento de la liga de 3 (`scripts/eval/plot_runs.py`): las tres corridas empiezan perdiendo ~0,6 puntos contra la heurística
 al retomar `s30` con tasa 1e-4 y recién vuelven al nivel de partida hacia las 20–24M; la KL (≤0,0012)
 y los pasos recortados (<1 %) son muy chicos y bajan a 0 con la tasa.
+
+## Liga de 7 jugadores con 4 asientos (`queue26`, 17/11)
+
+Torneo `t_l70m` (1000 repartos por cruce): `l70m` contra `u72` +0,13 (16/16 cruces positivos, win rate
+14,5 % con empate en 14,3 %), contra `l70` +0,10 (14/16), contra `c70` −0,03 (5/16, empate). Contra la
+heurística 38,1 % (`c70` 38,5 %, `l70` 37,7 %). Igual que con 3 jugadores: más asientos hacen la liga
+mejor que con uno, pero termina en el mismo lugar que seguir entrenando sin liga (`c70`). Métricas de
+entrenamiento: las tres corridas (desde `u72`, tasa 1e-4) bajan ~0,4 puntos contra la heurística al
+empezar y se recuperan; `l70m` queda entre `l70` y `c70` en todo (puntos, varianza explicada, KL y
+pasos recortados). Falta su explotador (`e70xm`, corriendo) para saber si es más robusta.
