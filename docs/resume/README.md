@@ -18,7 +18,12 @@ final: `s30` de 12M a 24M bajó de 63,1 % a 61,4 % contra la heurística al reto
    igualaba antes de terminar, pero la comparación final no se hizo. También con 2 y 7 jugadores:
    `s20full` contra `s20` a 24M y `u72full` contra `u72` (los dos hechos en tramos de 12M).
 
-Cola: `queue27.txt` (agregada al final de `queue26` en la -14 el 17/11; ~5 h 30 min).
+Cola: `queue27.txt` (agregada al final de `queue26` en la -14 el 17/11). **Después, el 17/11, saqué
+el estudio de la tasa (pregunta 1) y `s20full`/`u72full`:** para entrenar un agente nuevo conviene
+directamente de cero con el horizonte completo, así que retomar solo importa para la liga (que solo
+sirvió con 2 jugadores) y los explotadores (ya sé que 5e-5 anda). Queda solo `s30full`, que confirma
+con un dato la regla de entrenar de cero de una vez. Si un día hace falta retomar (variantes de
+reglas, modelo único), lo estudio en ese momento.
 
 ## Resultados
 

@@ -267,6 +267,11 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Qué sigue (16/11/2026 07:00)
 
+> **17/11 14:00: empieza la etapa C.** Cola de la -14 (`queue26`): liga de 7 con 4 asientos y su
+> explotador, `s30full` (3 jugadores de cero a 24M de una vez, contra `s30` hecho en tramos) y después
+> `f40`, `f50`, `f60` (4, 5 y 6 jugadores de cero a 24M; `docs/players_456/`). El estudio de la tasa al
+> retomar lo saqué (`docs/resume/`).
+
 > **17/11 02:00.** Explotadores a 48M: no crecen (3 jugadores: agujero chico y estable; 7: ninguno).
 > La liga solo ayuda con 2 jugadores. Ya están programados la tarea auxiliar (`--aux_hands`) y la liga
 > con varios asientos (`--league_seats`). Corre `a20` → `a30` → `a70` (`docs/aux_hands/`) en la -14.
