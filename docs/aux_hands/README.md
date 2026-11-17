@@ -60,3 +60,10 @@ durante el juego (los palos que faltan y las cartas que salieron dan pistas) y c
 vistas ni siquiera están repartidas (quedan en el mazo). Y aun prediciendo algo, **no juega mejor**
 (empate con 2 jugadores, indicio chico con 3): la red ya usaba esa información sin la tarea extra, o
 no le alcanza para cambiar decisiones.
+
+**3 jugadores (`t_a30`, 17/11 04:20):** `a30` contra `s30` a 12M: +0,12 a +0,15, 33,5 %, 12/16 cruces
+(indicio, dentro del ruido de ~0,3 entre corridas iguales). **7 jugadores (`t_a70`, 17/11 09:00):**
+`a70` contra `u72` a 12M: −0,01, 14,2 %, 7/16: empate.
+
+**Conclusión: la tarea auxiliar no mejora el juego con 2, 3 ni 7 jugadores.** Descartada como mejora
+de la receta (el código queda, apagado por defecto).

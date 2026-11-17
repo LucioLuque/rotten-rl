@@ -271,6 +271,8 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 > La liga solo ayuda con 2 jugadores. Ya están programados la tarea auxiliar (`--aux_hands`) y la liga
 > con varios asientos (`--league_seats`). Corre `a20` → `a30` → `a70` (`docs/aux_hands/`) en la -14.
 > Reporte: `docs/reportes/2026-11-16.md`.
+> **17/11 09:00: la tarea auxiliar no mejora** (2: +0,10; 3: +0,12 a +0,15; 7: −0,01, todo empate o
+> ruido); descartada. Corre `queue26` en la -14: liga con varios asientos (`l30m`, `l70m`) y explotadores.
 
 > **16/11 14:00, etapa A en marcha.** Ronda de 1 carta contra el equilibrio: `s20`, `s30` y `u72`
 > cantan en equilibrio (pierden 0,001–0,003 puntos por ronda; `docs/primera-ronda/README.md`). PIMC
