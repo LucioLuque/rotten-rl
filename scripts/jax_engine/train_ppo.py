@@ -67,14 +67,15 @@ from rotten_rl.lab_hours import Deadline  # noqa: E402
 CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "ent_coef", "epochs",
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
-               "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup")
+               "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup",
+               "split_policy")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
                    "episode": "round", "match_bonus": 0.0, "rank_weight": 0.25,
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
                    "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0,
-                   "lr_warmup": 0}
+                   "lr_warmup": 0, "split_policy": False}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -243,6 +244,9 @@ def main():
     p.add_argument("--aux_hands", type=float, default=0.0,
                    help="weight of the auxiliary task: predict the other players' unseen cards from "
                         "the policy's last hidden layer (0 = off)")
+    p.add_argument("--split_policy", action="store_true",
+                   help="separate bidding and playing networks, each with --hidden (stored as one "
+                        "MLP of twice the width with zero cross blocks; the critic stays shared)")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -319,9 +323,10 @@ def main():
             for r in init_dirs:
                 with open(os.path.join(r, "config.json")) as f:
                     src = json.load(f)["jax_args"]
-                for k in ("players", "hidden"):
-                    if str(src[k]) != str(getattr(a, k)):
-                        sys.exit(f"--init_from {r}: {k} is {src[k]}, here {getattr(a, k)}")
+                for k in ("players", "hidden", "split_policy"):
+                    if str(src.get(k, CONFIG_DEFAULTS.get(k))) != str(getattr(a, k)):
+                        sys.exit(f"--init_from {r}: {k} is {src.get(k, CONFIG_DEFAULTS.get(k))}, "
+                                 f"here {getattr(a, k)}")
                 seeds.append(int(src["seed"]))
             if len(set(seeds)) != len(seeds):
                 sys.exit("--init_from: two runs with the same seed")
@@ -354,7 +359,8 @@ def main():
                      minibatch=a.minibatch, total_games=a.games, reward_scheme=a.reward_scheme,
                      dtype=a.dtype, episode=a.episode, match_bonus=members[0][3],
                      rank_weight=a.rank_weight, round_var=tuple(a.round_var),
-                     aux_coef=float(a.aux_hands), lr_warmup=int(a.lr_warmup))
+                     aux_coef=float(a.aux_hands), lr_warmup=int(a.lr_warmup),
+                     split_policy=bool(a.split_policy))
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
           "ent_coef": np.array([m[2] for m in members], np.float32),
           "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None
@@ -367,7 +373,8 @@ def main():
         args = {k: getattr(a, k) for k in CONFIG_KEYS}
         args.update(seed=seed, learning_rate=lr, ent_coef=ent, match_bonus=bonus)
         return {"algo": "ppo", "engine": "jax", "players": a.players,
-                "hidden_layers_sizes": [str(h) for h in hidden], "num_train_episodes": a.games,
+                "hidden_layers_sizes": [str(h) for h in ppo.policy_hidden(cfg)],
+                "num_train_episodes": a.games,
                 "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
                 "ppo_minibatch": a.minibatch, "rl_learning_rate": lr, "ppo_entropy_coef": ent,
                 "reward_scheme": a.reward_scheme, "round_episodes": a.episode == "round",
@@ -446,7 +453,7 @@ def main():
     def seed_state(i):
         return ppo.unstack(ts, i) if multi else ts
 
-    evaluate = None if a.no_eval else (JaxEval(a) if a.eval_engine == "jax" else PyspielEval(a, hidden))
+    evaluate = None if a.no_eval else (JaxEval(a) if a.eval_engine == "jax" else PyspielEval(a, ppo.policy_hidden(cfg)))
     against = None                           # fixed networks to evaluate against (--eval_against)
     if a.eval_against:
         ag = [x for x in a.eval_against.split(",")]

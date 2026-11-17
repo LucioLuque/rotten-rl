@@ -374,3 +374,47 @@ def test_lr_warmup_starts_at_zero_and_rises():
     assert lrs[0] == 0.0                                  # games_done = 0 at the first update
     np.testing.assert_allclose(lrs[1], 1e-3 * (4 / 16) * (1 - 4 / 1000), rtol=1e-5)
     assert lrs[4] == pytest.approx(1e-3 * (1 - 16 / 1000), rel=1e-5)
+
+
+def _cross_blocks(params, hidden):
+    """The weights the split layout keeps at zero."""
+    return [np.asarray(w)[np.asarray(m) == 0] for (w, _), (m, _) in
+            zip(params, ppo.split_policy_mask(hidden))]
+
+
+def test_split_policy_is_two_separate_networks():
+    """Bid logits depend only on the bidding half and card logits only on the playing half."""
+    from rotten_rl.jax_engine import game as jg
+    hidden = (16, 8)
+    params = ppo.init_split_policy(jax.random.PRNGKey(0), hidden)
+    assert [w.shape for w, _ in params] == [(jg.OBS_SIZE, 32), (32, 16), (16, jg.NUM_ACTIONS)]
+    assert all((c == 0).all() for c in _cross_blocks(params, hidden))
+    x = jax.random.uniform(jax.random.PRNGKey(1), (5, jg.OBS_SIZE))
+    out = np.asarray(ppo.mlp(params, x))
+    # perturb the playing half of the first layer: bids unchanged, cards changed
+    w0, b0 = params[0]
+    play_changed = [(w0.at[:, 16:].add(1.0), b0)] + params[1:]
+    out2 = np.asarray(ppo.mlp(play_changed, x))
+    np.testing.assert_allclose(out2[:, jg.BID_OFFSET:], out[:, jg.BID_OFFSET:], rtol=1e-6)
+    assert not np.allclose(out2[:, :jg.BID_OFFSET], out[:, :jg.BID_OFFSET])
+    bid_changed = [(w0.at[:, :16].add(1.0), b0)] + params[1:]
+    out3 = np.asarray(ppo.mlp(bid_changed, x))
+    np.testing.assert_allclose(out3[:, :jg.BID_OFFSET], out[:, :jg.BID_OFFSET], rtol=1e-6)
+    assert not np.allclose(out3[:, jg.BID_OFFSET:], out[:, jg.BID_OFFSET:])
+
+
+def test_split_policy_update_keeps_cross_blocks_zero():
+    cfg = ppo.Config(num_players=2, hidden=(16, 8), rollout_games=4, minibatch=60, epochs=2,
+                     total_games=100, split_policy=True)
+    assert ppo.policy_hidden(cfg) == (32, 16)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    ts2, stats = ppo.make_update(cfg)(ts)
+    assert np.isfinite(float(stats["loss_policy"]))
+    assert all((c == 0).all() for c in _cross_blocks(ts2.policy, cfg.hidden))
+    for (w, _), (w2, _) in zip(ts.policy, ts2.policy):
+        assert not np.allclose(np.asarray(w), np.asarray(w2))
+    stacked, _ = ppo.make_update(cfg, multi_seed=True)(ppo.init_seeds([0, 1], cfg))
+    assert all((c == 0).all() for c in _cross_blocks(ppo.unstack(stacked, 1).policy, cfg.hidden))
+    # exported as a plain MLP of the doubled width
+    sd = ppo.to_torch_state_dict(ts2.policy)
+    assert tuple(sd["0.weight"].shape) == (32, 808)

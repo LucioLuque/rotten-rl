@@ -124,6 +124,11 @@ class Config(NamedTuple):
     # cards each other player holds (sigmoid per relative seat and card); its loss, times this, is
     # added to PPO's. 0 = off (no head).
     aux_coef: float = 0.0
+    # Separate bidding and playing networks (--split_policy): the policy is two MLPs with the
+    # hidden sizes above, one with the 8 bid outputs and one with the 52 card outputs, stored as a
+    # single MLP of twice the width whose cross blocks are zero and never get a gradient (see
+    # `split_policy_mask`). Everything that loads a policy sees a plain MLP. The critic stays shared.
+    split_policy: bool = False
 
 
 AUX_SEATS = 6                       # other players, by relative position 1..6 (padded)
@@ -154,11 +159,50 @@ def make_optimizer(cfg):
                        optax.scale_by_adam(eps=1e-8))
 
 
+def policy_hidden(cfg):
+    """The hidden sizes of the policy as a plain MLP (twice cfg.hidden with split_policy)."""
+    return tuple(2 * h for h in cfg.hidden) if cfg.split_policy else tuple(cfg.hidden)
+
+
+def split_policy_mask(hidden):
+    """[(W mask, b mask)] of the block layout of two MLPs with these hidden sizes: the first half of
+    every hidden layer is the bidding network, the second half the playing one; both read the whole
+    observation; the bidding half feeds only the bid outputs (BID_OFFSET..), the playing half only
+    the cards (..BID_OFFSET)."""
+    sizes = list(hidden)
+    masks = [(jnp.ones((jg.OBS_SIZE, 2 * sizes[0])), jnp.ones(2 * sizes[0]))]
+    for i, o in zip(sizes[:-1], sizes[1:]):
+        w = jnp.zeros((2 * i, 2 * o)).at[:i, :o].set(1.0).at[i:, o:].set(1.0)
+        masks.append((w, jnp.ones(2 * o)))
+    h = sizes[-1]
+    w = jnp.zeros((2 * h, jg.NUM_ACTIONS)).at[:h, jg.BID_OFFSET:].set(1.0).at[h:, :jg.BID_OFFSET].set(1.0)
+    masks.append((w, jnp.ones(jg.NUM_ACTIONS)))
+    return masks
+
+
+def init_split_policy(key, hidden):
+    """Two freshly initialized MLPs (bidding: 8 outputs, playing: 52), in the block layout."""
+    k_bid, k_play = jax.random.split(key)
+    bid = init_mlp(k_bid, [jg.OBS_SIZE, *hidden, jg.NUM_ACTIONS - jg.BID_OFFSET])
+    play = init_mlp(k_play, [jg.OBS_SIZE, *hidden, jg.BID_OFFSET])
+    params = [(jnp.concatenate([bid[0][0], play[0][0]], 1), jnp.concatenate([bid[0][1], play[0][1]]))]
+    for (bw, bb), (pw, pb) in zip(bid[1:-1], play[1:-1]):
+        i, o = bw.shape
+        w = jnp.zeros((2 * i, 2 * o)).at[:i, :o].set(bw).at[i:, o:].set(pw)
+        params.append((w, jnp.concatenate([bb, pb])))
+    (bw, bb), (pw, pb) = bid[-1], play[-1]
+    h = bw.shape[0]
+    w = jnp.zeros((2 * h, jg.NUM_ACTIONS)).at[:h, jg.BID_OFFSET:].set(bw).at[h:, :jg.BID_OFFSET].set(pw)
+    params.append((w, jnp.concatenate([pb, bb])))
+    return params
+
+
 def init(key, cfg):
     k_pi, k_v, key = jax.random.split(key, 3)
-    policy = init_mlp(k_pi, [jg.OBS_SIZE, *cfg.hidden, jg.NUM_ACTIONS])
+    policy = (init_split_policy(k_pi, cfg.hidden) if cfg.split_policy
+              else init_mlp(k_pi, [jg.OBS_SIZE, *cfg.hidden, jg.NUM_ACTIONS]))
     value = init_mlp(k_v, [jg.OBS_SIZE, *cfg.hidden, 1])
-    aux = (init_mlp(jax.random.fold_in(k_pi, 1), [cfg.hidden[-1], AUX_SEATS * 52])
+    aux = (init_mlp(jax.random.fold_in(k_pi, 1), [policy_hidden(cfg)[-1], AUX_SEATS * 52])
            if cfg.aux_coef else None)
     ts = TrainState(policy, value, None, jnp.int32(0), key, aux)
     return ts._replace(opt_state=make_optimizer(cfg).init(trainable(ts)))
@@ -404,6 +448,7 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     L = T * league_seats // n if exploit else T        # decisions trained on per match
     size = L * B
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
+    pi_mask = split_policy_mask(cfg.hidden) if cfg.split_policy else None
 
     def update(ts: TrainState, hp=None, opponent=None, pool_count=None):
         base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
@@ -451,6 +496,8 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
                 params, opt_state = carry
                 batch = jax.tree_util.tree_map(lambda x: x[idx], flat)
                 (loss, stats), grads = jax.value_and_grad(_loss, has_aux=True)(params, batch, cfg, ent_coef)
+                if pi_mask is not None:                # the cross blocks stay exactly zero
+                    grads = (jax.tree_util.tree_map(jnp.multiply, grads[0], pi_mask), *grads[1:])
                 stats["grad_norm"] = optax.tree.norm(grads)
                 updates, opt_state = opt.update(grads, opt_state, params)
                 updates = jax.tree_util.tree_map(lambda u: -lr * u, updates)
