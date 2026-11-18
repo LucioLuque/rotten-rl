@@ -45,8 +45,9 @@ anotado acá con fecha y motivo.
 - ~~MMD~~: descartado por ahora (17/11): más caro y sin un resultado en juegos parecidos que lo
   justifique. Se puede probar más adelante.
 - También el 17/11: `s20full`, `s30full` y `u72full` (2, 3 y 7 de cero a 24M de una vez), porque los
-  agentes de 2 y 7 que tenía estaban hechos en tramos retomados; son además la base contra la que se
-  compara cada mejora de la B.
+  agentes de 2 y 7 que tenía estaban hechos en tramos retomados. `s30full` empató con `s30`: retomar
+  con `--resume` equivale a entrenar de una vez (`docs/resume/`), así que no hacía falta rehacerlos;
+  `s20full` y `u72full` quedan igual como base de cada prueba de la B (misma receta, de cero, 24M).
 
 **C. 4, 5 y 6 jugadores**: empieza cuando termine la B, con la mejor receta. El 17/11 la había
 empezado antes de tiempo (`f40`, `f50`, `f60` en la cola) y la saqué.

@@ -30,3 +30,14 @@ reglas, modelo único), lo estudio en ese momento.
 ## Resultados
 
 Pendiente.
+
+## Resultado de `s30full` (17/11)
+
+Torneo `t_s30full` (3 jugadores): `s30full` (de cero a 24M de una vez) contra `s30` (12M + 12M retomado)
+**−0,07 por partida, 33,4 % de win rate (empate 33,3 %), 7/16 cruces positivos: empate**. Los dos le
+ganan +0,44 a `s30` a 12M (16/16). Contra la heurística, 62,1 % y 62,9 %. Las curvas lo explican: al
+retomar `s30` con `--resume --games 24000000` la tasa se recalculó para el horizonte nuevo y volvió a
+1,5e-4, así que desde 12M siguió exactamente el mismo camino que una corrida de cero a 24M; solo la
+primera mitad fue distinta (tasa que bajaba a 0 en 12M), y eso no dejó diferencia. **Retomar con
+`--resume` (mismo optimizador, sin bajón) es equivalente a entrenar de una vez**; el bajón es solo de
+`--init_from` (optimizador nuevo).
