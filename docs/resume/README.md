@@ -41,3 +41,7 @@ retomar `s30` con `--resume --games 24000000` la tasa se recalculó para el hori
 primera mitad fue distinta (tasa que bajaba a 0 en 12M), y eso no dejó diferencia. **Retomar con
 `--resume` (mismo optimizador, sin bajón) es equivalente a entrenar de una vez**; el bajón es solo de
 `--init_from` (optimizador nuevo).
+
+`s20full` (2 jugadores, de cero a 24M; torneo `t_s20full`): contra `s20` a 24M **−0,09, 49,9 %, 7/16:
+empate**; contra `s20` a 36M −0,09 (50,2 %); contra `s20` a 12M +0,88 (16/16); contra la heurística 82,3 %.
+Lo mismo que con 3 jugadores. Una semilla (s1) quedó más floja que las otras tres.
