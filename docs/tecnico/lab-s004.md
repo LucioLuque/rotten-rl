@@ -284,8 +284,10 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES= python scripts/train.p
 - Cola que no entra en una noche: `scripts/lab/remaining_queue.py --queue <cola> --log <log de la
   cola> --from <primera línea>` escribe la cola de lo que falta (las corridas cortadas, como
   `--resume` hasta su `--games`; las que no empezaron, tal cual; lo terminado, afuera). Un timer del
-  servidor la arma y la lanza cuando reabre el lab (ejemplo: `runs/lab/launch_0805d.sh`), así no
-  hay que editar colas de noche.
+  servidor la arma y la lanza cuando reabre el lab: `scripts/lab/relaunch_queue.sh <cola vieja> <cola
+  nueva>` (también levanta el vigilante y el respaldo), así no hay que editar colas de noche. Ojo:
+  `--no_launch_after lab` no lanza nada en la última hora antes de un cierre, así que no sirve
+  retomar en ventanas de menos de una hora.
 
 ## Velocidad medida (25/10/2026)
 

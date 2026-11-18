@@ -45,3 +45,9 @@ primera mitad fue distinta (tasa que bajaba a 0 en 12M), y eso no dejó diferenc
 `s20full` (2 jugadores, de cero a 24M; torneo `t_s20full`): contra `s20` a 24M **−0,09, 49,9 %, 7/16:
 empate**; contra `s20` a 36M −0,09 (50,2 %); contra `s20` a 12M +0,88 (16/16); contra la heurística 82,3 %.
 Lo mismo que con 3 jugadores. Una semilla (s1) quedó más floja que las otras tres.
+
+`u72full` (7 jugadores, de cero a 24M; torneo `t_u72full`): contra `u72` a 24M **−0,11, 14,2 % (empate
+14,3 %), 0/16**; contra `u72` a 12M +0,07 (11/16); contra la heurística 38,2 %. Queda un poco debajo de
+`u72` y en todos los cruces, aunque por poco (cada cruce tiene ±0,09). Una semilla (s1) otra vez más
+floja. Con 2 y 3 jugadores fue empate; con 7, `u72` (en tramos) apenas mejor. Ningún caso justifica
+haber rehecho los agentes: para la etapa C alcanza con entrenar de una vez o retomar con `--resume`.
