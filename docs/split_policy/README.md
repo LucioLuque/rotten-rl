@@ -48,3 +48,7 @@ cambia más por actualización), y nada más. Velocidad: 2.418 partidas/s por se
 
 Conclusión: con PPO y esta observación, compartir las capas entre canto y juego no estorba. Como no
 ganó con 2 jugadores, no lo pruebo con 3 y 7 (era la condición).
+
+Igual, el 18/11 decidí probarlo con 3 jugadores, por si con más rivales el canto pesa distinto: `h30`
+(3 jugadores, redes separadas, de cero a 24M, ~4 h estimadas) contra `s30full`, torneo `t_h30`. En la
+cola de la -14 antes de `f40`.

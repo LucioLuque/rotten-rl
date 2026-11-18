@@ -41,6 +41,7 @@ anotado acá con fecha y motivo.
   sin liga; con 3 no lo hace más robusto y con 7 no hay agujero que tapar; `docs/robustness/`).
 - Canto y juego en redes separadas: hecho, no mejora (`h20` contra `s20full` −0,28, 4/16, 18/11;
   `docs/split_policy/`).
+  Prueba extra con 3 jugadores (`h30` contra `s30full`), decidida el 18/11, antes de `f40`.
 - ~~MMD~~: descartado por ahora (17/11): más caro y sin un resultado en juegos parecidos que lo
   justifique. Se puede probar más adelante.
 - También el 17/11: `s20full`, `s30full` y `u72full` (2, 3 y 7 de cero a 24M de una vez), porque los
