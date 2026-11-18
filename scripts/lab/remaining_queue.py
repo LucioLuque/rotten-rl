@@ -7,8 +7,9 @@ Reads a run_queue file and, from the line named by --from on, prints the lines s
   - training runs cut before their --games (the last row of some seed's train.csv is below it):
     "<name>_resume --resume <runs>/<name>_* --games N --eval_every E", which continues them exactly;
   - training runs every seed of which reached --games: left out;
-  - --script lines (tournaments) and --resume lines: left out if the queue log says they ended
-    with code 0, kept otherwise.
+  - --resume lines: kept as they are while some run they resume is below their --games;
+  - --script lines (tournaments): left out if the queue log says they ended with code 0, kept
+    otherwise.
 
 Meant for the morning after a night queue, so nothing has to be edited by hand at night:
 
@@ -52,17 +53,23 @@ def main():
     p.add_argument("--queue", required=True)
     p.add_argument("--log", required=True, help="the run_queue log of that queue")
     p.add_argument("--runs", default="~/scratch/runs")
-    p.add_argument("--from", dest="start", required=True, help="name of the first line to consider")
+    p.add_argument("--from", dest="start", default=None,
+                   help="name of the first line to consider (default: the first line)")
     a = p.parse_args()
     runs = os.path.expanduser(a.runs)
     with open(os.path.expanduser(a.log)) as f:
         log = f.read()
     lines = read_queue(os.path.expanduser(a.queue))
     names = [n for n, _, _ in lines]
-    if a.start not in names:
+    if a.start is not None and a.start not in names:
         raise SystemExit(f"{a.start} is not in {a.queue}")
-    for name, args, raw in lines[names.index(a.start):]:
-        if "--script" in args or "--resume" in args:
+    for name, args, raw in lines[names.index(a.start) if a.start else 0:]:
+        if "--resume" in args:
+            dirs = glob.glob(os.path.expanduser(flag(args, "--resume")))
+            if not dirs or min(last_episode(d) for d in dirs) < int(flag(args, "--games")):
+                print(raw)
+            continue
+        if "--script" in args:
             if f"terminó {name} (código 0)" not in log:
                 print(raw)
             continue
