@@ -1,9 +1,7 @@
 # 4, 5 y 6 jugadores
 
-Etapa C del plan del 16/11 (`docs/plan.md`). **Todavía no empezó:** va cuando termine la etapa B
-(falta probar canto y juego en redes separadas, `docs/split_policy/`), con la mejor receta que salga.
-El 17/11 la había puesto en la cola antes de tiempo y la saqué. Lo de abajo es la idea, que se ajusta
-a la receta final: **de cero y con el horizonte completo de una vez** (24M partidas), que es como
+Etapa C del plan del 16/11 (`docs/plan.md`). Empieza el 18/11, cuando terminó la etapa B sin cambios
+en la receta (tarea auxiliar, liga con varios asientos y redes separadas no mejoraron). Entreno **de cero y con el horizonte completo de una vez** (24M partidas), que es como
 conviene entrenar un agente nuevo (sin el bajón de retomar, `docs/resume/`).
 
 | Corrida | Jugadores | Entropía | Partidas | Tiempo estimado (sin medir) |

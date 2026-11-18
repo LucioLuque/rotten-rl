@@ -267,6 +267,13 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 
 ### Qué sigue (16/11/2026 07:00)
 
+> **18/11 02:20: termina la etapa B, empieza la C.** Canto y juego en redes separadas (`h20`) no
+> mejora (−0,28 contra `s20full`, 4/16); con la tarea auxiliar y la liga de varios asientos, ninguna
+> idea de la B cambió la receta. `s20full` y `s30full` empataron con `s20` y `s30` (retomar con
+> `--resume` equivale a entrenar de una vez). Cola de la -14: `u72full` y después `f40`, `f50`, `f60`
+> (4, 5 y 6 jugadores de cero a 24M; `docs/players_456/`); lo que corte el cierre de las 07:00 se
+> retoma solo a las 08:05 (`queue30`).
+
 > **17/11 15:30: sigue la etapa B** (a las 14:00 había empezado la C antes de tiempo; la saqué,
 > `docs/plan.md`, "Estado al 17/11"). Cola de la -14 (`queue26`): liga de 7 con 4 asientos y su
 > explotador; `s30full`, `s20full` y `u72full` (3, 2 y 7 jugadores de cero a 24M de una vez); y `h20`,

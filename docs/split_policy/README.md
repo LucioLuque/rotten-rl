@@ -38,4 +38,13 @@ En la cola de la -14 (`queue26`) el 17/11, después de `s20full`.
 
 ## Resultados
 
-Pendiente.
+**`t_h20` (18/11, 1000 repartos por cruce): las redes separadas no mejoran.** `h20` contra `s20full`
+**−0,28 por partida, 49,5 % de win rate, 4/16 cruces positivos**; contra `s20` (36M) −0,38 (0/16);
+contra la heurística 82,4 % (`s20full` 82,3 %). Está en el borde del ruido (~0,3), pero para el lado
+malo. Métricas de entrenamiento: win rate y cantos exactos contra la heurística, entropía y varianza
+explicada iguales a `s20full`; la KL y los pasos recortados un poco más altos al principio (cada red
+cambia más por actualización), y nada más. Velocidad: 2.418 partidas/s por semilla (la red compartida,
+~4.000): 2 h 44 min para 24M.
+
+Conclusión: con PPO y esta observación, compartir las capas entre canto y juego no estorba. Como no
+ganó con 2 jugadores, no lo pruebo con 3 y 7 (era la condición).

@@ -39,9 +39,8 @@ anotado acá con fecha y motivo.
 - Pérdida auxiliar de las manos ajenas: hecha, no mejora (`docs/aux_hands/`).
 - Liga con el que aprende en varios asientos: hecha, no mejora ni con 3 ni con 7 (empata con seguir
   sin liga; con 3 no lo hace más robusto y con 7 no hay agujero que tapar; `docs/robustness/`).
-- Canto y juego en redes separadas: programado el 17/11 (`--split_policy`), primera prueba con 2
-  jugadores (`h20` contra `s20full`, la misma receta de cero a 24M) en la noche del 17/11
-  (`docs/split_policy/`).
+- Canto y juego en redes separadas: hecho, no mejora (`h20` contra `s20full` −0,28, 4/16, 18/11;
+  `docs/split_policy/`).
 - ~~MMD~~: descartado por ahora (17/11): más caro y sin un resultado en juegos parecidos que lo
   justifique. Se puede probar más adelante.
 - También el 17/11: `s20full`, `s30full` y `u72full` (2, 3 y 7 de cero a 24M de una vez), porque los
@@ -49,8 +48,11 @@ anotado acá con fecha y motivo.
   con `--resume` equivale a entrenar de una vez (`docs/resume/`), así que no hacía falta rehacerlos;
   `s20full` y `u72full` quedan igual como base de cada prueba de la B (misma receta, de cero, 24M).
 
-**C. 4, 5 y 6 jugadores**: empieza cuando termine la B, con la mejor receta. El 17/11 la había
-empezado antes de tiempo (`f40`, `f50`, `f60` en la cola) y la saqué.
+**B terminada el 18/11 a las 02:20:** ninguna de sus tres ideas mejoró (MMD descartado), así que la
+receta queda como estaba.
+
+**C. 4, 5 y 6 jugadores**: empieza el 18/11 con la receta actual: `f40`, `f50`, `f60` en la cola de la
+-14 después de `u72full` (`docs/players_456/`). El 17/11 la había empezado antes de tiempo y la saqué.
 
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 

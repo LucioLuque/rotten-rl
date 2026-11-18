@@ -14,3 +14,6 @@ h20_jaxppo2p_splitpolicy_ent0.06_24M --players 2 --split_policy --ent_coef 0.06 
 t_h20 --script scripts/jax_engine/tournament.py --players 2 --agents heuristic,~/scratch/runs/s20full_*,~/scratch/runs/h20_*,~/scratch/runs/s20_jaxppo2p* --out ~/scratch/torneo_h20.md
 u72full_jaxppo7p_ent0.1_24M --players 7 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
 t_u72full --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,~/scratch/runs/u72_jaxppo7p*@12000256,~/scratch/runs/u72_jaxppo7p*,~/scratch/runs/u72full_* --out ~/scratch/torneo_u72full.md
+f40_jaxppo4p_ent0.06_24M --players 4 --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+f50_jaxppo5p_ent0.08_24M --players 5 --ent_coef 0.08 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+f60_jaxppo6p_ent0.1_24M --players 6 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
