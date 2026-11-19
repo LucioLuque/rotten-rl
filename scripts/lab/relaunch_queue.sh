@@ -21,14 +21,19 @@ vpn on
 SSH="timeout 120 ssh -o ControlPath=none $LAB"
 ok=0
 for i in 1 2 3 4; do
-  $SSH "bash -lc 'cd ~/rotten-rl && git pull -q; q=$old; [ -f ~/scratch/\$q.txt ] || q=$older; \
+  $SSH "bash -lc '[ \$(hostname) = $HOST ] || exit 3; cd ~/rotten-rl && git pull -q; q=$old; [ -f ~/scratch/\$q.txt ] || q=$older; \
 python3 scripts/lab/remaining_queue.py --queue ~/scratch/\$q.txt --log ~/scratch/logs/\$q.log \
 > ~/scratch/$new.txt && cat ~/scratch/$new.txt'" > "$L/${new}_generada.txt" && { ok=1; break; }
   sleep 60
 done
 [ $ok = 1 ] || { avisar "$new" "no pude armar la cola de lo que quedó" 4; exit 1; }
 [ -s "$L/${new}_generada.txt" ] || { avisar "$new" "no quedaba nada para lanzar" 3; exit 0; }
-$SSH "bash -lc 'hostname; bash ~/rotten-rl/scripts/lab/start_queue.sh $new; sleep 30; tail -1 ~/scratch/logs/$new.log'"
+ok=0
+for i in 1 2 3 4; do
+  $SSH "bash -lc '[ \$(hostname) = $HOST ] || exit 3; bash ~/rotten-rl/scripts/lab/start_queue.sh $new; sleep 30; tail -1 ~/scratch/logs/$new.log'" && { ok=1; break; }
+  sleep 60
+done
+[ $ok = 1 ] || { avisar "$new" "armé la cola pero no pude lanzarla en $HOST" 4; exit 1; }
 touch "$L/watch_$new.out"
 until=$(env -u PYTHONPATH python3 -m rotten_rl.lab_hours stop)
 sudo -n systemctl stop podrida-watch podrida-backup 2>/dev/null
