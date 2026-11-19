@@ -52,3 +52,11 @@ ganó con 2 jugadores, no lo pruebo con 3 y 7 (era la condición).
 Igual, el 18/11 decidí probarlo con 3 jugadores, por si con más rivales el canto pesa distinto: `h30`
 (3 jugadores, redes separadas, de cero a 24M, ~4 h estimadas) contra `s30full`, torneo `t_h30`. En la
 cola de la -14 antes de `f40`.
+
+**`t_h30` (19/11): con 3 jugadores, empate.** `h30` contra `s30full` **−0,03 por partida, 33,3 % (empate
+33,3 %), 8/16 cruces**; contra `s30` −0,12 (3/16); contra la heurística 61,9 % (`s30full` 62,1 %). Las
+curvas de entrenamiento son prácticamente las mismas. (`h30` se cortó dos veces: a las 12:25 del 18/11
+por el cierre del lab y la -14 no volvió hasta las 16:00 del 19/11; se retomó con `--resume` desde
+20,8M, que equivale a no cortar, `docs/resume/`.)
+
+**Conclusión: separar canto y juego no mejora ni con 2 ni con 3 jugadores.** Queda cerrado.
