@@ -120,6 +120,14 @@ ssh <usuario>@labs004.udesa.edu.ar
   reinicio a Windows). Rearmar el entorno con `scripts/lab/setup_machine.sh` (`~/rotten-rl` está en
   el `$HOME` compartido) y subir los checkpoints desde la laptop.
 - **Máximo 2 conexiones simultáneas por usuario** (`ssh`, `scp`, `rsync` cuentan cada uno).
+- **Máquina temporal fija (19/11/2026):** si nuestra máquina no responde, el lab da una temporal
+  distinta en cada conexión (-10, -21, -18, -19...). Para quedarse en una: abrir una conexión maestra
+  (`ssh -o ControlMaster=yes -o ControlPath=~/.ssh/cm/ten -o ServerAliveInterval=30 -fN labs004b`),
+  repetir hasta que `hostname` por esa conexión dé una máquina libre (`who` vacío), y usar el alias
+  `lab21` de `~/.ssh/config` (solo reutiliza esa maestra, `ControlMaster no`). El vigilante y el
+  respaldo van con `LAB_SSH=lab21 LAB_PINNED=1` (consultan por la maestra y nunca la cierran). El
+  límite de 2 del lab cuenta sesiones, no conexiones: no dejar una sesión abierta para sostener la
+  maestra; alcanza una consulta corta cada 4 minutos.
 - **Segunda máquina (slot 2)** (Stefano, 14/11/2026): `ssh -o SetEnv=LAB_SLOT=2 ...` entra a otra
   máquina fija (la labo-s004-14); sin eso, al slot 1 (la -13). En el servidor está el alias
   `labs004b` (`SetEnv LAB_SLOT=2` y su propio `ControlPath`). El home es el mismo; `~/scratch`, el
