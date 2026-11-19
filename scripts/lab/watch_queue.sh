@@ -20,6 +20,9 @@
 #   margins, weekday reboot at 07:30), or right away if it is closed: it never queries a closed lab.
 #   If the calendar cannot be read (not even the cache), exits with FALLA.
 LAB=${LAB_SSH:-labs004}   # ssh host; LAB_SSH=labs004b for the second machine (LAB_SLOT=2)
+# LAB_PINNED=1: LAB is an alias that only reuses an open master connection pinned to a temporary
+# machine (see docs/tecnico/lab-s004.md); then queries go through it and it is never closed.
+CP=none; [ -n "${LAB_PINNED:-}" ] && CP=$(ssh -G "$LAB" | awk '/^controlpath /{print $2}')
 log=$1; known=$2; file=${3:-}
 host=${WATCH_HOST:-}
 fails=0
@@ -36,7 +39,7 @@ while true; do
   if [ "$closes" = "-" ] || [ "$(date +%s)" -ge $(($(date -d "$closes" +%s) - 25 * 60)) ]; then
     echo "HORA $(date +%H:%M) (cierra $closes)"; exit 0
   fi
-  out=$(timeout 60 ssh -o ControlPath=none -o ConnectTimeout=20 "$LAB" "$remote" 2>"$err")
+  out=$(timeout 60 ssh -o ControlPath="$CP" -o ConnectTimeout=20 "$LAB" "$remote" 2>"$err")
   got=$(echo "$out" | sed -n 1p); n=$(echo "$out" | sed -n 2p)
   f=$(echo "$out" | sed -n 3p); running=$(echo "$out" | sed -n 4p)
   if ! [[ "$running" =~ ^[0-9]+$ ]]; then
@@ -47,7 +50,7 @@ while true; do
       sleep 150; continue
     fi
     if [ $fails -ge 2 ]; then
-      ssh -O exit "$LAB" >/dev/null 2>&1
+      [ -n "${LAB_PINNED:-}" ] || ssh -O exit "$LAB" >/dev/null 2>&1
       echo "FALLA $(date +%H:%M) $(tail -1 "$err")"; exit 1
     fi
     sleep 150; continue

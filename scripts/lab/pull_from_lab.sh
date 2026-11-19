@@ -14,7 +14,7 @@ cd "$(dirname "$0")/../.."
 # La conexión compartida (ControlMaster) a veces queda rota del lado del lab ("unknown userid"):
 # se cierra y se reconecta.
 if ! host=$(timeout 40 ssh "$LAB" hostname 2>/dev/null); then
-  ssh -O exit "$LAB" >/dev/null 2>&1 || true
+  [ -n "${LAB_PINNED:-}" ] || ssh -O exit "$LAB" >/dev/null 2>&1 || true
   host=$(timeout 40 ssh "$LAB" hostname)
 fi
 dest=runs/lab/$host
