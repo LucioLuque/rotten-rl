@@ -1,6 +1,6 @@
 # Estado del proyecto
 
-Última actualización: 13/11/2026 08:50.
+Última actualización: 20/11/2026 05:20.
 
 ## Hecho
 
@@ -266,6 +266,14 @@ contra el mejor modelo de 2 jugadores, y `f20`/`f22` están en la -19. Ver `docs
 ## Próximos pasos
 
 ### Qué sigue (16/11/2026 07:00)
+
+> **20/11 05:20: termina la etapa C, empieza la D.** `f40`, `f50` y `f60` (4, 5 y 6 jugadores, de cero
+> a 24M) entrenaron bien: contra la heurística 54,0 %, 47,4 % y 40,9 % (empates 25, 20 y 16,7 %), y
+> cantan la ronda de 1 carta en equilibrio, como los de 2, 3 y 7 (`docs/players_456/`,
+> `docs/primera-ronda/`). La D empieza con "no cantar lo mismo 3 rondas seguidas" (`--no_repeat_bid`,
+> solo en el motor JAX): cola `queue33` en la -14 con `d20`, `d30`, `d72` (2, 3 y 7 de cero a 24M) y un
+> torneo con la variante después de cada uno (`docs/rule_variants/`). Lo que corte el cierre de las
+> 06:55 se retoma solo a las 08:05 (`queue34`, timer `podrida-launch-0805e`).
 
 > **18/11 02:20: termina la etapa B, empieza la C.** Canto y juego en redes separadas (`h20`) no
 > mejora (−0,28 contra `s20full`, 4/16); con la tarea auxiliar y la liga de varios asientos, ninguna
