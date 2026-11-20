@@ -103,6 +103,23 @@ entrenar siempre con ella empeora el juego sin ella; con 7, saberla vale más de
 entrenar siempre con ella cuesta lo mismo en el juego normal. Hace falta una red que sepa si la regla
 está, entrenada con las dos: `--formats` (`m20`, `m30`, `m72`).
 
+**Cuánto aparece la regla (20/11).** Partidas de cada agente contra sí mismo con la regla, 2000
+repartos, en la escalera vieja (script de una vez, sin guardar en el repo): en qué porcentaje de los
+cantos el que canta viene de cantar dos veces lo mismo y podría repetirlo ("restringido"), en cuántos el
+agente, sin la regla, habría cantado justo eso ("la regla cambia el canto"), y en cuántos repite porque
+no le queda otro canto:
+
+| Jugadores | Agente | Restringidos | La regla cambia el canto | Repite porque no queda otro |
+|---|---|---|---|---|
+| 2 | `s20full` / `d20` | 12,8 / 12,9 % | 2,9 / 3,0 % | 0,05 % |
+| 3 | `s30full` / `d30` | 16,2 / 16,6 % | 5,5 / 5,6 % | 0,2 % |
+| 7 | `u72full` / `d72` | 23,9 / 24,3 % | **13,1 / 12,9 %** | 0,03 % |
+
+Con 7 jugadores la regla cambia uno de cada 8 cantos (casi siempre un 0 que habría repetido); con 2,
+uno de cada 33. No es un caso raro: con `--formats` (la regla en la mitad de las partidas) aparece
+millones de veces en un entrenamiento, así que no hace falta forzarlo. `m20` con formatos: 2.542
+partidas/s por semilla (sin formatos 4.002: 1,57 veces más lento).
+
 ## Formato de partida (`--formats`)
 
 Decidido el 20/11. La mesa decide antes de empezar la partida tres cosas, y cambian de una mesa a
