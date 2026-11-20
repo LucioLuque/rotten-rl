@@ -54,6 +54,9 @@ receta queda como estaba.
 
 **C. 4, 5 y 6 jugadores**: empieza el 18/11 con la receta actual: `f40`, `f50`, `f60` en la cola de la
 -14 después de `u72full` (`docs/players_456/`). El 17/11 la había empezado antes de tiempo y la saqué.
+Entrenamientos hechos el 19 y 20/11 en la -14: contra la heurística a 24M, `f40` 54,0 % (empate 25 %),
+`f50` 47,4 % (20 %), `f60` 40,9 % (16,7 %), entre 3 y 7 jugadores como se espera, curvas sanas.
+Pendiente de la C: decidir si hace falta comparar contra lo exacto (no hay nada calculado con 4 a 6).
 
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 

@@ -33,3 +33,19 @@ heurística el 47,4 % de las partidas (empate 20 %; semillas entre 46,6 y 49,0 %
 partida, con 73,5 % de cantos exactos. Sigue el orden esperado entre 4 y 7 jugadores. Curvas sanas,
 como las de `f40`: el win rate sube de 44 % a 1M a 47 % a 24M, varianza explicada igual que con 3 y 4
 jugadores, entropía ~0,24 (entropía 0,08 en la receta, entre la de 4 y la de 7).
+
+**`f60` (6 jugadores, 19/11 23:51 a 20/11 04:32, 1.427 partidas/s por semilla):** a 24M le gana a la
+heurística el 40,9 % de las partidas (empate 16,7 %; semillas entre 40,2 y 41,4 %), por +16,1 puntos
+por partida, con 77,0 % de cantos exactos. Queda entre 5 y 7 jugadores en todo; curvas sanas, entropía
+~0,25 (entropía 0,1 en la receta, como con 7).
+
+| A 24M, contra la heurística | Win rate (empate) | Diferencia por partida | Cantos exactos |
+|---|---|---|---|
+| `s30full` (3) | 62,4 % (33,3 %) | +20,3 | 61,7 % |
+| `f40` (4) | 54,0 % (25 %) | +18,2 | 68,6 % |
+| `f50` (5) | 47,4 % (20 %) | +18,7 | 73,5 % |
+| `f60` (6) | 40,9 % (16,7 %) | +16,1 | 77,0 % |
+| `u72full` (7) | 36,3 % (14,3 %) | +14,5 | 79,1 % |
+
+Los tres entrenamientos de la etapa C terminaron sin problemas. Contra lo exacto: con 4 a 6 jugadores
+todavía no hay nada calculado (la ronda 2 con 5 a 7 entra solo si hace falta como control).
