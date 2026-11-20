@@ -84,6 +84,25 @@ exactos de `d30` contra la heurística quedan 2 puntos abajo (59,8 contra 61,7 %
 curvas, igual. Es un argumento para entrenar mezclando partidas con y sin la regla (`--formats`), y
 para que la red sepa en cuál está.
 
+**`t_d72` y `t_d72_sinregla` (20/11, 7 jugadores, 1000 repartos por cruce): con 7 jugadores la regla
+pesa mucho.**
+
+| `d72` contra `u72full` | Diferencia por partida | Win rate (empate 14,3 %) | Cruces positivos |
+|---|---|---|---|
+| Con la regla | **+1,12** | 15,7 % | **16/16** |
+| Sin la regla | **−1,33** | 13,1 % | **0/16** |
+
+Con la regla, `d72` le gana claro al agente normal (que la juega sin saberla); sin la regla pierde por lo
+mismo. Contra la heurística con la regla, `d72` 34,1 % y `u72full` 32,2 %; sin la regla, 36,4 % y
+38,2 %. Curvas: con la regla los cantos exactos bajan mucho (71,5 contra 79,1 %; con 7 jugadores se
+canta 0 casi siempre en las rondas chicas, y la regla obliga a cantar otra cosa cada tanto), la varianza
+explicada sube (0,55 contra 0,51) y la entropía queda un poco más alta (0,254 contra 0,247).
+
+**Conclusión de la regla de no repetir:** con 2 jugadores no cambia nada; con 3, saberla no aporta pero
+entrenar siempre con ella empeora el juego sin ella; con 7, saberla vale más de un punto por partida y
+entrenar siempre con ella cuesta lo mismo en el juego normal. Hace falta una red que sepa si la regla
+está, entrenada con las dos: `--formats` (`m20`, `m30`, `m72`).
+
 ## Formato de partida (`--formats`)
 
 Decidido el 20/11. La mesa decide antes de empezar la partida tres cosas, y cambian de una mesa a
