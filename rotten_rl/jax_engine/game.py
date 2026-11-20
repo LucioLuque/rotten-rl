@@ -21,6 +21,14 @@ a field of the state (set by `new_game`), so `legal_mask` and `step` follow it; 
 each player's bids of the two previous rounds only with `observation(..., bid_history=True)`
 (OBS_SIZE + HISTORY_SIZE values), so networks of the plain game keep their 808 inputs.
 
+Match formats (docs/rule_variants/, rotten_rl/jax_engine/formats.py): the state carries the hand size
+of each round (`round_h`, 0 past the last one) and which rounds are played without trump
+(`no_trump`): no card is turned, follow the suit led if you can, else play anything, and the highest
+card of the suit led wins. `new_game` defaults to the 13-round ladder with trump in every round (the
+game of pyspiel); `format_game` draws the format. The observation adds the format (the rounds left:
+hand size and trump of each, and whether the no-repeat rule is on) only with
+`observation(..., format_info=True)`.
+
 Not here: `infer_trump_void` (off by default; it did not help) and the hidden hands of the central
 critic.
 """
@@ -41,6 +49,9 @@ SCORE_CEILING = 228.0                              # sum of 10 + 2h over the lad
 ROUND_SCORE_NORM = 24.0
 OBS_SIZE = 808
 HISTORY_SIZE = MAX_PLAYERS * 2 * 9                # per relative seat, last and second-last bid
+MAX_ROUNDS = 16                                    # rounds of the longest format (formats.py)
+FORMAT_SIZE = MAX_ROUNDS * 9 + 1                   # rounds left (one-hot h 0..7 + no trump), the rule
+NO_TRUMP = 4                                       # trump "suit" of a round without trump
 
 SUIT_OF = jnp.arange(52) // 13
 RANK_OF = jnp.arange(52) % 13
@@ -50,7 +61,7 @@ BIDDING, PLAYING, TERMINAL = 0, 1, 2
 
 
 class GameState(NamedTuple):
-    orders: jnp.ndarray       # int[13, 52]  card order of each round's deal
+    orders: jnp.ndarray       # int[MAX_ROUNDS, 52]  card order of each round's deal
     round_ptr: jnp.ndarray    # int          round in the ladder (13 when the match is over)
     phase: jnp.ndarray        # int          BIDDING, PLAYING or TERMINAL
     dealer: jnp.ndarray       # int
@@ -68,12 +79,15 @@ class GameState(NamedTuple):
     voids: jnp.ndarray        # bool[n, 4]   known not to hold that suit (did not follow it)
     prev_bids: jnp.ndarray    # int[n, 2]    bid in the previous and the second previous round, -1 if none
     no_repeat_bid: jnp.ndarray  # bool       the variant: no bidding the same 3 rounds in a row
+    round_h: jnp.ndarray      # int[MAX_ROUNDS]   hand size of each round, 0 past the last
+    no_trump: jnp.ndarray     # bool[MAX_ROUNDS]  rounds played without trump
 
 
-def _round_start(orders, round_ptr, dealer, n):
+def _round_start(orders, round_h, round_ptr, dealer, n):
     """Hands, trump card and first player of round `round_ptr` (dealer already rotated)."""
-    h = LADDER[jnp.minimum(round_ptr, NUM_ROUNDS - 1)]
-    order = orders[jnp.minimum(round_ptr, NUM_ROUNDS - 1)]
+    i = jnp.minimum(round_ptr, MAX_ROUNDS - 1)
+    h = jnp.maximum(round_h[i], 1)
+    order = orders[i]
     pos = jnp.arange(52)
     owner = jnp.where(pos < n * h, pos // h, -1)             # position in the order -> player
     owner_of_card = jnp.full((52,), -1, jnp.int32).at[order].set(owner)
@@ -82,15 +96,24 @@ def _round_start(orders, round_ptr, dealer, n):
     return hands, trump_card, (dealer + 1) % n
 
 
-def obs_size(bid_history=False):
-    return OBS_SIZE + (HISTORY_SIZE if bid_history else 0)
+def obs_size(bid_history=False, format_info=False):
+    return OBS_SIZE + (HISTORY_SIZE if bid_history else 0) + (FORMAT_SIZE if format_info else 0)
 
 
-def new_game(orders, num_players, no_repeat_bid=False):
-    """A match at its first decision (player after the dealer bids). `orders` int[13, 52]."""
+CLASSIC_H = jnp.concatenate([LADDER, jnp.zeros(MAX_ROUNDS - NUM_ROUNDS, jnp.int32)])
+
+
+def new_game(orders, num_players, no_repeat_bid=False, round_h=None, no_trump=None):
+    """A match at its first decision (player after the dealer bids). `orders` int[R, 52], one
+    order per round (R >= the rounds of the format; with fewer than MAX_ROUNDS, the last is repeated
+    for the unused ones). Default format: the 13-round ladder, trump in every round."""
     n = num_players
     orders = jnp.asarray(orders, jnp.int32)
-    hands, trump_card, first = _round_start(orders, 0, 0, n)
+    if orders.shape[0] < MAX_ROUNDS:
+        orders = jnp.concatenate([orders, jnp.repeat(orders[-1:], MAX_ROUNDS - orders.shape[0], 0)])
+    round_h = CLASSIC_H if round_h is None else jnp.asarray(round_h, jnp.int32)
+    no_trump = (jnp.zeros(MAX_ROUNDS, bool) if no_trump is None else jnp.asarray(no_trump, bool))
+    hands, trump_card, first = _round_start(orders, round_h, 0, 0, n)
     return GameState(
         orders=orders, round_ptr=jnp.int32(0), phase=jnp.int32(BIDDING), dealer=jnp.int32(0),
         current=jnp.int32(first), hands=hands, trump_card=trump_card.astype(jnp.int32),
@@ -98,16 +121,38 @@ def new_game(orders, num_players, no_repeat_bid=False):
         scores=jnp.zeros((n,), jnp.int32), lead_suit=jnp.int32(-1),
         trick=jnp.full((n,), -1, jnp.int32), trick_len=jnp.int32(0), tricks_done=jnp.int32(0),
         played_by=jnp.full((52,), -1, jnp.int32), voids=jnp.zeros((n, 4), bool),
-        prev_bids=jnp.full((n, 2), -1, jnp.int32), no_repeat_bid=jnp.asarray(no_repeat_bid, bool))
+        prev_bids=jnp.full((n, 2), -1, jnp.int32), no_repeat_bid=jnp.asarray(no_repeat_bid, bool),
+        round_h=round_h, no_trump=no_trump)
 
 
 def random_game(key, num_players, no_repeat_bid=False):
+    """The 13-round ladder with trump (the same deals as before formats existed)."""
     orders = jax.vmap(lambda k: jax.random.permutation(k, 52))(jax.random.split(key, NUM_ROUNDS))
     return new_game(orders, num_players, no_repeat_bid)
 
 
+def format_game(key, num_players):
+    """A match with its format drawn by formats.sample_format (ladder, rounds without trump and the
+    no-repeat rule)."""
+    from . import formats
+    k_fmt, k_deal = jax.random.split(key)
+    h, nt, no_repeat = formats.sample_format(k_fmt)
+    orders = jax.vmap(lambda k: jax.random.permutation(k, 52))(jax.random.split(k_deal, MAX_ROUNDS))
+    return new_game(orders, num_players, no_repeat, h, nt)
+
+
+def num_rounds(state):
+    return (state.round_h > 0).sum()
+
+
 def hand_size(state):
-    return LADDER[jnp.minimum(state.round_ptr, NUM_ROUNDS - 1)]
+    return jnp.maximum(state.round_h[jnp.minimum(state.round_ptr, MAX_ROUNDS - 1)], 1)
+
+
+def trump_suit(state):
+    """Suit of trump in the current round, NO_TRUMP (4) in a round without trump."""
+    nt = state.no_trump[jnp.minimum(state.round_ptr, MAX_ROUNDS - 1)]
+    return jnp.where(nt, NO_TRUMP, SUIT_OF[state.trump_card]).astype(jnp.int32)
 
 
 def is_terminal(state):
@@ -131,7 +176,7 @@ def legal_mask(state):
     # Playing: follow suit; if void, trump if you can; else anything.
     hand = state.hands[state.current]
     follow = hand & SUIT_MASKS[jnp.maximum(state.lead_suit, 0)]
-    trumps = hand & SUIT_MASKS[SUIT_OF[state.trump_card]]
+    trumps = hand & (SUIT_OF == trump_suit(state))
     void_choice = jnp.where(trumps.any(), trumps, hand)
     card_ok = jnp.where(state.lead_suit < 0, hand,
                         jnp.where(follow.any(), follow, void_choice))
@@ -197,7 +242,7 @@ def step(state, action, reward_scheme="relative"):
     trick = state.trick.at[p].set(card)
     trick_len = state.trick_len + 1
     full = trick_len == n
-    winner = _winner(trick, lead_suit, SUIT_OF[state.trump_card])
+    winner = _winner(trick, lead_suit, trump_suit(state))
     tricks_won = state.tricks_won.at[winner].add(full.astype(jnp.int32))
     tricks_done = state.tricks_done + full.astype(jnp.int32)
     after_play = state._replace(
@@ -218,8 +263,8 @@ def step(state, action, reward_scheme="relative"):
     rewards = _round_rewards(points, n, reward_scheme)
     next_ptr = state.round_ptr + 1
     next_dealer = (state.dealer + 1) % n
-    hands, trump_card, first = _round_start(state.orders, next_ptr, next_dealer, n)
-    over = next_ptr >= NUM_ROUNDS
+    hands, trump_card, first = _round_start(state.orders, state.round_h, next_ptr, next_dealer, n)
+    over = next_ptr >= num_rounds(state)
     next_round = after_play._replace(
         round_ptr=next_ptr, dealer=next_dealer,
         phase=jnp.where(over, TERMINAL, BIDDING).astype(jnp.int32),
@@ -241,11 +286,15 @@ def step(state, action, reward_scheme="relative"):
     return new, rewards
 
 
-def observation(state, player, bid_history=False):
+def observation(state, player, bid_history=False, format_info=False):
     """float32[808]: the information state of `player`, the same as
     `rotten_rl.openspiel_game.info_state_tensor` (zeros at the end of the match). With
     `bid_history`, followed by HISTORY_SIZE values: for each relative seat, one-hots (none, 0..7) of
-    its bid in the previous round and in the one before (for the no_repeat_bid variant)."""
+    its bid in the previous round and in the one before (for the no_repeat_bid variant). With
+    `format_info`, then FORMAT_SIZE values: for the current round and the ones after it (up to
+    MAX_ROUNDS, by distance), a one-hot of the hand size (0 = no round) and 1 if without trump; and 1
+    if the no-repeat rule is on. In the 808, round_index is clipped to the 13 slots (a longer format
+    is told by format_info) and a round without trump has the "no trump" slot of trump on.)"""
     n = state.hands.shape[0]
     h = hand_size(state)
     hf = h.astype(jnp.float32)
@@ -263,30 +312,31 @@ def observation(state, player, bid_history=False):
         return (j - player) % n
 
     trick_on = state.trick_len > 0
-    trump_suit = SUIT_OF[state.trump_card]
+    trump = trump_suit(state)
+    has_trump = trump < NO_TRUMP
     bids_made = (state.bids >= 0).sum()
     played = state.played_by >= 0
     played_per_suit = (SUIT_MASKS & played[None, :]).sum(axis=1)
     my_hand = state.hands[player]
 
     loc = jnp.where(played, 3 + rel(state.played_by), 0)
-    loc = loc.at[state.trump_card].set(2)
+    loc = loc.at[state.trump_card].set(jnp.where(has_trump, 2, loc[state.trump_card]))
     loc = jnp.where(my_hand, 1, loc)
 
     seen = played_per_suit + (SUIT_MASKS & my_hand[None, :]).sum(axis=1)
-    seen = seen.at[trump_suit].add(1)
+    seen = seen.at[jnp.minimum(trump, 3)].add(has_trump.astype(seen.dtype))
 
-    winner = _winner(state.trick, jnp.maximum(state.lead_suit, 0), trump_suit)
+    winner = _winner(state.trick, jnp.maximum(state.lead_suit, 0), trump)
     bid_slot = state.bids + 1                           # -1 (not bid) -> 0, b -> b + 1
     trick_flags = jnp.zeros((52,), jnp.float32).at[jnp.maximum(state.trick, 0)].max(
         (state.trick >= 0).astype(jnp.float32))
 
     pieces = [
         one_hot(h - 1, 7),                                                   # hand_size
-        one_hot(state.round_ptr, 13),                                        # round_index
+        one_hot(jnp.minimum(state.round_ptr, NUM_ROUNDS - 1), 13),           # round_index
         per_rel(state.hands.sum(axis=1).astype(jnp.float32) / hf),           # cards_remaining
         one_hot(state.phase, 2),                                             # phase
-        one_hot(trump_suit, 5),                                              # trump
+        one_hot(trump, 5),                                                   # trump
         one_hot(jnp.where(state.lead_suit < 0, 4, state.lead_suit), 5),      # lead_suit
         (jnp.arange(MAX_PLAYERS) < n).astype(jnp.float32),                   # active_players
         one_hot(rel(state.dealer), 7),                                       # dealer_relative
@@ -306,5 +356,13 @@ def observation(state, player, bid_history=False):
     ]
     if bid_history:
         pieces.append(per_rel(jax.nn.one_hot(state.prev_bids + 1, 9, dtype=jnp.float32)).reshape(-1))
+    if format_info:
+        ahead = jnp.minimum(state.round_ptr + jnp.arange(MAX_ROUNDS), MAX_ROUNDS - 1)
+        on = state.round_ptr + jnp.arange(MAX_ROUNDS) < MAX_ROUNDS
+        h_ahead = jnp.where(on, state.round_h[ahead], 0)
+        nt_ahead = (on & state.no_trump[ahead] & (h_ahead > 0)).astype(jnp.float32)
+        pieces.append(jnp.concatenate([jax.nn.one_hot(h_ahead, 8, dtype=jnp.float32),
+                                       nt_ahead[:, None]], 1).reshape(-1))
+        pieces.append(state.no_repeat_bid.astype(jnp.float32)[None])
     obs = jnp.concatenate(pieces)
     return jnp.where(is_terminal(state), 0.0, obs)

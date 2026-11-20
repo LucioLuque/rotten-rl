@@ -25,6 +25,10 @@ see the bid history; those of the plain game play with the rule but see only the
 Without the flag, networks trained with the variant play the plain game (they still see the bid
 history, which the plain game also has).
 
+--formats: each deal draws its format (ladder, rounds without trump, the no-repeat rule;
+rotten_rl/jax_engine/formats.py). Networks trained with --formats see it; the others play it with
+the observation they know (in a round without trump their trump slot says "no trump").
+
 With 2 players, "B against A" is the same games as "A against B" (each deal already puts A in both
 seats), so it is not played: it is written with the sign changed, unless one of them is random.
 
@@ -83,6 +87,8 @@ def main():
     p.add_argument("--seed", type=int, default=0, help="azar de random y de :sample")
     p.add_argument("--no_repeat_bid", action="store_true",
                    help="variante: nadie canta lo mismo 3 rondas seguidas")
+    p.add_argument("--formats", action="store_true",
+                   help="cada reparto sortea su formato (escalera, rondas sin triunfo, regla)")
     p.add_argument("--out", help="guardar el resultado en markdown (y .json al lado)")
     a = p.parse_args()
 
@@ -117,7 +123,7 @@ def main():
         t = time.time()
         key = jax.random.fold_in(jax.random.PRNGKey(a.seed), i * k + j)
         o = je.match(agents[i][1], agents[j][1], n, a.deals, a.deal_seed, key,
-                     no_repeat_bid=a.no_repeat_bid)["overall"]
+                     no_repeat_bid=a.no_repeat_bid, formats=a.formats)["overall"]
         results[(i, j)] = o
         print(f"{names[i]} vs {names[j]}: diff {o['mean_score_diff']:+.2f} "
               f"±{o['mean_score_diff_se']:.2f}, win {o['win_rate']:.3f} "

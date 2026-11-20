@@ -52,7 +52,7 @@ def heuristic_action(state):
     n = state.hands.shape[0]
     mask = jg.legal_mask(state)
     p = state.current
-    trump = jg.SUIT_OF[state.trump_card]
+    trump = jg.trump_suit(state)                      # NO_TRUMP (4) in a round without trump
     is_trump = jg.SUIT_OF == trump
     rank = jg.RANK_OF
 
@@ -101,27 +101,35 @@ def _act(kind, params, obs, mask, states, key):
 
 
 @partial(jax.jit, static_argnames=("num_players", "num_deals", "kind", "opponent_kind",
-                                   "reward_scheme", "no_repeat_bid"))
+                                   "reward_scheme", "no_repeat_bid", "formats"))
 def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, opponent_kind,
-          reward_scheme, no_repeat_bid=False):
+          reward_scheme, no_repeat_bid=False, formats=False):
     """Plays every evaluation match: the evaluated agent (`kind`, `params`) in one seat, the
     opponent in the others. Returns, per match: final scores [G, n], the evaluated seat's return,
-    and its bid and points in each round [13, G]."""
+    and its bid and points in each round and the hand size of each round [MAX_ROUNDS, G] (0 past the
+    last round). With `formats`, each deal has its format drawn (game.format_game; no_repeat_bid
+    comes from it)."""
     n = num_players
     G = num_deals * n
     deal = jnp.arange(G) // n
     seat = jnp.arange(G) % n
     deal_keys = jax.random.split(deal_key, num_deals)[deal]
-    states = jax.vmap(lambda k: jg.random_game(k, n, no_repeat_bid))(deal_keys)
+    if formats:
+        states = jax.vmap(lambda k: jg.format_game(k, n))(deal_keys)
+    else:
+        states = jax.vmap(lambda k: jg.random_game(k, n, no_repeat_bid))(deal_keys)
     step = jax.vmap(lambda s, a: jg.step(s, a, reward_scheme))
     idx = jnp.arange(G)
 
+    R = jg.MAX_ROUNDS
+
     def body(carry, _):
-        states, key, ret = carry
+        states, key, ret, bids_r, points_r = carry
         key, sub = jax.random.split(key)
-        # Always with the bid history: networks of the plain game use only the first 808 values, and
-        # those trained with the variant can also play the plain game.
-        obs = jax.vmap(lambda s, p: jg.observation(s, p, True))(states, states.current)
+        # Always with the bid history (and with formats, the format): each network uses the first
+        # values it was trained with (808, + history, + format), so networks of the plain game and
+        # of the variants can all play.
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, True, formats))(states, states.current)
         mask = jax.vmap(jg.legal_mask)(states)
         mine = _act(kind, params, obs, mask, states, jax.random.fold_in(sub, 1))
         theirs = _act(opponent_kind, opponent_params, obs, mask, states, sub)
@@ -129,16 +137,21 @@ def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, 
         bid = states.bids[idx, seat]
         new, rewards = step(states, action)
         points = new.scores[idx, seat] - states.scores[idx, seat]
-        return (new, key, ret + rewards[idx, seat]), (bid, points)
+        closed = (new.round_ptr != states.round_ptr)[:, None] & (jnp.arange(R)[None, :]
+                                                                 == states.round_ptr[:, None])
+        bids_r = jnp.where(closed, bid[:, None], bids_r)
+        points_r = jnp.where(closed, points[:, None], points_r)
+        return (new, key, ret + rewards[idx, seat], bids_r, points_r), None
 
-    T = match_length(n)
-    (states, _, ret), (bids, points) = jax.lax.scan(body, (states, key, jnp.zeros(G)), None, length=T)
-    ends = np.cumsum([n + n * h for h in np.asarray(jg.LADDER)]) - 1       # moves that close a round
-    return states.scores, ret, bids[ends], points[ends]
+    T = match_length(n, formats)
+    zeros = jnp.zeros((G, R), jnp.int32)
+    (end, _, ret, bids, points), _ = jax.lax.scan(body, (states, key, jnp.zeros(G), zeros, zeros),
+                                                  None, length=T)
+    return end.scores, ret, bids.T, points.T, end.round_h.T
 
 
 def evaluate(policy, opponent, num_players, num_games, deal_seed=1234, opponent_params=None,
-             key=None, reward_scheme="relative", no_repeat_bid=False):
+             key=None, reward_scheme="relative", no_repeat_bid=False, formats=False):
     """Duplicate evaluation of the greedy `policy` (JAX params) against `opponent` ("random",
     "heuristic" or "past" with `opponent_params`). Same result dict as evaluation.evaluate."""
     n = num_players
@@ -147,29 +160,31 @@ def evaluate(policy, opponent, num_players, num_games, deal_seed=1234, opponent_
     if opponent != "past":
         opponent_params = None
     return match(("greedy", policy), (opponent_kind, opponent_params), n, num_deals, deal_seed,
-                 key, reward_scheme, no_repeat_bid)
+                 key, reward_scheme, no_repeat_bid, formats)
 
 
 def match(agent, opponent, num_players, num_deals, deal_seed, key=None, reward_scheme="relative",
-          no_repeat_bid=False):
+          no_repeat_bid=False, formats=False):
     """Duplicate evaluation between any two agents, each a (kind, params) pair (see AGENT_KINDS;
     params None for "heuristic" and "random"): `num_deals` deals, each played once with `agent` in
     every seat and `opponent` in the others. Same result dict as evaluation.evaluate. With
-    `no_repeat_bid`, the matches follow that rule variant and networks get the bid history."""
+    `no_repeat_bid`, the matches follow that rule variant; with `formats`, each deal has its format
+    drawn (formats.py)."""
     for kind, params in (agent, opponent):
         if kind not in AGENT_KINDS or (params is None) != (kind in ("heuristic", "random")):
             raise ValueError(f"bad agent: {kind} with params {params is not None}")
     key = jax.random.PRNGKey(0) if key is None else key
-    scores, ret, bids, points = jax.device_get(_play(
+    scores, ret, bids, points, h = jax.device_get(_play(
         agent[1], opponent[1], key, jax.random.PRNGKey(deal_seed), num_players, num_deals,
-        agent[0], opponent[0], reward_scheme, no_repeat_bid))
+        agent[0], opponent[0], reward_scheme, no_repeat_bid, formats))
     return summarize(np.asarray(scores), np.asarray(ret), np.asarray(bids), np.asarray(points),
-                     num_players)
+                     num_players, np.asarray(h))
 
 
-def summarize(scores, ret, bids, points, n):
+def summarize(scores, ret, bids, points, n, h=None):
     """The metrics of evaluation.evaluate from the played matches (match g: deal g // n, evaluated
-    seat g % n; bids and points [13, G] of the evaluated seat)."""
+    seat g % n; bids and points [R, G] of the evaluated seat, h [R, G] the hand size of each round,
+    0 where there is no round; by default the 13-round ladder)."""
     G = scores.shape[0]
     seat = np.arange(G) % n
     deal = np.arange(G) // n
@@ -179,10 +194,11 @@ def summarize(scores, ret, bids, points, n):
     win = np.where(my == top, 1.0 / n_top, 0.0)
     diff = my - (scores.sum(axis=1) - my) / (n - 1)
     tricks = np.where(points >= 10, (points - 10) // 2, points)        # made: 10 + 2t, else t
-    ladder = np.asarray(jg.LADDER)[:, None] * np.ones((1, G), int)
+    ladder = (np.asarray(jg.LADDER)[:, None] * np.ones((1, G), int)) if h is None else h
+    real = ladder > 0
 
     def pack(sel):
-        e = (bids - tricks)[sel]
+        e = (bids - tricks)[sel & real]
         m = max(e.size, 1)
         return {"exact_bid_rate": float((e == 0).sum() / m), "mae_bid": float(np.abs(e).sum() / m),
                 "bid_bias": float(e.sum() / m), "rounds": int(e.size)}
@@ -195,18 +211,18 @@ def summarize(scores, ret, bids, points, n):
         return float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else float("nan")
 
     calib, calib_h = defaultdict(list), defaultdict(list)
-    for h, b, t in zip(ladder.ravel(), bids.ravel(), tricks.ravel()):
+    for hh, b, t in zip(ladder[real], bids[real], tricks[real]):
         calib[int(b)].append(t)
-        calib_h[(int(h), int(b))].append(t)
+        calib_h[(int(hh), int(b))].append(t)
     return {
         "overall": {
             "win_rate": float(win.mean()), "win_rate_se": se(win),
             "mean_score_diff": float(diff.mean()), "mean_score_diff_se": se(diff),
             "mean_return": float(ret.mean()),
-            "norm_round_score": float((points / (10 + 2 * ladder)).mean()),
+            "norm_round_score": float((points / (10 + 2 * ladder))[real].mean()),
             **pack(np.ones_like(bids, bool)),
         },
-        "by_h": {int(h): pack(ladder == h) for h in sorted(set(ladder[:, 0].tolist()))},
+        "by_h": {int(x): pack(ladder == x) for x in sorted(set(ladder[real].tolist()))},
         "win_rate_by_seat": {s: float(win[seat == s].mean()) for s in range(n)},
         "calibration": {b: float(np.mean(v)) for b, v in sorted(calib.items())},
         "calibration_by_h": {f"h{h}_b{b}": float(np.mean(v)) for (h, b), v in sorted(calib_h.items())},

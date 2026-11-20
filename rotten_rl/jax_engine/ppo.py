@@ -133,6 +133,11 @@ class Config(NamedTuple):
     # (rotten_rl/jax_engine/game.py); the networks also see each player's last two bids
     # (jg.obs_size(True) inputs).
     no_repeat_bid: bool = False
+    # Match formats (--formats, stage D): each match draws its format (ladder, rounds without trump,
+    # the no-repeat rule; rotten_rl/jax_engine/formats.py); the networks see the bid history and the
+    # format (jg.obs_size(True, True) inputs). Matches have different lengths: the rollout is as
+    # long as the longest and the steps after the end are left out of the loss.
+    formats: bool = False
 
 
 AUX_SEATS = 6                       # other players, by relative position 1..6 (padded)
@@ -152,7 +157,12 @@ def trainable(ts):
     return (ts.policy, ts.value) if ts.aux is None else (ts.policy, ts.value, ts.aux)
 
 
-def match_length(n):
+def match_length(n, formats=False):
+    """Decisions of a match of the 13-round ladder; with `formats`, of the longest format (shorter
+    matches are padded: the steps after the end are no-ops, marked invalid)."""
+    if formats:
+        from .formats import _LADDERS
+        return int(max(n * (h > 0).sum() + n * h.sum() for h in _LADDERS))
     return int(sum(n + n * h for h in [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1]))
 
 
@@ -202,10 +212,10 @@ def init_split_policy(key, hidden):
 
 
 def init(key, cfg):
-    if cfg.split_policy and cfg.no_repeat_bid:
-        raise ValueError("split_policy with no_repeat_bid is not implemented")
+    if cfg.split_policy and (cfg.no_repeat_bid or cfg.formats):
+        raise ValueError("split_policy with no_repeat_bid or formats is not implemented")
     k_pi, k_v, key = jax.random.split(key, 3)
-    obs = jg.obs_size(cfg.no_repeat_bid)
+    obs = jg.obs_size(cfg.no_repeat_bid or cfg.formats, cfg.formats)
     policy = (init_split_policy(k_pi, cfg.hidden) if cfg.split_policy
               else init_mlp(k_pi, [obs, *cfg.hidden, jg.NUM_ACTIONS]))
     value = init_mlp(k_v, [obs, *cfg.hidden, 1])
@@ -234,9 +244,12 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
     networks (leading axis) and each plays a block of B / groups consecutive matches. With seats = m
     > 1, the learner takes m seats at random in each match (the opponents the other n - m) and
     traj["learner_seats"] bool[B, n] marks them."""
-    n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players)
+    n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players, cfg.formats)
     k_games, k_seat, key = jax.random.split(key, 3)
-    states = jax.vmap(lambda k: jg.random_game(k, n, cfg.no_repeat_bid))(jax.random.split(k_games, B))
+    if cfg.formats:
+        states = jax.vmap(lambda k: jg.format_game(k, n))(jax.random.split(k_games, B))
+    else:
+        states = jax.vmap(lambda k: jg.random_game(k, n, cfg.no_repeat_bid))(jax.random.split(k_games, B))
     learner_seat = jax.random.randint(k_seat, (B,), 0, n)
     if seats == 1:
         learner_seats = jnp.arange(n)[None, :] == learner_seat[:, None]
@@ -250,7 +263,8 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
         states, key = carry
         key, sub = jax.random.split(key)
         player = states.current
-        obs = jax.vmap(lambda s, p: jg.observation(s, p, cfg.no_repeat_bid))(states, player)
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, cfg.no_repeat_bid or cfg.formats,
+                                                   cfg.formats))(states, player)
         if dt is not None:      # the first matmul would round it anyway; halves the stored batch
             obs = obs.astype(dt)
         mask = jax.vmap(jg.legal_mask)(states)
@@ -267,12 +281,14 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
                                 axis=1)
             action = jnp.where(learner, action, theirs.astype(jnp.int32))
             out.update(action=action, learner=learner)
-        states, rewards = step(states, action)
-        out.update(rewards=rewards, scores=states.scores)
-        return (states, key), out
+        new, rewards = step(states, action)
+        out.update(rewards=rewards, scores=new.scores)
+        if cfg.formats:                                # rounds close at varying moves
+            out.update(valid=~jg.is_terminal(states), closed=new.round_ptr != states.round_ptr)
+        return (new, key), out
 
     (states, _), traj = jax.lax.scan(body, (states, key), None, length=T)
-    traj["final_scores"] = states.scores                 # [B, n]: every match ends at T
+    traj["final_scores"] = states.scores                 # [B, n]: every match has ended by T
     if opponent is not None:
         traj["learner_seat"] = learner_seat
         traj["learner_seats"] = learner_seats
@@ -315,7 +331,10 @@ def _win_prob_shaping(traj, cfg):
 
 def _round_closed(traj, n):
     """bool[T, B]: the move at t closed a round. Rounds close after a fixed number of decisions
-    (n bids + n*h plays), so it is known without looking at the rewards (which can be all zero)."""
+    (n bids + n*h plays), so it is known without looking at the rewards (which can be all zero).
+    With formats, the rollout records it."""
+    if "closed" in traj:
+        return traj["closed"]
     ends = _round_ends(n)
     closed = np.zeros(match_length(n), bool)
     closed[ends] = True
@@ -335,6 +354,8 @@ def _advantages(traj, cfg, match_bonus=None):
     if match_bonus is None:
         match_bonus = cfg.match_bonus
     if cfg.episode == "match":
+        if cfg.formats:
+            raise ValueError("episode 'match' with formats is not implemented")
         ends = jnp.zeros((T,), bool).at[T - 1].set(True)[:, None] & closed
         bonus = match_bonus * jax.vmap(lambda s: jg.final_rewards(s, cfg.rank_weight))(
             traj["final_scores"])                                    # [B, n]
@@ -377,8 +398,13 @@ def _advantages(traj, cfg, match_bonus=None):
     return adv, adv + traj["value"]
 
 
+def _wmean(x, w):
+    return (x * w).sum() / jnp.maximum(w.sum(), 1.0)
+
+
 def _loss(params, batch, cfg, ent_coef):
     policy, value = params[0], params[1]
+    w = batch["valid"].astype(jnp.float32) if "valid" in batch else jnp.ones(batch["action"].shape)
     dt = compute_dtype(cfg)
     if cfg.aux_coef:
         feats = mlp_features(policy, batch["obs"], dt)
@@ -392,14 +418,14 @@ def _loss(params, batch, cfg, ent_coef):
     logp = jnp.take_along_axis(logp_all, batch["action"][:, None], axis=1)[:, 0]
     ratio = jnp.exp(logp - batch["logp"])
     a = batch["adv"]
-    loss_pi = -jnp.minimum(ratio * a, jnp.clip(ratio, 1 - cfg.clip, 1 + cfg.clip) * a).mean()
-    loss_v = ((mlp(value, batch["obs"], dt)[:, 0] - batch["ret"]) ** 2).mean()
+    loss_pi = -_wmean(jnp.minimum(ratio * a, jnp.clip(ratio, 1 - cfg.clip, 1 + cfg.clip) * a), w)
+    loss_v = _wmean((mlp(value, batch["obs"], dt)[:, 0] - batch["ret"]) ** 2, w)
     probs = jnp.exp(logp_all)
-    entropy = -(jnp.where(batch["mask"], probs * logp_all, 0.0)).sum(axis=1).mean()
+    entropy = _wmean(-(jnp.where(batch["mask"], probs * logp_all, 0.0)).sum(axis=1), w)
     loss = loss_pi + cfg.vf_coef * loss_v - ent_coef * entropy
     stats = dict(loss_policy=loss_pi, loss_value=loss_v, entropy=entropy,
-                 clip_frac=(jnp.abs(ratio - 1) > cfg.clip).mean(),
-                 approx_kl=(batch["logp"] - logp).mean())
+                 clip_frac=_wmean((jnp.abs(ratio - 1) > cfg.clip).astype(jnp.float32), w),
+                 approx_kl=_wmean(batch["logp"] - logp, w))
     if cfg.aux_coef:                                   # binary cross-entropy on the unseen cards
         aw, ab = params[2][0]
         pred = (feats @ aw + ab).reshape(-1, AUX_SEATS, 52)
@@ -446,8 +472,10 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     overrides those of cfg
     (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
-    n, T, B = cfg.num_players, match_length(cfg.num_players), cfg.rollout_games
+    n, T, B = cfg.num_players, match_length(cfg.num_players, cfg.formats), cfg.rollout_games
     exploit = exploit or league_groups > 0
+    if exploit and cfg.formats:
+        raise ValueError("exploit/league with formats is not implemented")
     if league_groups and B % league_groups:
         raise ValueError(f"rollout_games ({B}) must be a multiple of league_groups ({league_groups})")
     if not 1 <= league_seats < n:
@@ -484,13 +512,21 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
         flat = dict(obs=pick(traj["obs"]).reshape(size, -1), mask=pick(traj["mask"]).reshape(size, -1),
                     action=pick(traj["action"]).reshape(size), logp=pick(traj["logp"]).reshape(size),
                     adv=pick(adv).reshape(size), ret=pick(ret).reshape(size))
+        if cfg.formats:
+            flat["valid"] = pick(traj["valid"]).reshape(size)
         if cfg.aux_coef:
             flat["aux_hands"] = pick(traj["aux_hands"]).reshape(size, AUX_SEATS, 52)
             flat["aux_unseen"] = pick(traj["aux_unseen"]).reshape(size, 52)
             flat["aux_seat_on"] = jnp.broadcast_to(jnp.arange(1, AUX_SEATS + 1) < n, (size, AUX_SEATS))
         values = pick(traj["value"]).reshape(size)
-        explained = 1 - jnp.var(flat["ret"] - values) / (jnp.var(flat["ret"]) + 1e-8)
-        flat["adv"] = (flat["adv"] - flat["adv"].mean()) / (flat["adv"].std() + 1e-8)
+        vw = flat["valid"].astype(jnp.float32) if cfg.formats else jnp.ones(size)
+
+        def wvar(x):
+            m = _wmean(x, vw)
+            return _wmean((x - m) ** 2, vw)
+
+        explained = 1 - wvar(flat["ret"] - values) / (wvar(flat["ret"]) + 1e-8)
+        flat["adv"] = (flat["adv"] - _wmean(flat["adv"], vw)) / (jnp.sqrt(wvar(flat["adv"])) + 1e-8)
         frac = jnp.maximum(0.0, 1.0 - ts.games_done / cfg.total_games) if cfg.anneal else 1.0
         warm = jnp.minimum(1.0, ts.games_done / cfg.lr_warmup) if cfg.lr_warmup else 1.0
         lr = base_lr * frac * warm
