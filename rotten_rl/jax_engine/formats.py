@@ -59,6 +59,22 @@ P_NO_REPEAT_BID = 0.5
 CLASSIC = (_LADDERS[0], np.zeros(MAX_ROUNDS, bool))   # the 13-round ladder of the first agents
 
 
+def ladder_probabilities():
+    """Probability of each of the 4 ladders under `sample_format`."""
+    rnd = 1.0 - sum(NAMED_WEIGHTS)
+    p = np.array([(1 - P_DOUBLE_PEAK) * (1 - P_EXTRA_PAIR), P_DOUBLE_PEAK * (1 - P_EXTRA_PAIR),
+                  (1 - P_DOUBLE_PEAK) * P_EXTRA_PAIR, P_DOUBLE_PEAK * P_EXTRA_PAIR]) * rnd
+    for (ladder, _), w in zip(_NAMED, NAMED_WEIGHTS):
+        p[ladder] += w
+    return p
+
+
+def expected_decisions(n):
+    """Mean decisions of a match (n bids + n cards per trick, every round) under `sample_format`."""
+    per = np.array([(h > 0).sum() + h.sum() for h in _LADDERS], float)
+    return float(n * (ladder_probabilities() * per).sum())
+
+
 def sample_format(key):
     """(h int[MAX_ROUNDS], no_trump bool[MAX_ROUNDS], no_repeat_bid bool) of one match."""
     k = jax.random.split(key, 8)

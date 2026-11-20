@@ -166,6 +166,28 @@ def match_length(n, formats=False):
     return int(sum(n + n * h for h in [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1]))
 
 
+def rollout_length(n, formats=False):
+    """Steps of a rollout. Without formats, a whole match (every match has the same length). With
+    formats, the matches carry over from one update to the next (`init_envs`): a rollout is as many
+    steps as the mean match, so `rollout_games` matches' worth of decisions; a match that ends is
+    replaced by a new one at once, and a round left open at the end is bootstrapped with the critic."""
+    if formats:
+        from .formats import expected_decisions
+        return int(round(expected_decisions(n)))
+    return match_length(n)
+
+
+def _spares(n):
+    """New matches a slot can need within a rollout (each match is at least 13 rounds long)."""
+    return rollout_length(n, True) // match_length(n) + 1
+
+
+def init_envs(key, cfg):
+    """With cfg.formats: the `rollout_games` matches in play, carried from update to update."""
+    return jax.vmap(lambda k: jg.format_game(k, cfg.num_players))(
+        jax.random.split(key, cfg.rollout_games))
+
+
 def make_optimizer(cfg):
     """Clip the global gradient norm, then Adam (PyTorch's defaults); the learning rate is applied
     in `make_update`, so it can be annealed by games played."""
@@ -235,7 +257,7 @@ def _opponent_logits(opponent, obs, dt, groups):
     return jax.vmap(lambda p, o: mlp(p, o, dt))(opponent, x).reshape(B, -1)
 
 
-def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
+def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1, envs=None):
     """Plays `rollout_games` whole matches. Returns per-step arrays [T, B].
     With `opponent` (the policy params of a frozen network, any hidden sizes), each match has one
     seat at random for `policy` (sampling) and the others for `opponent`, greedy as in the
@@ -243,11 +265,17 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
     traj["learner_seat"] [B] its seat. With groups > 0, `opponent` is a stack of that many
     networks (leading axis) and each plays a block of B / groups consecutive matches. With seats = m
     > 1, the learner takes m seats at random in each match (the opponents the other n - m) and
-    traj["learner_seats"] bool[B, n] marks them."""
-    n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players, cfg.formats)
+    traj["learner_seats"] bool[B, n] marks them.
+    With cfg.formats, the rollout continues the matches `envs` (see `rollout_length`); it returns
+    also traj["envs"] (the matches to continue next time) and traj["boot_value"] [B, n] (the
+    critic's value of each seat at the end, for the rounds left open)."""
+    n, B, T = cfg.num_players, cfg.rollout_games, rollout_length(cfg.num_players, cfg.formats)
     k_games, k_seat, key = jax.random.split(key, 3)
     if cfg.formats:
-        states = jax.vmap(lambda k: jg.format_game(k, n))(jax.random.split(k_games, B))
+        states = envs
+        K = _spares(n)
+        spares = jax.vmap(jax.vmap(lambda k: jg.format_game(k, n)))(
+            jax.random.split(k_games, K * B).reshape(K, B, -1))
     else:
         states = jax.vmap(lambda k: jg.random_game(k, n, cfg.no_repeat_bid))(jax.random.split(k_games, B))
     learner_seat = jax.random.randint(k_seat, (B,), 0, n)
@@ -259,8 +287,12 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
     step = jax.vmap(lambda s, a: jg.step(s, a, cfg.reward_scheme))
     dt = compute_dtype(cfg)
 
+    def pick(cond, a, b):
+        return jax.tree_util.tree_map(
+            lambda x, y: jnp.where(cond.reshape(cond.shape + (1,) * (x.ndim - 1)), x, y), a, b)
+
     def body(carry, _):
-        states, key = carry
+        states, key, used = carry
         key, sub = jax.random.split(key)
         player = states.current
         obs = jax.vmap(lambda s, p: jg.observation(s, p, cfg.no_repeat_bid or cfg.formats,
@@ -285,9 +317,19 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
         out.update(rewards=rewards, scores=new.scores)
         if cfg.formats:                                # rounds close at varying moves
             out.update(valid=~jg.is_terminal(states), closed=new.round_ptr != states.round_ptr)
-        return (new, key), out
+            ended = jg.is_terminal(new) & ~jg.is_terminal(states)
+            refill = ended & (used < K)                # a new match in its place
+            spare = jax.tree_util.tree_map(lambda x: x[jnp.minimum(used, K - 1), jnp.arange(B)], spares)
+            new = pick(refill, spare, new)
+            used = used + refill.astype(jnp.int32)
+        return (new, key, used), out
 
-    (states, _), traj = jax.lax.scan(body, (states, key), None, length=T)
+    (states, _, _), traj = jax.lax.scan(body, (states, key, jnp.zeros(B, jnp.int32)), None, length=T)
+    if cfg.formats:
+        boot = jnp.stack([mlp(value, jax.vmap(lambda s: jg.observation(s, p, True, True))(states), dt)[:, 0]
+                          for p in range(n)], axis=1)
+        traj["boot_value"] = jnp.where(jg.is_terminal(states)[:, None], 0.0, boot)
+        traj["envs"] = states
     traj["final_scores"] = states.scores                 # [B, n]: every match has ended by T
     if opponent is not None:
         traj["learner_seat"] = learner_seat
@@ -392,7 +434,8 @@ def _advantages(traj, cfg, match_bonus=None):
         return (next_v, gae, pend_r, pend_done), a
 
     zeros = jnp.zeros((B, n))
-    init = (zeros, zeros, zeros, jnp.zeros((B, n), bool))
+    boot = traj.get("boot_value", zeros)               # formats: open rounds at the end
+    init = (boot, zeros, zeros, jnp.zeros((B, n), bool))
     xs = (traj["player"], traj["value"], traj["rewards"], closed, ends, last, shaping)
     _, adv = jax.lax.scan(body, init, xs, reverse=True)
     return adv, adv + traj["value"]
@@ -469,10 +512,12 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     once, each with its own networks, optimizer, matches and random keys; stats get a seed axis.
     The GPU is latency-bound on one seed's small minibatches, so the extra seeds come almost free.
     The step is `update(ts, hp=None)`: `hp` = {"learning_rate", "ent_coef"[, "match_bonus"]}
-    overrides those of cfg
+    overrides those of cfg. With cfg.formats it is `update(ts, hp, None, None, envs)` and returns
+    (ts, stats, envs): the matches in play (`init_envs`) carry over from update to update, and
+    games_done counts rollout_games per update (matches' worth of decisions, `rollout_length`)
     (with multi_seed, one value per stacked state, so each can train with its own)."""
     opt = make_optimizer(cfg)
-    n, T, B = cfg.num_players, match_length(cfg.num_players, cfg.formats), cfg.rollout_games
+    n, T, B = cfg.num_players, rollout_length(cfg.num_players, cfg.formats), cfg.rollout_games
     exploit = exploit or league_groups > 0
     if exploit and cfg.formats:
         raise ValueError("exploit/league with formats is not implemented")
@@ -485,7 +530,7 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
     num_mb = size // cfg.minibatch                     # the leftover transitions of each epoch are skipped
     pi_mask = split_policy_mask(cfg.hidden) if cfg.split_policy else None
 
-    def update(ts: TrainState, hp=None, opponent=None, pool_count=None):
+    def update(ts: TrainState, hp=None, opponent=None, pool_count=None, envs=None):
         base_lr = cfg.learning_rate if hp is None else hp["learning_rate"]
         ent_coef = cfg.ent_coef if hp is None else hp["ent_coef"]
         match_bonus = cfg.match_bonus if hp is None else hp.get("match_bonus", cfg.match_bonus)
@@ -497,7 +542,8 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
             if league_self:
                 opponent = jax.tree_util.tree_map(lambda o, p: o.at[0].set(p), opponent, ts.policy)
         traj = _rollout(ts.policy, ts.value, k_roll, cfg, opponent if exploit else None,
-                        league_groups, league_seats)
+                        league_groups, league_seats, envs)
+        envs_out = traj.pop("envs", None)
         adv, ret = _advantages(traj, cfg, match_bonus)
         if exploit:                                    # keep the learner's T / n decisions per match
             idx = jax.vmap(lambda col: jnp.nonzero(col, size=L)[0], in_axes=1, out_axes=1)(
@@ -556,6 +602,8 @@ def make_update(cfg, multi_seed=False, exploit=False, league_groups=0, league_se
         stats["reward_seat0"] = reward
         new = TrainState(params[0], params[1], opt_state, ts.games_done + B, key,
                          params[2] if cfg.aux_coef else None)
+        if cfg.formats:                                # the matches go on in the next update
+            return new, stats, envs_out
         return new, stats
 
     return jax.jit(jax.vmap(update) if multi_seed else update)

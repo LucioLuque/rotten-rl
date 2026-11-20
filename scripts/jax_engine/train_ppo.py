@@ -560,6 +560,10 @@ def main():
                              league_seats=a.league_seats if league else 1)
     next_add = ((games // a.league_add_every + 1) * a.league_add_every
                 if league is not None and a.league_add_every else None)
+    envs = None                              # --formats: the matches in play, carried over updates
+    if cfg.formats:
+        envs = [ppo.init_envs(jax.random.PRNGKey(m[0] + 20_000 + games), cfg) for m in members]
+        envs = stack(envs) if multi else envs[0]
     if games == 0:
         save_and_eval(0)
     next_eval = (games // a.eval_every + 1) * a.eval_every
@@ -570,6 +574,8 @@ def main():
             ts, stats = update(ts, hp, league["pool"], league["count"])
         elif opp_of:
             ts, stats = update(ts, hp, opponents)
+        elif envs is not None:
+            ts, stats, envs = update(ts, hp, None, None, envs)
         else:
             ts, stats = update(ts, hp)
         stats = jax.device_get(stats)

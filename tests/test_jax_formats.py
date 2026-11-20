@@ -126,10 +126,40 @@ def test_ppo_trains_and_evaluates_with_formats():
                      total_games=16, formats=True)
     ts = ppo.init(jax.random.PRNGKey(0), cfg)
     assert ts.policy[0][0].shape[0] == jg.obs_size(True, True)
-    ts, stats = ppo.make_update(cfg)(ts)
-    assert all(np.isfinite(float(v)) for v in stats.values())
+    envs = ppo.init_envs(jax.random.PRNGKey(9), cfg)
+    update = ppo.make_update(cfg)
+    for _ in range(3):
+        ts, stats, envs = update(ts, None, None, None, envs)
+        assert all(np.isfinite(float(v)) for v in stats.values())
+    assert int(ts.games_done) == 24
+    assert not np.asarray(jg.is_terminal(envs)).any()
     res = evaluate.evaluate(ts.policy, "heuristic", 3, 12, formats=True)
     assert 0.0 <= res["overall"]["win_rate"] <= 1.0
     plain = ppo.init(jax.random.PRNGKey(1), ppo.Config(num_players=3, hidden=(16,))).policy
     res = evaluate.match(("greedy", plain), ("greedy", ts.policy), 3, 4, 0, formats=True)
     assert 0.0 <= res["overall"]["win_rate"] <= 1.0
+
+
+def test_carried_matches_are_not_biased():
+    """Matches carried over rollouts (refilled when they end, open rounds bootstrapped) give the
+    same share of decisions per hand size as whole matches played from the start."""
+    from rotten_rl.jax_engine import ppo
+    n, B = 3, 64
+    cfg = ppo.Config(num_players=n, hidden=(16,), rollout_games=B, formats=True)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    roll = jax.jit(lambda env, k: ppo._rollout(ts.policy, ts.value, k, cfg, envs=env))
+    envs = ppo.init_envs(jax.random.PRNGKey(1), cfg)
+    counts = np.zeros(7)
+    for i in range(40):
+        traj = roll(envs, jax.random.PRNGKey(100 + i))
+        envs = traj["envs"]
+        assert traj["boot_value"].shape == (B, n) and np.isfinite(np.asarray(traj["boot_value"])).all()
+        h = np.argmax(np.asarray(traj["obs"])[:, :, :7], axis=-1)        # hand_size one-hot
+        counts += np.bincount(h.ravel(), minlength=7)
+    got = counts / counts.sum()
+    # whole matches: decisions per hand size from the format draw
+    keys = jax.random.split(jax.random.PRNGKey(2), 20000)
+    hs = np.asarray(jax.vmap(lambda k: formats.sample_format(k)[0])(keys))
+    want = np.array([((hs == x).sum(1) * (n + n * x)).sum() for x in range(1, 8)], float)
+    want /= want.sum()
+    np.testing.assert_allclose(got, want, atol=0.012)
