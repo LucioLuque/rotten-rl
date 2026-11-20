@@ -68,7 +68,7 @@ CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
                "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup",
-               "split_policy", "no_repeat_bid", "formats")
+               "split_policy", "no_repeat_bid", "formats", "players_mix", "ent_by_players")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
@@ -76,7 +76,7 @@ CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved befor
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
                    "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0,
                    "lr_warmup": 0, "split_policy": False, "no_repeat_bid": False,
-                   "formats": False}
+                   "formats": False, "players_mix": "", "ent_by_players": ""}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -188,10 +188,10 @@ class JaxEval:
         self.a, self.evaluate = a, evaluate.evaluate
         self.key = jax.random.PRNGKey(a.seed + 10_000)
 
-    def __call__(self, params, opponent, past):
+    def __call__(self, params, opponent, past, players=None):
         self.key, sub = jax.random.split(self.key)
         a = self.a
-        return self.evaluate(params, opponent, a.players, a.eval_games,
+        return self.evaluate(params, opponent, players or a.players, a.eval_games,
                              deal_seed=max(a.eval_deal_seed, 0), opponent_params=past, key=sub,
                              reward_scheme=a.reward_scheme, no_repeat_bid=bool(a.no_repeat_bid),
                              formats=bool(getattr(a, "formats", False)))
@@ -255,6 +255,14 @@ def main():
     p.add_argument("--formats", action="store_true",
                    help="each match draws its format (ladder, rounds without trump, the no-repeat "
                         "rule; rotten_rl/jax_engine/formats.py); the evaluations draw them too")
+    p.add_argument("--players_mix", default="",
+                   help="one network for several numbers of players (stage E), e.g. 2,3,4,5,6,7 "
+                        "(needs --formats): the updates take turns over them, each with its own "
+                        "matches; --players is ignored; evaluated against the heuristic and the "
+                        "past policy with each number of players (eval_heuristic<n>p, eval_past<n>p)")
+    p.add_argument("--ent_by_players", default="",
+                   help="with --players_mix: entropy bonus by number of players, e.g. 5:0.08,6:0.1,"
+                        "7:0.1 (the others take --ent_coef)")
     p.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"],
                    help="type of the matmuls (weights and Adam stay float32)")
     p.add_argument("--seed", type=int, default=0)
@@ -353,6 +361,12 @@ def main():
     seeds = [m[0] for m in members]
     a.seed = seeds[0]
     multi = len(members) > 1
+    mix = [int(x) for x in str(a.players_mix).split(",")] if a.players_mix else []
+    if mix:
+        if not a.formats or a.aux_hands or a.split_policy:
+            sys.exit("--players_mix needs --formats (and no --aux_hands or --split_policy)")
+        a.players = max(mix)
+    ent_by = {int(k): float(v) for k, v in (x.split(":") for x in str(a.ent_by_players).split(",") if x)}
 
     def tag(member):                         # what tells this member apart, besides its seed
         _, lr, ent, bonus = member
@@ -381,7 +395,7 @@ def main():
         seed, lr, ent, bonus = member
         args = {k: getattr(a, k) for k in CONFIG_KEYS}
         args.update(seed=seed, learning_rate=lr, ent_coef=ent, match_bonus=bonus)
-        return {"algo": "ppo", "engine": "jax", "players": a.players,
+        return {"algo": "ppo", "engine": "jax", "players": a.players, "players_mix": mix,
                 "hidden_layers_sizes": [str(h) for h in ppo.policy_hidden(cfg)],
                 "num_train_episodes": a.games,
                 "ppo_rollout_episodes": a.rollout_games, "ppo_epochs": a.epochs,
@@ -500,7 +514,11 @@ def main():
                              + (("against",) if against is not None else ())):
                     if name == "past" and past[i] is None:
                         continue
-                    if name == "against":
+                    if mix and name not in ("heuristic", "past"):
+                        continue
+                    if mix:
+                        m = None               # evaluated below, once per number of players
+                    elif name == "against":
                         m = evaluate(policy, "past", against[i])
                     elif name == "frozen":
                         m = evaluate(policy, "past", ppo.unstack(opponents, i) if multi else opponents)
@@ -509,12 +527,16 @@ def main():
                         m = evaluate(policy, "past", jax.tree_util.tree_map(lambda x: x[0], first))
                     else:
                         m = evaluate(policy, name, past[i])
-                    log.log_eval(games, m, opponent=name)
-                    o = m["overall"]
-                    print(f"[{games}] {member} EVAL vs {name:9s} | win={o['win_rate']:.3f}±"
-                          f"{o['win_rate_se']:.3f} (empate={1 / a.players:.3f}) "
-                          f"diff={o['mean_score_diff']:+.2f}±{o['mean_score_diff_se']:.2f} "
-                          f"exact_bid={o['exact_bid_rate']:.3f}", flush=True)
+                    for n_eval in (mix or [a.players]):
+                        if mix:                # one network, every number of players
+                            m = evaluate(policy, name, past[i], players=n_eval)
+                        label = f"{name}{n_eval}p" if mix else name
+                        log.log_eval(games, m, opponent=label)
+                        o = m["overall"]
+                        print(f"[{games}] {member} EVAL vs {label:9s} | win={o['win_rate']:.3f}±"
+                              f"{o['win_rate_se']:.3f} (empate={1 / n_eval:.3f}) "
+                              f"diff={o['mean_score_diff']:+.2f}±{o['mean_score_diff_se']:.2f} "
+                              f"exact_bid={o['exact_bid_rate']:.3f}", flush=True)
             past[i] = policy
         print(f"[{games}] eval took {time.perf_counter() - t0:.1f} s", flush=True)
 
@@ -562,8 +584,25 @@ def main():
                 if league is not None and a.league_add_every else None)
     envs = None                              # --formats: the matches in play, carried over updates
     if cfg.formats:
-        envs = [ppo.init_envs(jax.random.PRNGKey(m[0] + 20_000 + games), cfg) for m in members]
-        envs = stack(envs) if multi else envs[0]
+        def make_envs(c):
+            e = [ppo.init_envs(jax.random.PRNGKey(m[0] + 20_000 + games + 100 * c.num_players), c)
+                 for m in members]
+            return stack(e) if multi else e[0]
+        envs = make_envs(cfg)
+    if mix:                                  # one update function and set of matches per n
+        updates = {n: ppo.make_update(cfg._replace(num_players=n), multi_seed=multi) for n in mix}
+        envs_of = {n: make_envs(cfg._replace(num_players=n)) for n in mix}
+
+        def hp_of(n):
+            ent = ent_by.get(n)
+            if multi:
+                h = dict(hp)
+                if ent is not None:
+                    h["ent_coef"] = np.full(len(members), ent, np.float32)
+                return h
+            return {"learning_rate": np.float32(members[0][1]),
+                    "ent_coef": np.float32(members[0][2] if ent is None else ent),
+                    "match_bonus": np.float32(0.0)}
     if games == 0:
         save_and_eval(0)
     next_eval = (games // a.eval_every + 1) * a.eval_every
@@ -574,6 +613,9 @@ def main():
             ts, stats = update(ts, hp, league["pool"], league["count"])
         elif opp_of:
             ts, stats = update(ts, hp, opponents)
+        elif mix:
+            n_now = mix[(games // a.rollout_games) % len(mix)]
+            ts, stats, envs_of[n_now] = updates[n_now](ts, hp_of(n_now), None, None, envs_of[n_now])
         elif envs is not None:
             ts, stats, envs = update(ts, hp, None, None, envs)
         else:

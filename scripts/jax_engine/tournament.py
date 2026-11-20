@@ -69,7 +69,7 @@ def make_agent(spec, players):
         config = json.load(f)
     if config.get("algo") not in ("dqn", "ppo"):
         raise ValueError(f"{run_dir}: solo politicas de una red (dqn, ppo)")
-    if config["players"] != players:
+    if config["players"] != players and players not in config.get("players_mix", []):
         raise ValueError(f"{run_dir} es de {config['players']} jugadores, no {players}")
     if config.get("infer_trump_void", False):
         raise ValueError(f"{run_dir}: la observacion con infer_trump_void no esta en JAX")
