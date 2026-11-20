@@ -1,0 +1,45 @@
+{
+  "_doc": "Panel fijo de rivales por cantidad de jugadores (docs/panel/README.md). spec: corrida (patron en --runs_dir, semilla 0) con @episodio, o heuristic/random.",
+  "2": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "s20@12M", "spec": "s20_jaxppo2p_ent0.06_12M_s0_*@12000256"},
+    {"name": "s20full", "spec": "s20full_jaxppo2p_ent0.06_24M_s0_*@24000000"},
+    {"name": "l20 (liga)", "spec": "l20_jaxppo2p_league_from_s20_lr1e-4_24M_s0_*@24000000"},
+    {"name": "e20zl (explotador de s20)", "spec": "e20zl_jaxppo2p_exploit_s20_scratch_36M_s0_*@36000256"},
+    {"name": "d20 (sin repetir)", "spec": "d20_jaxppo2p_norepeat_ent0.06_24M_s0_*@24000000"},
+    {"name": "m20 (formatos)", "spec": "m20_jaxppo2p_formats_ent0.06_24M_s0_*@24000000"}
+  ],
+  "3": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "s30@12M", "spec": "s30_jaxppo3p_ent0.06_12M_s0_*@12000256"},
+    {"name": "s30full", "spec": "s30full_jaxppo3p_ent0.06_24M_s0_*@24000000"},
+    {"name": "l30m (liga 2 asientos)", "spec": "l30m_jaxppo3p_league2seats_from_s30_lr1e-4_24M_s0_*@24000000"},
+    {"name": "e30z (explotador de s30)", "spec": "e30z_jaxppo3p_exploit_s30_scratch_12M_s0_*@12000256"},
+    {"name": "d30 (sin repetir)", "spec": "d30_jaxppo3p_norepeat_ent0.06_24M_s0_*@24000000"},
+    {"name": "m30 (formatos)", "spec": "m30_jaxppo3p_formats_ent0.06_24M_s0_*@24000000"}
+  ],
+  "4": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "f40@6M", "spec": "f40_jaxppo4p_ent0.06_24M_s0_*@6000128"},
+    {"name": "f40", "spec": "f40_jaxppo4p_ent0.06_24M_s0_*@24000000"}
+  ],
+  "5": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "f50@6M", "spec": "f50_jaxppo5p_ent0.08_24M_s0_*@6000128"},
+    {"name": "f50", "spec": "f50_jaxppo5p_ent0.08_24M_s0_*@24000000"}
+  ],
+  "6": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "f60@6M", "spec": "f60_jaxppo6p_ent0.1_24M_s0_*@6000128"},
+    {"name": "f60", "spec": "f60_jaxppo6p_ent0.1_24M_s0_*@24000000"}
+  ],
+  "7": [
+    {"name": "heuristica", "spec": "heuristic"},
+    {"name": "u72@12M", "spec": "u72_jaxppo7p_b512_ent0.1_12M_s0_*@12000256"},
+    {"name": "u72full", "spec": "u72full_jaxppo7p_ent0.1_24M_s0_*@24000000"},
+    {"name": "l70m (liga 4 asientos)", "spec": "l70m_jaxppo7p_league4seats_from_u72_lr1e-4_24M_s0_*@24000000"},
+    {"name": "e70z (explotador de u72)", "spec": "e70z_jaxppo7p_exploit_u72_scratch_24M_s0_*@24000000"},
+    {"name": "d72 (sin repetir)", "spec": "d72_jaxppo7p_norepeat_ent0.1_24M_s0_*@24000000"},
+    {"name": "m72 (formatos)", "spec": "m72_jaxppo7p_formats_ent0.1_24M_s0_*@24000000"}
+  ]
+}
