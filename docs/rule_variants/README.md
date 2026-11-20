@@ -69,6 +69,21 @@ así que un agente entrenado con la variante puede jugar el juego normal.
 Con 2 jugadores, la regla casi no cambia el juego: el agente normal, jugando con la regla sin saberla,
 rinde lo mismo que el que la aprendió.
 
+**`t_d30` y `t_d30_sinregla` (20/11, 3 jugadores, 1000 repartos por cruce):**
+
+| `d30` contra `s30full` | Diferencia por partida | Win rate (empate 33,3 %) | Cruces positivos |
+|---|---|---|---|
+| Con la regla | −0,08 | 33,2 % | 7/16 |
+| Sin la regla | **−0,42** | 32,9 % | **0/16** |
+
+Contra la heurística: con la regla `d30` 61,5 % y `s30full` 60,4 %; sin la regla 62,3 % y 62,1 %. Con la
+regla, empate: el agente normal la juega sin saberla y rinde igual. **Sin la regla, `d30` pierde contra
+`s30full` por más que el ruido (~0,3) y en los 16 cruces**: lo que aprendió con la regla no le sirve
+en el juego normal (probablemente cuenta con que los rivales no pueden repetir el canto). Los cantos
+exactos de `d30` contra la heurística quedan 2 puntos abajo (59,8 contra 61,7 %); el resto de las
+curvas, igual. Es un argumento para entrenar mezclando partidas con y sin la regla (`--formats`), y
+para que la red sepa en cuál está.
+
 ## Formato de partida (`--formats`)
 
 Decidido el 20/11. La mesa decide antes de empezar la partida tres cosas, y cambian de una mesa a
