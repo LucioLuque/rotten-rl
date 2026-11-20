@@ -69,7 +69,55 @@ así que un agente entrenado con la variante puede jugar el juego normal.
 Con 2 jugadores, la regla casi no cambia el juego: el agente normal, jugando con la regla sin saberla,
 rinde lo mismo que el que la aprendió.
 
-## Rondas sin triunfo
+## Formato de partida (`--formats`)
 
-Pendiente de definir (cuáles rondas y quién lo decide). La observación ya tiene el lugar ("sin
-triunfo" en el palo de triunfo).
+Decidido el 20/11. La mesa decide antes de empezar la partida tres cosas, y cambian de una mesa a
+otra:
+
+- **La escalera** (cuántas cartas en cada ronda). Lo más común es 1,2,3,4,5,6,7,7,6,5,4,3,2,1 (14 rondas,
+  el 7 repetido); los agentes hasta el 20/11 jugaron siempre 1..7..1 (13 rondas, un solo 7). A veces se
+  agrega 7,7 al final.
+- **Rondas sin triunfo**: no se da vuelta carta; hay que seguir el palo que salió si se tiene, si no se
+  tira cualquiera (no hay obligación de fallar); gana la carta más alta del palo que salió (el palo que
+  sale hace de triunfo). La primera baza la abre el que sigue al que reparte y cada baza siguiente el
+  que ganó la anterior, como siempre. Los cantos no cambian.
+- **La regla de no cantar lo mismo 3 rondas seguidas**, sí o no.
+
+Los formatos que más vi: 1,2,3,4,5,6,7,7\*,6,5,4,3,2,1,7,7\* y 1,2,3,4,5,6,7,7\*,6\*,5\*,4\*,3\*,2\*,1\* (\* =
+sin triunfo). Se juega con el mazo entero (con 7 jugadores y 7 cartas se usan 49 de 52, más la de
+triunfo).
+
+**El sorteo** (`rotten_rl/jax_engine/formats.py`): cada partida de entrenamiento sortea su formato, con
+algo de peso a los formatos que se ven en la mesa y el resto repartido en variaciones, para que el
+agente juegue bien lo que decida cualquier mesa: 20 % 1..7,7..1; 10 % y 10 % los dos de arriba; 60 % al
+azar (7 repetido o no, 7,7 extra al final o no, rondas sin triunfo: ninguna, una al azar, cada una con
+probabilidad 0,2, toda la bajada o el segundo 7 de cada par). La regla de no repetir, en la mitad de
+las partidas, aparte.
+
+Simulación con 1.000.000 de partidas (`scripts/rule_variants/simulate_formats.py`): 14.758 formatos
+distintos. Los más frecuentes: 1..7,7..1 32 %; 1..7,7\*,6\*..1\* 13 %; 1..7,7\*,6..1,7,7\* 11 %; 1..7..1
+(la vieja) 6 %; 1..7,7..1,7,7 4 %; 1..7,7\*,6..1 3,5 %; los 10 primeros suman 76 %. Como la parte al azar
+vuelve a armar los formatos nombrados, terminan pesando más que sus pesos directos (32, 13 y 11 %
+contra 20, 10 y 10). 14 rondas en el 59 % de las partidas, 16 en el 20 %, 13 en el 16 %, 15 en el 5 %.
+Partidas con alguna ronda sin triunfo, 56 % (1,8 en promedio); cada ronda va sin triunfo el 11 % de las
+veces (las de 7 cartas, 22 %). Lo dejé así para probar.
+
+**En el motor JAX** (`rotten_rl/jax_engine/game.py`): el estado lleva las cartas de cada ronda
+(`round_h`, hasta 16 rondas) y cuáles van sin triunfo (`no_trump`); `format_game` sortea el formato y
+`new_game` sigue siendo, por defecto, la escalera vieja con triunfo (igual a pyspiel jugada a jugada).
+La observación de las redes con formatos agrega, a los 808 y a la historia de cantos (126), el formato:
+para la ronda actual y las que siguen (hasta 16), cuántas cartas (one-hot 0..7, 0 = no hay) y si va sin
+triunfo, y si está la regla de no repetir (145 valores; 1.079 en total). En los 808, una ronda sin
+triunfo prende el lugar "sin triunfo" del palo de triunfo (ya existía) y el índice de ronda queda en
+13 lugares (con más rondas lo dice el formato).
+
+Entrenamiento (`train_ppo --formats`): las partidas tienen largos distintos, así que se juegan todas
+hasta el largo de la más larga (16 rondas) y los pasos después del final quedan fuera de la pérdida.
+Las evaluaciones durante el entrenamiento también sortean el formato. Los torneos en JAX:
+`tournament.py --formats` (los agentes viejos juegan cualquier formato con la observación que conocen).
+Todavía no está en pyspiel (`play.py`, torneos en CPU).
+
+Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
+formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
+tira cualquiera si no se tiene el palo, quién gana la baza); un formato nombrado; la observación; las
+frecuencias del sorteo; PPO entrena y evalúa con formatos, y una red vieja juega con formatos.

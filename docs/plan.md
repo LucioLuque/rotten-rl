@@ -63,7 +63,11 @@ ronda 1 da bien con todos.
 
 **D. Variantes de reglas**: empieza el 20/11 con "no cantar lo mismo 3 rondas seguidas" (la regla ya
 estaba definida acá abajo): `--no_repeat_bid` en el motor JAX y `d20`, `d30`, `d72` de cero a 24M en la
--14 (`docs/rule_variants/`). Las rondas sin triunfo quedan para después: falta definir cuáles son.
+-14 (`docs/rule_variants/`). `d20` empata con `s20full`, con la regla y sin ella.
+El 20/11 la D pasa a ser **formato de partida**: la escalera (lo común es 1..7,7..1, 14 rondas; los
+agentes hasta ahora jugaron 1..7..1), las rondas sin triunfo y la regla de no repetir los decide la
+mesa antes de empezar, así que cada partida de entrenamiento sortea su formato (`--formats`). Sigue:
+`m20`, `m30`, `m72` con formatos, contra los agentes actuales formato por formato.
 
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
