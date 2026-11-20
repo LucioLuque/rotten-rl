@@ -185,7 +185,21 @@ de `m20` contra la heurística no se comparan directo con las de `s20full` (otro
 puntos); en el entrenamiento, la entropía queda más alta (0,37 contra 0,34) y el resto igual.
 Velocidad: 2.542 partidas/s por semilla, con el relleno (`m30` y `m72` ya van sin relleno, ver abajo).
 El torneo en la escalera vieja (`m20` contra `s20full` en su juego) falló la primera vez (la
-evaluación no armaba el formato en el juego normal; arreglado) y se repite después de `m20c`.
+evaluación no armaba el formato en el juego normal; arreglado) y se repitió después de `m20c`.
+
+**`t_m20_vieja` (20/11, en la escalera vieja 1..7..1, sin variantes): aprender todos los formatos
+cuesta un poco en el formato del especialista.** `m20` contra `s20full` **−0,34 por partida, 49,5 %,
+2/16 cruces**; contra la heurística los dos 82,2 %. Está en el borde del ruido (~0,3) pero casi todos
+los cruces van para el mismo lado. `m20` ve la escalera vieja sin variantes en el 6 % de sus partidas.
+
+**Sin relleno (`m20c`, 20/11).** Desde el 20/11, con `--formats` las partidas siguen de una
+actualización a la otra: cuando una termina arranca otra en su lugar, y la ronda que queda abierta al
+final de cada tanda se estima con el crítico (`ppo.rollout_length`, `init_envs`). Una tanda tiene los
+pasos de una partida promedio (72 por jugador) y cuenta como `rollout_games` partidas. `m20c` es `m20`
+con este código hasta 6M (con la tasa de 24M): **aprende igual** (a 6M contra la heurística 82,8 % y
++37,1 por partida, `m20` 83,3 % y +37,0; cantos exactos 48,3 y 48,4 %; entropía y varianza explicada
+iguales; la KL y los pasos recortados, apenas más bajos) y **va a 2.940 partidas/s por semilla contra
+2.542 (16 % más rápido)**. `m30` y `m72` usan este código.
 
 Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
 formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
