@@ -100,9 +100,9 @@ def _act(kind, params, obs, mask, states, key):
 
 
 @partial(jax.jit, static_argnames=("num_players", "num_deals", "kind", "opponent_kind",
-                                   "reward_scheme"))
+                                   "reward_scheme", "no_repeat_bid"))
 def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, opponent_kind,
-          reward_scheme):
+          reward_scheme, no_repeat_bid=False):
     """Plays every evaluation match: the evaluated agent (`kind`, `params`) in one seat, the
     opponent in the others. Returns, per match: final scores [G, n], the evaluated seat's return,
     and its bid and points in each round [13, G]."""
@@ -111,14 +111,14 @@ def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, 
     deal = jnp.arange(G) // n
     seat = jnp.arange(G) % n
     deal_keys = jax.random.split(deal_key, num_deals)[deal]
-    states = jax.vmap(lambda k: jg.random_game(k, n))(deal_keys)
+    states = jax.vmap(lambda k: jg.random_game(k, n, no_repeat_bid))(deal_keys)
     step = jax.vmap(lambda s, a: jg.step(s, a, reward_scheme))
     idx = jnp.arange(G)
 
     def body(carry, _):
         states, key, ret = carry
         key, sub = jax.random.split(key)
-        obs = jax.vmap(jg.observation)(states, states.current)
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, no_repeat_bid))(states, states.current)
         mask = jax.vmap(jg.legal_mask)(states)
         mine = _act(kind, params, obs, mask, states, jax.random.fold_in(sub, 1))
         theirs = _act(opponent_kind, opponent_params, obs, mask, states, sub)
@@ -135,7 +135,7 @@ def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, 
 
 
 def evaluate(policy, opponent, num_players, num_games, deal_seed=1234, opponent_params=None,
-             key=None, reward_scheme="relative"):
+             key=None, reward_scheme="relative", no_repeat_bid=False):
     """Duplicate evaluation of the greedy `policy` (JAX params) against `opponent` ("random",
     "heuristic" or "past" with `opponent_params`). Same result dict as evaluation.evaluate."""
     n = num_players
@@ -144,20 +144,22 @@ def evaluate(policy, opponent, num_players, num_games, deal_seed=1234, opponent_
     if opponent != "past":
         opponent_params = None
     return match(("greedy", policy), (opponent_kind, opponent_params), n, num_deals, deal_seed,
-                 key, reward_scheme)
+                 key, reward_scheme, no_repeat_bid)
 
 
-def match(agent, opponent, num_players, num_deals, deal_seed, key=None, reward_scheme="relative"):
+def match(agent, opponent, num_players, num_deals, deal_seed, key=None, reward_scheme="relative",
+          no_repeat_bid=False):
     """Duplicate evaluation between any two agents, each a (kind, params) pair (see AGENT_KINDS;
     params None for "heuristic" and "random"): `num_deals` deals, each played once with `agent` in
-    every seat and `opponent` in the others. Same result dict as evaluation.evaluate."""
+    every seat and `opponent` in the others. Same result dict as evaluation.evaluate. With
+    `no_repeat_bid`, the matches follow that rule variant and networks get the bid history."""
     for kind, params in (agent, opponent):
         if kind not in AGENT_KINDS or (params is None) != (kind in ("heuristic", "random")):
             raise ValueError(f"bad agent: {kind} with params {params is not None}")
     key = jax.random.PRNGKey(0) if key is None else key
     scores, ret, bids, points = jax.device_get(_play(
         agent[1], opponent[1], key, jax.random.PRNGKey(deal_seed), num_players, num_deals,
-        agent[0], opponent[0], reward_scheme))
+        agent[0], opponent[0], reward_scheme, no_repeat_bid))
     return summarize(np.asarray(scores), np.asarray(ret), np.asarray(bids), np.asarray(points),
                      num_players)
 

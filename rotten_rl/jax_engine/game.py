@@ -15,6 +15,12 @@ wrapper, the first h go to player 0, the next h to player 1, ..., and the next o
 `random_game(key, n)` draws them. Giving the orders makes a match reproducible and lets the tests
 replay a pyspiel match exactly.
 
+Rule variant (stage D of docs/plan.md, docs/rule_variants/): `no_repeat_bid`, nobody may bid the
+same amount 3 rounds in a row, unless no other bid is legal (the last-bidder restriction wins). It is
+a field of the state (set by `new_game`), so `legal_mask` and `step` follow it; the observation adds
+each player's bids of the two previous rounds only with `observation(..., bid_history=True)`
+(OBS_SIZE + HISTORY_SIZE values), so networks of the plain game keep their 808 inputs.
+
 Not here: `infer_trump_void` (off by default; it did not help) and the hidden hands of the central
 critic.
 """
@@ -34,6 +40,7 @@ NUM_ROUNDS = 13
 SCORE_CEILING = 228.0                              # sum of 10 + 2h over the ladder
 ROUND_SCORE_NORM = 24.0
 OBS_SIZE = 808
+HISTORY_SIZE = MAX_PLAYERS * 2 * 9                # per relative seat, last and second-last bid
 
 SUIT_OF = jnp.arange(52) // 13
 RANK_OF = jnp.arange(52) % 13
@@ -59,6 +66,8 @@ class GameState(NamedTuple):
     tricks_done: jnp.ndarray  # int
     played_by: jnp.ndarray    # int[52]      who played each card this round, -1 if nobody
     voids: jnp.ndarray        # bool[n, 4]   known not to hold that suit (did not follow it)
+    prev_bids: jnp.ndarray    # int[n, 2]    bid in the previous and the second previous round, -1 if none
+    no_repeat_bid: jnp.ndarray  # bool       the variant: no bidding the same 3 rounds in a row
 
 
 def _round_start(orders, round_ptr, dealer, n):
@@ -73,7 +82,11 @@ def _round_start(orders, round_ptr, dealer, n):
     return hands, trump_card, (dealer + 1) % n
 
 
-def new_game(orders, num_players):
+def obs_size(bid_history=False):
+    return OBS_SIZE + (HISTORY_SIZE if bid_history else 0)
+
+
+def new_game(orders, num_players, no_repeat_bid=False):
     """A match at its first decision (player after the dealer bids). `orders` int[13, 52]."""
     n = num_players
     orders = jnp.asarray(orders, jnp.int32)
@@ -84,12 +97,13 @@ def new_game(orders, num_players):
         bids=jnp.full((n,), -1, jnp.int32), tricks_won=jnp.zeros((n,), jnp.int32),
         scores=jnp.zeros((n,), jnp.int32), lead_suit=jnp.int32(-1),
         trick=jnp.full((n,), -1, jnp.int32), trick_len=jnp.int32(0), tricks_done=jnp.int32(0),
-        played_by=jnp.full((52,), -1, jnp.int32), voids=jnp.zeros((n, 4), bool))
+        played_by=jnp.full((52,), -1, jnp.int32), voids=jnp.zeros((n, 4), bool),
+        prev_bids=jnp.full((n, 2), -1, jnp.int32), no_repeat_bid=jnp.asarray(no_repeat_bid, bool))
 
 
-def random_game(key, num_players):
+def random_game(key, num_players, no_repeat_bid=False):
     orders = jax.vmap(lambda k: jax.random.permutation(k, 52))(jax.random.split(key, NUM_ROUNDS))
-    return new_game(orders, num_players)
+    return new_game(orders, num_players, no_repeat_bid)
 
 
 def hand_size(state):
@@ -109,6 +123,11 @@ def legal_mask(state):
     forbidden = h - jnp.where(state.bids >= 0, state.bids, 0).sum()
     b = jnp.arange(8)
     bid_ok = (b <= h) & ~((bids_made == n - 1) & (b == forbidden))
+    # Variant: not the same bid as in the two previous rounds, unless nothing else is left.
+    prev = state.prev_bids[state.current]
+    repeated = state.no_repeat_bid & (prev[0] >= 0) & (prev[0] == prev[1])
+    no_repeat = bid_ok & ~(repeated & (b == prev[0]))
+    bid_ok = jnp.where(no_repeat.any(), no_repeat, bid_ok)
     # Playing: follow suit; if void, trump if you can; else anything.
     hand = state.hands[state.current]
     follow = hand & SUIT_MASKS[jnp.maximum(state.lead_suit, 0)]
@@ -209,7 +228,8 @@ def step(state, action, reward_scheme="relative"):
         bids=jnp.full((n,), -1, jnp.int32), tricks_won=jnp.zeros((n,), jnp.int32),
         scores=state.scores + points, lead_suit=jnp.int32(-1),
         trick=jnp.full((n,), -1, jnp.int32), trick_len=jnp.int32(0), tricks_done=jnp.int32(0),
-        played_by=jnp.full((52,), -1, jnp.int32), voids=jnp.zeros((n, 4), bool))
+        played_by=jnp.full((52,), -1, jnp.int32), voids=jnp.zeros((n, 4), bool),
+        prev_bids=jnp.stack([state.bids, state.prev_bids[:, 0]], axis=1))
 
     def pick(cond, a, b):
         return jax.tree_util.tree_map(lambda x, y: jnp.where(cond, x, y), a, b)
@@ -221,9 +241,11 @@ def step(state, action, reward_scheme="relative"):
     return new, rewards
 
 
-def observation(state, player):
+def observation(state, player, bid_history=False):
     """float32[808]: the information state of `player`, the same as
-    `rotten_rl.openspiel_game.info_state_tensor` (zeros at the end of the match)."""
+    `rotten_rl.openspiel_game.info_state_tensor` (zeros at the end of the match). With
+    `bid_history`, followed by HISTORY_SIZE values: for each relative seat, one-hots (none, 0..7) of
+    its bid in the previous round and in the one before (for the no_repeat_bid variant)."""
     n = state.hands.shape[0]
     h = hand_size(state)
     hf = h.astype(jnp.float32)
@@ -282,5 +304,7 @@ def observation(state, player):
         jax.nn.one_hot(jnp.minimum(seen, 12), 13, dtype=jnp.float32).reshape(-1),  # seen_per_suit
         one_hot(jnp.clip(n - 1 - state.trick_len, 0, 6), 7, state.phase == PLAYING),  # players_left
     ]
+    if bid_history:
+        pieces.append(per_rel(jax.nn.one_hot(state.prev_bids + 1, 9, dtype=jnp.float32)).reshape(-1))
     obs = jnp.concatenate(pieces)
     return jnp.where(is_terminal(state), 0.0, obs)

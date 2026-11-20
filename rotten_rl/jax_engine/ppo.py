@@ -129,6 +129,10 @@ class Config(NamedTuple):
     # single MLP of twice the width whose cross blocks are zero and never get a gradient (see
     # `split_policy_mask`). Everything that loads a policy sees a plain MLP. The critic stays shared.
     split_policy: bool = False
+    # Rule variant (--no_repeat_bid, stage D): nobody may bid the same amount 3 rounds in a row
+    # (rotten_rl/jax_engine/game.py); the networks also see each player's last two bids
+    # (jg.obs_size(True) inputs).
+    no_repeat_bid: bool = False
 
 
 AUX_SEATS = 6                       # other players, by relative position 1..6 (padded)
@@ -198,10 +202,13 @@ def init_split_policy(key, hidden):
 
 
 def init(key, cfg):
+    if cfg.split_policy and cfg.no_repeat_bid:
+        raise ValueError("split_policy with no_repeat_bid is not implemented")
     k_pi, k_v, key = jax.random.split(key, 3)
+    obs = jg.obs_size(cfg.no_repeat_bid)
     policy = (init_split_policy(k_pi, cfg.hidden) if cfg.split_policy
-              else init_mlp(k_pi, [jg.OBS_SIZE, *cfg.hidden, jg.NUM_ACTIONS]))
-    value = init_mlp(k_v, [jg.OBS_SIZE, *cfg.hidden, 1])
+              else init_mlp(k_pi, [obs, *cfg.hidden, jg.NUM_ACTIONS]))
+    value = init_mlp(k_v, [obs, *cfg.hidden, 1])
     aux = (init_mlp(jax.random.fold_in(k_pi, 1), [policy_hidden(cfg)[-1], AUX_SEATS * 52])
            if cfg.aux_coef else None)
     ts = TrainState(policy, value, None, jnp.int32(0), key, aux)
@@ -229,7 +236,7 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
     traj["learner_seats"] bool[B, n] marks them."""
     n, B, T = cfg.num_players, cfg.rollout_games, match_length(cfg.num_players)
     k_games, k_seat, key = jax.random.split(key, 3)
-    states = jax.vmap(lambda k: jg.random_game(k, n))(jax.random.split(k_games, B))
+    states = jax.vmap(lambda k: jg.random_game(k, n, cfg.no_repeat_bid))(jax.random.split(k_games, B))
     learner_seat = jax.random.randint(k_seat, (B,), 0, n)
     if seats == 1:
         learner_seats = jnp.arange(n)[None, :] == learner_seat[:, None]
@@ -243,7 +250,7 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1):
         states, key = carry
         key, sub = jax.random.split(key)
         player = states.current
-        obs = jax.vmap(jg.observation)(states, player)
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, cfg.no_repeat_bid))(states, player)
         if dt is not None:      # the first matmul would round it anyway; halves the stored batch
             obs = obs.astype(dt)
         mask = jax.vmap(jg.legal_mask)(states)
