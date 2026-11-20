@@ -126,10 +126,10 @@ def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, 
     def body(carry, _):
         states, key, ret, bids_r, points_r = carry
         key, sub = jax.random.split(key)
-        # Always with the bid history (and with formats, the format): each network uses the first
-        # values it was trained with (808, + history, + format), so networks of the plain game and
-        # of the variants can all play.
-        obs = jax.vmap(lambda s, p: jg.observation(s, p, True, formats))(states, states.current)
+        # Always with the bid history and the format (in the plain game, the 13-round ladder): each
+        # network uses the first values it was trained with (808, + history, + format), so networks
+        # of the plain game and of the variants can all play any game.
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, True, True))(states, states.current)
         mask = jax.vmap(jg.legal_mask)(states)
         mine = _act(kind, params, obs, mask, states, jax.random.fold_in(sub, 1))
         theirs = _act(opponent_kind, opponent_params, obs, mask, states, sub)

@@ -163,3 +163,10 @@ def test_carried_matches_are_not_biased():
     want = np.array([((hs == x).sum(1) * (n + n * x)).sum() for x in range(1, 8)], float)
     want /= want.sum()
     np.testing.assert_allclose(got, want, atol=0.012)
+
+
+def test_format_network_plays_the_classic_ladder():
+    from rotten_rl.jax_engine import evaluate, ppo
+    net = ppo.init(jax.random.PRNGKey(0), ppo.Config(num_players=2, hidden=(16,), formats=True)).policy
+    res = evaluate.match(("greedy", net), ("heuristic", None), 2, 4, 0)
+    assert 0.0 <= res["overall"]["win_rate"] <= 1.0
