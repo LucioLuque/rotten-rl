@@ -119,7 +119,9 @@ def _play(params, opponent_params, key, deal_key, num_players, num_deals, kind, 
     def body(carry, _):
         states, key, ret = carry
         key, sub = jax.random.split(key)
-        obs = jax.vmap(lambda s, p: jg.observation(s, p, no_repeat_bid))(states, states.current)
+        # Always with the bid history: networks of the plain game use only the first 808 values, and
+        # those trained with the variant can also play the plain game.
+        obs = jax.vmap(lambda s, p: jg.observation(s, p, True))(states, states.current)
         mask = jax.vmap(jg.legal_mask)(states)
         mine = _act(kind, params, obs, mask, states, jax.random.fold_in(sub, 1))
         theirs = _act(opponent_kind, opponent_params, obs, mask, states, sub)

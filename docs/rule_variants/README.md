@@ -60,6 +60,12 @@ las de `s20full` (las de `d20` se evalúan con la regla; las de `s20full`, en el
 cantos exactos, un punto más bajos (49 contra 50 %). `d20` se cortó a las 06:55 a ~23M y se retomó a
 las 08:05 con `--resume`.
 
+**Sin la regla** (20/11, el mismo torneo en el juego normal; `d20` sigue viendo la historia de cantos,
+que el juego normal también tiene): **también empate**, `d20` contra `s20full` −0,06, 49,5 %, 9/16;
+contra la heurística 82,0 % (`s20full` 82,3 %). Desde el 20/11 las evaluaciones y los torneos en JAX
+arman siempre la observación con la historia (las redes del juego normal usan sus primeros 808 valores),
+así que un agente entrenado con la variante puede jugar el juego normal.
+
 Con 2 jugadores, la regla casi no cambia el juego: el agente normal, jugando con la regla sin saberla,
 rinde lo mismo que el que la aprendió.
 
