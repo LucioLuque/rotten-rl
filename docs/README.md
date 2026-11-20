@@ -19,6 +19,8 @@
 | Tarea auxiliar: adivinar las manos ajenas (`train_ppo --aux_hands`) | `aux_hands/` |
 | Cómo retomar un agente entrenado (tasa al retomar, de cero contra en tramos) | `resume/` |
 | Canto y juego en redes separadas (etapa B) | `split_policy/` |
-| Variantes de reglas (etapa D) | `rule_variants/` |
+| Variantes de reglas y formatos de partida (etapa D) | `rule_variants/` |
+| Panel fijo de rivales (etapa A) | `panel/` |
+| Un solo modelo de 2 a 7 jugadores (etapa E) | `single_model/` |
 | 4, 5 y 6 jugadores (etapa C) | `players_456/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

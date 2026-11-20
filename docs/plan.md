@@ -69,6 +69,13 @@ agentes hasta ahora jugaron 1..7..1), las rondas sin triunfo y la regla de no re
 mesa antes de empezar, así que cada partida de entrenamiento sortea su formato (`--formats`). Sigue:
 `m20`, `m30`, `m72` con formatos, contra los agentes actuales formato por formato.
 
+**A, pendiente: panel fijo de rivales** hecho el 20/11 (`docs/panel/`, `scripts/eval/panel.py`). Mi perfil
+queda para más adelante (decidido el 20/11: todavía no hace falta).
+
+**E. Modelo único de 2 a 7**: preparado el 20/11 (`--players_mix`, `docs/single_model/`); `uni27` (con
+formatos, 24M por cantidad de jugadores) va en la cola de la -14 después de `m72`, y después `m40`,
+`m50`, `m60` (especialistas de 4 a 6 con formatos) para compararlo.
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
