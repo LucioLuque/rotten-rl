@@ -101,3 +101,15 @@ def test_ppo_trains_and_evaluates_with_the_variant():
     ts, _ = ppo.make_update(cfg)(ts)
     res = evaluate.evaluate(ts.policy, "heuristic", 3, 12, no_repeat_bid=True)
     assert 0.0 <= res["overall"]["win_rate"] <= 1.0
+
+
+def test_plain_network_plays_the_variant():
+    """A network of the plain game (808 inputs) plays a match with the variant: it sees only its 808
+    values and the rule still holds (the mask)."""
+    from rotten_rl.jax_engine import evaluate, ppo
+    cfg = ppo.Config(num_players=3, hidden=(16,))
+    plain = ppo.init(jax.random.PRNGKey(0), cfg).policy
+    variant = ppo.init(jax.random.PRNGKey(1), cfg._replace(no_repeat_bid=True)).policy
+    assert plain[0][0].shape[0] == jg.OBS_SIZE
+    res = evaluate.match(("greedy", plain), ("greedy", variant), 3, 4, 0, no_repeat_bid=True)
+    assert 0.0 <= res["overall"]["win_rate"] <= 1.0

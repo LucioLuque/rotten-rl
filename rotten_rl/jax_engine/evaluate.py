@@ -93,7 +93,8 @@ def _act(kind, params, obs, mask, states, key):
         return jax.random.categorical(key, jnp.where(mask, 0.0, -jnp.inf)).astype(jnp.int32)
     if kind == "heuristic":
         return jax.vmap(heuristic_action)(states)
-    logits = jnp.where(mask, mlp(params, obs), ILLEGAL)
+    # A network of the plain game in a match with the bid history sees only its first 808 values.
+    logits = jnp.where(mask, mlp(params, obs[..., :params[0][0].shape[0]]), ILLEGAL)
     if kind == "sample":
         return jax.random.categorical(key, logits).astype(jnp.int32)
     return jnp.argmax(logits, axis=-1).astype(jnp.int32)

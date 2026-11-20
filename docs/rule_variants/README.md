@@ -42,10 +42,14 @@ Cola `queue33` en la -14, lanzada el 20/11 a las 05:13. Tiempos estimados (sin m
 `d20` ~1 h 50 min, `d30` ~2 h 40 min, `d72` ~6 h. Lo que corte el cierre de las 06:55 se retoma a las
 08:05 (`relaunch_queue.sh queue33 queue34`, por timer).
 
-Qué se mira: las curvas y la evaluación contra la heurística (jugando con la variante), comparadas con
-`s20full`, `s30full` y `u72full` (el juego normal): cuánto cambia el juego. Falta para compararlos de
-verdad: torneos con la variante (el agente normal jugando con la regla, sin ver la historia, contra el
-entrenado con ella).
+Qué se mira: las curvas y la evaluación contra la heurística (jugando con la variante), y torneos
+con la variante (`scripts/jax_engine/tournament.py --no_repeat_bid`): heurística, el agente del juego
+normal (`s20full`, `s30full`, `u72full`) jugando con la regla pero sin ver la historia (usa sus 808
+valores), y el entrenado con ella. Si el entrenado con la variante no le gana al normal, aprender la
+regla no aporta.
+
+Prueba del torneo (20/11, 200 repartos, 3 jugadores): `s30full` con la regla le gana a la heurística el
+63 % (en el juego normal, 62 %), así que la regla parece pesar poco con la heurística en la mesa.
 
 ### Resultados
 

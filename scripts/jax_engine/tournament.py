@@ -20,6 +20,10 @@ Agents (comma separated):
 Networks of one MLP (PPO in JAX or PyTorch, DQN), with the default observation; the architecture
 comes from the run's config.json.
 
+--no_repeat_bid: the matches follow that rule variant (docs/rule_variants/). Networks trained with it
+see the bid history; those of the plain game play with the rule but see only their 808 values. A
+network trained with the variant cannot play the plain game.
+
 With 2 players, "B against A" is the same games as "A against B" (each deal already puts A in both
 seats), so it is not played: it is written with the sign changed, unless one of them is random.
 
@@ -49,7 +53,7 @@ from rotten_rl.jax_engine.ppo import from_torch_state_dict  # noqa: E402
 from rotten_rl.tournament_report import mirror, policy_file, report  # noqa: E402
 
 
-def make_agent(spec, players):
+def make_agent(spec, players, no_repeat_bid=False):
     """(name, (kind, params)) for evaluate.match."""
     if spec in ("heuristic", "random"):
         return spec, (spec, None)
@@ -64,6 +68,8 @@ def make_agent(spec, players):
         raise ValueError(f"{run_dir} es de {config['players']} jugadores, no {players}")
     if config.get("infer_trump_void", False):
         raise ValueError(f"{run_dir}: la observacion con infer_trump_void no esta en JAX")
+    if config.get("jax_args", {}).get("no_repeat_bid", False) and not no_repeat_bid:
+        raise ValueError(f"{run_dir} se entreno con --no_repeat_bid: el torneo tambien tiene que tenerlo")
     params = from_torch_state_dict(torch.load(path, map_location="cpu"))
     return (name + ":sample" if sample else name), ("sample" if sample else "greedy", params)
 
@@ -76,6 +82,8 @@ def main():
                    help="repartos por enfrentamiento (cada uno se juega una vez por asiento)")
     p.add_argument("--deal_seed", type=int, default=2026)
     p.add_argument("--seed", type=int, default=0, help="azar de random y de :sample")
+    p.add_argument("--no_repeat_bid", action="store_true",
+                   help="variante: nadie canta lo mismo 3 rondas seguidas")
     p.add_argument("--out", help="guardar el resultado en markdown (y .json al lado)")
     a = p.parse_args()
 
@@ -93,7 +101,7 @@ def main():
             specs += [f + suffix for f in found]
         else:
             specs.append(s)
-    agents = [make_agent(s, n) for s in specs]
+    agents = [make_agent(s, n, a.no_repeat_bid) for s in specs]
     names = [name for name, _ in agents]
     if len(set(names)) != len(names):
         raise ValueError(f"Agentes repetidos: {names}")
@@ -109,7 +117,8 @@ def main():
     for i, j in pairs:
         t = time.time()
         key = jax.random.fold_in(jax.random.PRNGKey(a.seed), i * k + j)
-        o = je.match(agents[i][1], agents[j][1], n, a.deals, a.deal_seed, key)["overall"]
+        o = je.match(agents[i][1], agents[j][1], n, a.deals, a.deal_seed, key,
+                     no_repeat_bid=a.no_repeat_bid)["overall"]
         results[(i, j)] = o
         print(f"{names[i]} vs {names[j]}: diff {o['mean_score_diff']:+.2f} "
               f"±{o['mean_score_diff_se']:.2f}, win {o['win_rate']:.3f} "
