@@ -1,0 +1,5 @@
+# Etapa D (docs/plan.md, docs/rule_variants/): la variante "no cantar lo mismo 3 rondas seguidas"
+# (--no_repeat_bid), de cero a 24M con la receta actual, 2, 3 y 7 jugadores. Cola de la -14, 20/11.
+d20_jaxppo2p_norepeat_ent0.06_24M --players 2 --no_repeat_bid --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+d30_jaxppo3p_norepeat_ent0.06_24M --players 3 --no_repeat_bid --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+d72_jaxppo7p_norepeat_ent0.1_24M --players 7 --no_repeat_bid --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
