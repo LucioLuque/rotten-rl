@@ -96,6 +96,23 @@ posiciones de canto):
 **Los tres cantan la ronda de 1 carta en equilibrio** (lo que pierden está en el ruido). La heurística
 pierde mucho con 2 jugadores (no canta 1 siempre en primera posición).
 
+**De 2 a 7 jugadores (20/11):** lo mismo con los entrenados de cero a 24M de una vez (`s20full`,
+`s30full`, `u72full`) y los de la etapa C (`f40`, `f50`, `f60`), semilla 0, 200.000 repartos. Pérdida
+promedio contra el equilibrio (puntos por ronda) y la mayor ganancia que tendría alguien desviándose si
+todos cantan como el agente:
+
+| Jugadores | Agente | Muestreando | Acción más probable | Heurística | Ganancia por desviarse (máx.) |
+|---|---|---|---|---|---|
+| 2 | `s20full` | −0,003 | +0,003 | −1,390 | 0,010 |
+| 3 | `s30full` | −0,003 | +0,003 | −0,370 | 0,027 |
+| 4 | `f40` | +0,001 | +0,002 | −0,187 | 0,013 |
+| 5 | `f50` | −0,001 | +0,001 | −0,293 | 0,014 |
+| 6 | `f60` | −0,001 | +0,002 | −0,319 | 0,011 |
+| 7 | `u72full` | −0,002 | +0,002 | −0,242 | 0,013 |
+
+**Con 4, 5 y 6 jugadores también cantan en equilibrio**: la pérdida es de milésimas de punto en todas
+las posiciones (la heurística pierde 0,19 a 0,32).
+
 ## Archivos
 
 - `rotten_rl/exact/round1.py`: el cálculo (repartos, CFR+, mejor respuesta, tablas de la
