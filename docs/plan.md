@@ -61,6 +61,10 @@ Contra lo exacto (20/11): el equilibrio de la ronda de 1 carta ya estaba calcula
 **C terminada el 20/11 a las 05:10.** La ronda 2 exacta con 5 a 7 no hace falta como control: la
 ronda 1 da bien con todos.
 
+**D. Variantes de reglas**: empieza el 20/11 con "no cantar lo mismo 3 rondas seguidas" (la regla ya
+estaba definida acá abajo): `--no_repeat_bid` en el motor JAX y `d20`, `d30`, `d72` de cero a 24M en la
+-14 (`docs/rule_variants/`). Las rondas sin triunfo quedan para después: falta definir cuáles son.
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
