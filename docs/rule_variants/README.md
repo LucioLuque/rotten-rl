@@ -168,6 +168,25 @@ Las evaluaciones durante el entrenamiento también sortean el formato. Los torne
 `tournament.py --formats` (los agentes viejos juegan cualquier formato con la observación que conocen).
 Todavía no está en pyspiel (`play.py`, torneos en CPU).
 
+### Resultados con formatos
+
+**`t_m20` (20/11, 2 jugadores, 1000 repartos por cruce, cada reparto con su formato sorteado): `m20`
+les gana claro a los agentes de la escalera vieja.**
+
+| Con formatos sorteados | Diferencia por partida | Win rate (empate 50 %) | Cruces positivos |
+|---|---|---|---|
+| `m20` contra `s20full` | **+3,34** | 53,6 % | **16/16** |
+| `m20` contra `d20` | **+3,43** | 53,7 % | **16/16** |
+| `d20` contra `s20full` | −0,07 | 49,8 % | 7/16 |
+
+Contra la heurística: `m20` 86,2 % (+40,9 por partida), `d20` 84,5 % (+36,9), `s20full` 84,2 % (+36,9).
+Los agentes viejos nunca vieron rondas sin triunfo ni escaleras de 14 a 16 rondas; `m20` sí. Las curvas
+de `m20` contra la heurística no se comparan directo con las de `s20full` (otro juego: más rondas, más
+puntos); en el entrenamiento, la entropía queda más alta (0,37 contra 0,34) y el resto igual.
+Velocidad: 2.542 partidas/s por semilla, con el relleno (`m30` y `m72` ya van sin relleno, ver abajo).
+El torneo en la escalera vieja (`m20` contra `s20full` en su juego) falló la primera vez (la
+evaluación no armaba el formato en el juego normal; arreglado) y se repite después de `m20c`.
+
 Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
 formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
 tira cualquiera si no se tiene el palo, quién gana la baza); un formato nombrado; la observación; las
