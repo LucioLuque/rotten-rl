@@ -53,7 +53,15 @@ Prueba del torneo (20/11, 200 repartos, 3 jugadores): `s30full` con la regla le 
 
 ### Resultados
 
-Pendiente.
+**`t_d20` (20/11, 2 jugadores, 1000 repartos por cruce, todos jugando con la regla): empate.** `d20`
+contra `s20full` **−0,07 por partida, 49,4 % de win rate (empate 50 %), 7/16 cruces positivos**; contra
+la heurística 82,4 % (`s20full` con la regla, 82,9 %). Las curvas de entrenamiento son prácticamente
+las de `s20full` (las de `d20` se evalúan con la regla; las de `s20full`, en el juego normal); los
+cantos exactos, un punto más bajos (49 contra 50 %). `d20` se cortó a las 06:55 a ~23M y se retomó a
+las 08:05 con `--resume`.
+
+Con 2 jugadores, la regla casi no cambia el juego: el agente normal, jugando con la regla sin saberla,
+rinde lo mismo que el que la aprendió.
 
 ## Rondas sin triunfo
 
