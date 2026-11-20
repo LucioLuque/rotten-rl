@@ -27,3 +27,9 @@ sigue subiendo despacio hasta el final (49 % a 1M, 54 % a 24M), la varianza expl
 jugadores, la KL y los pasos recortados bajan con el lr y la entropía se estabiliza en ~0,22, un poco
 más baja que con 3 y 7 jugadores (0,25). Contra versiones anteriores de sí misma, ~0. Sin torneo
 todavía.
+
+**`f50` (5 jugadores, 19/11, 19:53 a 23:51, 1.701 partidas/s por semilla):** a 24M le gana a la
+heurística el 47,4 % de las partidas (empate 20 %; semillas entre 46,6 y 49,0 %), por +18,7 puntos por
+partida, con 73,5 % de cantos exactos. Sigue el orden esperado entre 4 y 7 jugadores. Curvas sanas,
+como las de `f40`: el win rate sube de 44 % a 1M a 47 % a 24M, varianza explicada igual que con 3 y 4
+jugadores, entropía ~0,24 (entropía 0,08 en la receta, entre la de 4 y la de 7).
