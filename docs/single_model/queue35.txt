@@ -1,25 +1,31 @@
-# Etapa E (docs/plan.md, docs/single_model/): un solo modelo de 2 a 7 jugadores con formatos, 24M por
-# cantidad de jugadores (144M en total), contra los especialistas; despues m40/m50/m60 (especialistas
-# de 4 a 6 con formatos). Se agrega a la cola de la -14 (queue34) el 20/11, despues de m72.
-uni27_jaxppo2to7p_formats_144M --players_mix 2,3,4,5,6,7 --formats --ent_coef 0.06 --ent_by_players 5:0.08,6:0.1,7:0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 144000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
-t_uni2 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/m20_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni2.md
-t_uni2_vieja --script scripts/jax_engine/tournament.py --players 2 --agents heuristic,~/scratch/runs/s20full_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni2_vieja.md
-t_uni3 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/m30_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni3.md
-t_uni3_vieja --script scripts/jax_engine/tournament.py --players 3 --agents heuristic,~/scratch/runs/s30full_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni3_vieja.md
-t_uni7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni7.md
-t_uni7_vieja --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,~/scratch/runs/u72full_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni7_vieja.md
-t_uni4_vieja --script scripts/jax_engine/tournament.py --players 4 --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni4_vieja.md
-t_uni5_vieja --script scripts/jax_engine/tournament.py --players 5 --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni5_vieja.md
-t_uni6_vieja --script scripts/jax_engine/tournament.py --players 6 --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni6_vieja.md
-p_uni2 --script scripts/eval/panel.py --players 2 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni2.md
-p_uni3 --script scripts/eval/panel.py --players 3 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni3.md
-p_uni4 --script scripts/eval/panel.py --players 4 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni4.md
-p_uni5 --script scripts/eval/panel.py --players 5 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni5.md
-p_uni6 --script scripts/eval/panel.py --players 6 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni6.md
-p_uni7 --script scripts/eval/panel.py --players 7 --formats --agents ~/scratch/runs/uni27_* --out ~/scratch/panel_uni7.md
+# Etapa E (docs/plan.md, docs/single_model/): primero m40/m50/m60 (especialistas de 4 a 6 con formatos),
+# despues un solo modelo de 2 a 7 jugadores con formatos, 24M por cantidad de jugadores (144M), contra
+# todos los especialistas. Se agrega a la cola de la -14 (queue34) el 20/11, despues de m72.
 m40_jaxppo4p_formats_ent0.06_24M --players 4 --formats --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
-t_m40 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/m40_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_m40.md
+t_m40 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/m40_* --out ~/scratch/torneo_m40.md
+t_m40_vieja --script scripts/jax_engine/tournament.py --players 4 --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/m40_* --out ~/scratch/torneo_m40_vieja.md
 m50_jaxppo5p_formats_ent0.08_24M --players 5 --formats --ent_coef 0.08 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
-t_m50 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/m50_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_m50.md
+t_m50 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/m50_* --out ~/scratch/torneo_m50.md
+t_m50_vieja --script scripts/jax_engine/tournament.py --players 5 --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/m50_* --out ~/scratch/torneo_m50_vieja.md
 m60_jaxppo6p_formats_ent0.1_24M --players 6 --formats --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
-t_m60 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/m60_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_m60.md
+t_m60 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/m60_* --out ~/scratch/torneo_m60.md
+t_m60_vieja --script scripts/jax_engine/tournament.py --players 6 --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/m60_* --out ~/scratch/torneo_m60_vieja.md
+uni27_jaxppo2to7p_formats_144M --players_mix 2,3,4,5,6,7 --formats --ent_coef 0.06 --ent_by_players 5:0.08,6:0.1,7:0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 144000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_uni2 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/s20full_*,~/scratch/runs/m20_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni2.md
+t_uni2_vieja --script scripts/jax_engine/tournament.py --players 2 --agents heuristic,~/scratch/runs/s20full_*,~/scratch/runs/m20_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni2_vieja.md
+t_uni3 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/s30full_*,~/scratch/runs/m30_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni3.md
+t_uni3_vieja --script scripts/jax_engine/tournament.py --players 3 --agents heuristic,~/scratch/runs/s30full_*,~/scratch/runs/m30_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni3_vieja.md
+t_uni4 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/m40_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni4.md
+t_uni4_vieja --script scripts/jax_engine/tournament.py --players 4 --agents heuristic,~/scratch/runs/f40_*,~/scratch/runs/m40_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni4_vieja.md
+t_uni5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/m50_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni5.md
+t_uni5_vieja --script scripts/jax_engine/tournament.py --players 5 --agents heuristic,~/scratch/runs/f50_*,~/scratch/runs/m50_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni5_vieja.md
+t_uni6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/m60_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni6.md
+t_uni6_vieja --script scripts/jax_engine/tournament.py --players 6 --agents heuristic,~/scratch/runs/f60_*,~/scratch/runs/m60_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni6_vieja.md
+t_uni7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/u72full_*,~/scratch/runs/m72_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni7.md
+t_uni7_vieja --script scripts/jax_engine/tournament.py --players 7 --agents heuristic,~/scratch/runs/u72full_*,~/scratch/runs/m72_*,~/scratch/runs/uni27_* --out ~/scratch/torneo_uni7_vieja.md
+p_uni2 --script scripts/eval/panel.py --players 2 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m20_* --out ~/scratch/panel_uni2.md
+p_uni3 --script scripts/eval/panel.py --players 3 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m30_* --out ~/scratch/panel_uni3.md
+p_uni4 --script scripts/eval/panel.py --players 4 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m40_* --out ~/scratch/panel_uni4.md
+p_uni5 --script scripts/eval/panel.py --players 5 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m50_* --out ~/scratch/panel_uni5.md
+p_uni6 --script scripts/eval/panel.py --players 6 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m60_* --out ~/scratch/panel_uni6.md
+p_uni7 --script scripts/eval/panel.py --players 7 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m72_* --out ~/scratch/panel_uni7.md
