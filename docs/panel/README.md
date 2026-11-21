@@ -63,4 +63,16 @@ semillas: 21 s.
 Con formatos, el especialista de formatos le gana a todo el panel por 2 a 4 puntos, incluido el
 explotador de `s30` (+3,87): no tiene un agujero que ese explotador encuentre. Su peor rival es él mismo
 (la semilla 0). Los agentes de la escalera vieja quedan alrededor de 0 entre ellos y pierden ~3,5 contra
-el de formatos. 7 jugadores, cuando termine `m72`; 5 y 6, con `m50` y `m60`.
+el de formatos.
+
+7 jugadores (empate 14,3 %), 21/11:
+
+| Agente | heurística | u72@12M | u72full | l70m | e70z | d72 | m72 | Promedio (sin heurística) |
+|---|---|---|---|---|---|---|---|---|
+| `m72` | +18,79 (43,1 %) | +3,42 | +4,79 | +4,67 | +3,20 | +4,92 | +0,06 | **+3,51** |
+| `u72full` | +11,41 (30,0 %) | −2,09 | +0,23 | −0,62 | −2,43 | +0,28 | −5,99 | −1,77 |
+| `d72` | +11,53 (30,4 %) | −2,60 | +0,57 | −0,54 | −2,80 | +0,52 | −6,46 | −1,89 |
+
+Igual que con 3 y 4: `m72` le gana a todo el panel, incluido el explotador de `u72` (+3,20). Con
+formatos, el explotador (`e70z`) y la versión de 12M le ganan a `u72full` por más de 2 puntos: en
+partidas con formatos, el agente viejo es fácil de aprovechar. 5 y 6, con `m50` y `m60`.

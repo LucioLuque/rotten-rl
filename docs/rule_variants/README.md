@@ -229,6 +229,35 @@ fracciones con ~3 cifras), y baja a 4,3 GiB. `m72` va de nuevo con `--obs_bf16`
 en `~/scratch/runs_failed/` de la -14 y sus torneos (que corrieron igual, con la red sin entrenar) no
 valen. `uni27` también va con `--obs_bf16`.
 
+**`t_m72b` y `t_m72b_vieja` (21/11, 7 jugadores, con `--obs_bf16`, 908 partidas/s por semilla):**
+
+| | Diferencia por partida | Win rate (empate 14,3 %) | Cruces positivos |
+|---|---|---|---|
+| Formatos: `m72` contra `u72full` | **+4,82** | 20,7 % | 16/16 |
+| Formatos: `u72full` contra `m72` | −6,40 | 9,3 % | 0/16 |
+| Formatos: `m72` contra `d72` | +4,99 | 21,1 % | 16/16 |
+| Escalera vieja: `m72` contra `u72full` | −0,08 | 14,1 % | 4/16 |
+| Escalera vieja: `u72full` contra `m72` | +0,12 | 14,5 % | 13/16 |
+
+Contra la heurística con formatos, `m72` 42,8 % (+18,7), `d72` 29,5 %, `u72full` 29,0 %; en la escalera
+vieja, 38,6 y 38,2 %. Con 7 jugadores la diferencia con formatos es la más grande (~5 puntos; `d72`, que
+sabe la regla de no repetir, pierde igual: las rondas sin triunfo y las escaleras más largas pesan
+más), y en la escalera vieja el costo es ~0,1, dentro del ruido. Curvas: entropía más alta (0,27 contra
+0,25), cantos exactos más bajos (75,7 contra 79,1 %; la regla de no repetir en la mitad de las
+partidas), varianza explicada apenas más alta.
+
+**Resumen de los especialistas con formatos** (contra el agente de la escalera vieja de la misma
+cantidad de jugadores):
+
+| Jugadores | Con formatos | En la escalera vieja |
+|---|---|---|
+| 2 | +3,34 (16/16) | −0,34 (2/16) |
+| 3 | +3,31 (16/16) | −0,24 (1/16) |
+| 4 | +3,62 (16/16) | −0,02 (8/16) |
+| 7 | +4,82 (16/16) | −0,08 (4/16) |
+
+5 y 6: `docs/single_model/`.
+
 Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
 formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
 tira cualquiera si no se tiene el palo, quién gana la baza); un formato nombrado; la observación; las
