@@ -32,4 +32,17 @@ siguiente.
 
 ## Resultados
 
-Pendiente.
+### Especialistas de 4 a 6 con formatos
+
+**`m40` (21/11, 4 jugadores, 1.523 partidas/s por semilla; torneos de 1000 repartos por cruce):**
+
+| | Diferencia por partida | Win rate (empate 25 %) | Cruces positivos |
+|---|---|---|---|
+| Formatos: `m40` contra `f40` | **+3,62** | 29,9 % | 16/16 |
+| Formatos: `f40` contra `m40` | −4,18 | 20,6 % | 0/16 |
+| Escalera vieja: `m40` contra `f40` | −0,02 | 24,9 % | 8/16 |
+| Escalera vieja: `f40` contra `m40` | +0,05 | 25,2 % | 10/16 |
+
+Contra la heurística con formatos, `m40` 58,8 % y `f40` 50,7 %; en la escalera vieja, 52,7 y 52,5 %. Con
+4 jugadores aprender los formatos no cuesta nada en la escalera vieja (empate). Curvas: entropía más alta
+(0,24 contra 0,22) y cantos exactos y varianza explicada un punto más bajos, como con 2 y 3.
