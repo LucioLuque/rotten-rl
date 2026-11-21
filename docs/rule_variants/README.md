@@ -220,6 +220,15 @@ cruces para el mismo lado). Curvas: entropía más alta (0,27 contra 0,25), cant
 explicada un punto más bajos (otro juego: rondas sin triunfo y escaleras más largas), el resto igual.
 `m30` (sin relleno): 2.010 partidas/s por semilla.
 
+**`m72` se quedó sin memoria (20/11, 23:15).** Con 7 jugadores, formatos y 4 semillas a la vez, una
+actualización necesita ~8,5 GiB de una sola vez (estimado con el análisis de memoria de XLA; `u72full`,
+en la escalera vieja, 5,4 GiB) y en la 4090 no entró. Agregué `--obs_bf16`: las observaciones del
+buffer se guardan en bfloat16 (las cuentas siguen en float32; los one-hot quedan exactos y las
+fracciones con ~3 cifras), y baja a 4,3 GiB. `m72` va de nuevo con `--obs_bf16`
+(`m72_jaxppo7p_formats_ent0.1_24M_bf16`, después de `m40`); las carpetas del intento fallido quedaron
+en `~/scratch/runs_failed/` de la -14 y sus torneos (que corrieron igual, con la red sin entrenar) no
+valen. `uni27` también va con `--obs_bf16`.
+
 Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
 formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
 tira cualquiera si no se tiene el palo, quién gana la baza); un formato nombrado; la observación; las
