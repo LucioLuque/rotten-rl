@@ -170,3 +170,14 @@ def test_format_network_plays_the_classic_ladder():
     net = ppo.init(jax.random.PRNGKey(0), ppo.Config(num_players=2, hidden=(16,), formats=True)).policy
     res = evaluate.match(("greedy", net), ("heuristic", None), 2, 4, 0)
     assert 0.0 <= res["overall"]["win_rate"] <= 1.0
+
+
+def test_obs_bf16_trains():
+    from rotten_rl.jax_engine import ppo
+    cfg = ppo.Config(num_players=3, hidden=(32, 32), rollout_games=8, minibatch=64, epochs=1,
+                     total_games=16, formats=True, obs_bf16=True)
+    ts = ppo.init(jax.random.PRNGKey(0), cfg)
+    envs = ppo.init_envs(jax.random.PRNGKey(9), cfg)
+    ts, stats, envs = ppo.make_update(cfg)(ts, None, None, None, envs)
+    assert all(np.isfinite(float(v)) for v in stats.values())
+    assert ts.policy[0][0].dtype == jnp.float32

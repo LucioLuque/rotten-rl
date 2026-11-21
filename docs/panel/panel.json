@@ -141,7 +141,7 @@
     },
     {
       "name": "m72 (formatos)",
-      "spec": "m72_jaxppo7p_formats_ent0.1_24M_s0_*@24000000"
+      "spec": "m72_jaxppo7p_formats_ent0.1_24M_bf16_s0_*@24000000"
     }
   ]
 }

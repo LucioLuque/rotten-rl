@@ -68,7 +68,7 @@ CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
                "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup",
-               "split_policy", "no_repeat_bid", "formats", "players_mix", "ent_by_players")
+               "split_policy", "no_repeat_bid", "formats", "players_mix", "ent_by_players", "obs_bf16")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
@@ -76,7 +76,8 @@ CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved befor
                    "round_var": [], "league": None, "league_size": 32, "league_groups": 8,
                    "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0,
                    "lr_warmup": 0, "split_policy": False, "no_repeat_bid": False,
-                   "formats": False, "players_mix": "", "ent_by_players": ""}
+                   "formats": False, "players_mix": "", "ent_by_players": "",
+                   "obs_bf16": False}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -255,6 +256,9 @@ def main():
     p.add_argument("--formats", action="store_true",
                    help="each match draws its format (ladder, rounds without trump, the no-repeat "
                         "rule; rotten_rl/jax_engine/formats.py); the evaluations draw them too")
+    p.add_argument("--obs_bf16", action="store_true",
+                   help="store the rollout's observations in bfloat16 (matmuls stay float32): about "
+                        "half the memory of an update")
     p.add_argument("--players_mix", default="",
                    help="one network for several numbers of players (stage E), e.g. 2,3,4,5,6,7 "
                         "(needs --formats): the updates take turns over them, each with its own "
@@ -383,7 +387,7 @@ def main():
                      rank_weight=a.rank_weight, round_var=tuple(a.round_var),
                      aux_coef=float(a.aux_hands), lr_warmup=int(a.lr_warmup),
                      split_policy=bool(a.split_policy), no_repeat_bid=bool(a.no_repeat_bid),
-                     formats=bool(a.formats))
+                     formats=bool(a.formats), obs_bf16=bool(a.obs_bf16))
     hp = {"learning_rate": np.array([m[1] for m in members], np.float32),
           "ent_coef": np.array([m[2] for m in members], np.float32),
           "match_bonus": np.array([m[3] for m in members], np.float32)} if multi else None

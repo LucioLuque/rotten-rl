@@ -138,6 +138,10 @@ class Config(NamedTuple):
     # format (jg.obs_size(True, True) inputs). Matches have different lengths: the rollout is as
     # long as the longest and the steps after the end are left out of the loss.
     formats: bool = False
+    # Store the rollout's observations in bfloat16 (--obs_bf16), with float32 matmuls: halves the
+    # biggest array of an update (7 players with formats and 4 seeds do not fit in 24 GB otherwise).
+    # The one-hots are exact; the fractions (cards left / h, scores / 228...) keep ~3 digits.
+    obs_bf16: bool = False
 
 
 AUX_SEATS = 6                       # other players, by relative position 1..6 (padded)
@@ -299,6 +303,8 @@ def _rollout(policy, value, key, cfg, opponent=None, groups=0, seats=1, envs=Non
                                                    cfg.formats))(states, player)
         if dt is not None:      # the first matmul would round it anyway; halves the stored batch
             obs = obs.astype(dt)
+        elif cfg.obs_bf16:      # stored in bf16 (the matmuls promote it back to float32)
+            obs = obs.astype(jnp.bfloat16)
         mask = jax.vmap(jg.legal_mask)(states)
         logits = jnp.where(mask, mlp(policy, obs, dt), ILLEGAL)
         action = jax.random.categorical(sub, logits).astype(jnp.int32)
