@@ -201,6 +201,25 @@ con este código hasta 6M (con la tasa de 24M): **aprende igual** (a 6M contra l
 iguales; la KL y los pasos recortados, apenas más bajos) y **va a 2.940 partidas/s por semilla contra
 2.542 (16 % más rápido)**. `m30` y `m72` usan este código.
 
+**`t_m30` y `t_m30_vieja` (20/11, 3 jugadores, 1000 repartos por cruce).** Con 3 jugadores, cada cruce
+"A contra B" es A en un asiento y B en los otros dos, así que "A contra B" y "B contra A" son partidas
+distintas; doy las dos.
+
+| | Diferencia por partida | Win rate (empate 33,3 %) | Cruces positivos |
+|---|---|---|---|
+| Formatos: `m30` contra `s30full` | **+3,31** | 37,5 % | 16/16 |
+| Formatos: `s30full` contra `m30` | −3,87 | 28,6 % | 0/16 |
+| Formatos: `m30` contra `d30` | +3,86 | 38,3 % | 16/16 |
+| Escalera vieja: `m30` contra `s30full` | −0,24 | 32,9 % | 1/16 |
+| Escalera vieja: `s30full` contra `m30` | +0,17 | 33,5 % | 13/16 |
+
+Contra la heurística con formatos: `m30` 67,5 % (+24,9), `s30full` 62,8 %, `d30` 62,6 %; en la escalera
+vieja, `m30` 62,2 % y `s30full` 62,1 %. Igual que con 2 jugadores: con formatos `m30` gana por más de 3
+puntos, y en la escalera vieja pierde ~0,2 contra el especialista (en el borde del ruido, casi todos los
+cruces para el mismo lado). Curvas: entropía más alta (0,27 contra 0,25), cantos exactos y varianza
+explicada un punto más bajos (otro juego: rondas sin triunfo y escaleras más largas), el resto igual.
+`m30` (sin relleno): 2.010 partidas/s por semilla.
+
 Tests (`tests/test_jax_formats.py`, junto con todos los de JAX: 72/72 en la -14): partidas al azar con
 formatos sorteados respetan las reglas (cartas por ronda, seguir el palo, en las rondas sin triunfo se
 tira cualquiera si no se tiene el palo, quién gana la baza); un formato nombrado; la observación; las
