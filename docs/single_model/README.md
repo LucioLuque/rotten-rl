@@ -46,3 +46,17 @@ siguiente.
 Contra la heurística con formatos, `m40` 58,8 % y `f40` 50,7 %; en la escalera vieja, 52,7 y 52,5 %. Con
 4 jugadores aprender los formatos no cuesta nada en la escalera vieja (empate). Curvas: entropía más alta
 (0,24 contra 0,22) y cantos exactos y varianza explicada un punto más bajos, como con 2 y 3.
+
+**`m50` (21/11, 5 jugadores, 1.219 partidas/s por semilla):**
+
+| | Diferencia por partida | Win rate (empate 20 %) | Cruces positivos |
+|---|---|---|---|
+| Formatos: `m50` contra `f50` | **+4,02** | 25,4 % | 16/16 |
+| Formatos: `f50` contra `m50` | −4,52 | 15,1 % | 0/16 |
+| Escalera vieja: `m50` contra `f50` | −0,10 | 19,8 % | 5/16 |
+| Escalera vieja: `f50` contra `m50` | +0,07 | 20,3 % | 11/16 |
+
+Contra la heurística con formatos, `m50` 54,2 % y `f50` 43,6 %; en la escalera vieja, 49,9 y 49,8 %.
+Panel de 5 (con formatos): `m50` +2,78 de promedio sin la heurística (+4,66 contra `f50@6M`, +3,84 contra
+`f50`), `f50` −1,44. Curvas como las de los otros: entropía más alta (0,26 contra 0,24), cantos exactos
+y varianza explicada un poco más bajos.
