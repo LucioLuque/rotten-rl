@@ -42,3 +42,25 @@ semillas: 21 s.
 | `s20full` | +35,13 | +0,67 | +0,05 | −0,17 | −0,29 | +0,10 | −2,99 | −0,44 |
 
 (`m20` contra sí mismo da +0,32 y no 0 porque cada semilla juega contra la semilla 0 del panel.)
+
+## Especialistas con formatos (21/11, formatos sorteados)
+
+3 jugadores (empate 33,3 %; diferencia por partida, win rate):
+
+| Agente | heurística | s30@12M | s30full | l30m | e30z | d30 | m30 | Promedio (sin heurística) |
+|---|---|---|---|---|---|---|---|---|
+| `m30` | +23,89 (66,6 %) | +2,38 | +3,20 | +2,57 | +3,87 | +3,19 | +0,31 | **+2,59** |
+| `s30full` | +20,01 (61,4 %) | −0,78 | +0,19 | −0,53 | +0,42 | −0,27 | −3,53 | −0,75 |
+| `d30` | +20,33 (61,4 %) | −0,89 | −0,03 | −0,52 | +0,29 | −0,40 | −3,80 | −0,89 |
+
+4 jugadores (empate 25 %):
+
+| Agente | heurística | f40@6M | f40 | m40 | Promedio (sin heurística) |
+|---|---|---|---|---|---|
+| `m40` | +21,61 (58,3 %) | +4,68 | +3,20 | +0,09 | **+2,66** |
+| `f40` | +17,13 (50,9 %) | +1,00 | −0,06 | −3,84 | −0,97 |
+
+Con formatos, el especialista de formatos le gana a todo el panel por 2 a 4 puntos, incluido el
+explotador de `s30` (+3,87): no tiene un agujero que ese explotador encuentre. Su peor rival es él mismo
+(la semilla 0). Los agentes de la escalera vieja quedan alrededor de 0 entre ellos y pierden ~3,5 contra
+el de formatos. 7 jugadores, cuando termine `m72`; 5 y 6, con `m50` y `m60`.
