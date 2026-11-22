@@ -60,3 +60,25 @@ Contra la heurística con formatos, `m50` 54,2 % y `f50` 43,6 %; en la escalera 
 Panel de 5 (con formatos): `m50` +2,78 de promedio sin la heurística (+4,66 contra `f50@6M`, +3,84 contra
 `f50`), `f50` −1,44. Curvas como las de los otros: entropía más alta (0,26 contra 0,24), cantos exactos
 y varianza explicada un poco más bajos.
+
+**`m60` (21/11, 6 jugadores, 1.023 partidas/s por semilla):**
+
+| | Diferencia por partida | Win rate (empate 16,7 %) | Cruces positivos |
+|---|---|---|---|
+| Formatos: `m60` contra `f60` | **+5,04** | 23,5 % | 16/16 |
+| Formatos: `f60` contra `m60` | −5,87 | 11,4 % | 0/16 |
+| Escalera vieja: `m60` contra `f60` | −0,11 | 16,5 % | 1/16 |
+| Escalera vieja: `f60` contra `m60` | +0,09 | 16,9 % | 12/16 |
+
+Contra la heurística con formatos, `m60` 49,9 % y `f60` 36,2 %; en la escalera vieja, 42,8 y 42,5 %.
+Panel de 6: `m60` +3,19 de promedio sin la heurística, `f60` −2,12. Curvas como las de los otros.
+
+**Resumen de los especialistas con formatos** (contra el agente de la escalera vieja de la misma
+cantidad de jugadores; con formatos / en la escalera vieja): 2: +3,34 / −0,34; 3: +3,31 / −0,24; 4:
++3,62 / −0,02; 5: +4,02 / −0,10; 6: +5,04 / −0,11; 7: +4,82 / −0,08. Con más jugadores, más ganancia con
+formatos y casi ningún costo en la escalera vieja.
+
+### `uni27`
+
+Arrancó el 21/11 a las 22:54: 1.421 partidas/s por semilla (promedio de las seis mesas), así que 144M
+tardan ~28 h (termina el lunes 23/11 ~03:00, antes del corte de las 06:55).

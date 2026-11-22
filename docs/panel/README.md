@@ -75,4 +75,7 @@ el de formatos.
 
 Igual que con 3 y 4: `m72` le gana a todo el panel, incluido el explotador de `u72` (+3,20). Con
 formatos, el explotador (`e70z`) y la versión de 12M le ganan a `u72full` por más de 2 puntos: en
-partidas con formatos, el agente viejo es fácil de aprovechar. 5 y 6, con `m50` y `m60`.
+partidas con formatos, el agente viejo es fácil de aprovechar.
+
+5 y 6 jugadores (21/11), promedio sin la heurística: `m50` +2,78 (`f50` −1,44); `m60` +3,19 (`f60` −2,12).
+El especialista con formatos le gana a todo el panel en las seis mesas.
