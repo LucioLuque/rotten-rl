@@ -36,3 +36,12 @@ p_uni4 --script scripts/eval/panel.py --players 4 --formats --agents ~/scratch/r
 p_uni5 --script scripts/eval/panel.py --players 5 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m50_* --out ~/scratch/panel_uni5.md
 p_uni6 --script scripts/eval/panel.py --players 6 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m60_* --out ~/scratch/panel_uni6.md
 p_uni7 --script scripts/eval/panel.py --players 7 --formats --agents ~/scratch/runs/uni27_*,~/scratch/runs/m72_* --out ~/scratch/panel_uni7.md
+# Etapa E: la misma red unica con 24M en total (4M por cantidad de jugadores), para ver cuanto pierde con
+# la sexta parte de las partidas. Agregado el 22/11 despues de uni27.
+uni27s_jaxppo2to7p_formats_24M --players_mix 2,3,4,5,6,7 --formats --ent_coef 0.06 --ent_by_players 5:0.08,6:0.1,7:0.1 --obs_bf16 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_unis2 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/m20_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis2.md
+t_unis3 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/m30_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis3.md
+t_unis4 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/m40_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis4.md
+t_unis5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis5.md
+t_unis6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis6.md
+t_unis7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27s_* --out ~/scratch/torneo_unis7.md

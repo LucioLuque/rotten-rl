@@ -82,3 +82,7 @@ formatos y casi ningún costo en la escalera vieja.
 
 Arrancó el 21/11 a las 22:54: 1.421 partidas/s por semilla (promedio de las seis mesas), así que 144M
 tardan ~28 h (termina el lunes 23/11 ~03:00, antes del corte de las 06:55).
+
+Después, `uni27s` (decidido el 22/11): la misma red con 24M en total (4M por cantidad de jugadores, la
+sexta parte), para ver cuánto pierde con menos partidas; torneos con formatos contra el especialista y
+`uni27` en cada mesa. Unas 5 h: lo que corte el cierre del lunes a las 06:55 se retoma a las 08:05.
