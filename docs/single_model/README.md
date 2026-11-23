@@ -119,6 +119,21 @@ misma cantidad de pasos de gradiente (más actualizaciones de 2 y 3 jugadores); 
 (1024); (c) una cabeza de salida por cantidad de jugadores. Mientras tanto, la conclusión: una sola red
 sirve para 4 a 7 jugadores; para 2 y 3, todavía no.
 
+**`uni27s` (23/11, la misma red con 24M en total, 4M por mesa; torneos con formatos):**
+
+| Jugadores | `uni27s` contra el especialista | `uni27s` contra `uni27` (144M) | (`uni27` contra el especialista) |
+|---|---|---|---|
+| 2 | −5,25 (0/16) | −1,16 (0/16) | −4,24 |
+| 3 | −1,33 (0/16) | −0,46 (0/16) | −1,07 |
+| 4 | −0,54 (0/16) | −0,22 (1/16) | −0,34 |
+| 5 | −0,21 (0/16) | −0,17 (3/16) | −0,01 |
+| 6 | −0,19 (0/16) | −0,13 (3/16) | −0,08 |
+| 7 | −0,36 (0/16) | −0,09 (4/16) | −0,30 |
+
+Con la sexta parte de las partidas, la red única pierde poco contra la de 144M (0,1 a 0,5 con 3 a 7
+jugadores; 1,2 con 2). La diferencia con el especialista en 2 y 3 jugadores no es por falta de
+partidas: está casi igual con 24M que con 144M.
+
 Probando (a) el 23/11: `--mix_balance steps` (la próxima actualización va a la mesa con menos decisiones
 entrenadas hasta ahora, así cada una tiene los mismos pasos de gradiente; las mesas chicas juegan más
 partidas: de 24M, ~31 % de 2 jugadores y ~9 % de 7). `uni27b`, 24M en total, contra `uni27s` (24M con
