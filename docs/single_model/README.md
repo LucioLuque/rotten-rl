@@ -139,3 +139,23 @@ entrenadas hasta ahora, así cada una tiene los mismos pasos de gradiente; las m
 partidas: de 24M, ~31 % de 2 jugadores y ~9 % de 7). `uni27b`, 24M en total, contra `uni27s` (24M con
 turnos iguales), `uni27` y los especialistas. El 23/11 es feriado: el lab está abierto todo el día
 (salvo el reinicio de las 07:00 a 08:00, que dejo como corte por las dudas).
+
+**`uni27b` (23/11, pasos de gradiente parejos, 24M; torneos con formatos):**
+
+| Jugadores | `uni27b` contra el especialista | contra `uni27s` (24M, turnos iguales) | contra `uni27` (144M) |
+|---|---|---|---|
+| 2 | −3,19 (0/16) | **+2,20** (16/16) | **+1,02** (16/16) |
+| 3 | −0,88 (0/16) | +0,23 (14/16) | −0,11 (6/16) |
+| 4 | −0,61 (0/16) | −0,13 (4/16) | −0,23 (2/16) |
+| 5 | −0,39 (0/16) | −0,15 (0/16) | −0,32 (2/16) |
+| 6 | −0,41 (0/16) | −0,26 (0/16) | −0,41 (0/16) |
+| 7 | −0,73 (0/16) | −0,40 (0/16) | −0,45 (3/16) |
+
+Repartir los pasos de gradiente ayuda mucho con 2 jugadores (+2,2 contra `uni27s`, y con 24M le gana
+a `uni27` de 144M) y un poco con 3, y cuesta 0,1 a 0,4 con 4 a 7 (que ahora reciben menos partidas). Pero
+con 2 jugadores sigue 3,2 abajo del especialista: el reparto explica una parte, no todo. Lo que queda es,
+probablemente, que la red no alcanza para jugar bien todas las mesas a la vez (el juego de 2 es muy
+distinto) o que lo que aprende en una pisa a la otra.
+
+Siguiente (23/11, mientras el lab está libre): `uni27h`, lo mismo que `uni27b` con una red de 1024
+(dos capas de 1024 en vez de 512), para ver si es capacidad.
