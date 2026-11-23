@@ -86,3 +86,35 @@ tardan ~28 h (termina el lunes 23/11 ~03:00, antes del corte de las 06:55).
 Después, `uni27s` (decidido el 22/11): la misma red con 24M en total (4M por cantidad de jugadores, la
 sexta parte), para ver cuánto pierde con menos partidas; torneos con formatos contra el especialista y
 `uni27` en cada mesa. Unas 5 h: lo que corte el cierre del lunes a las 06:55 se retoma a las 08:05.
+
+**Resultado de `uni27` (23/11, 02:42; torneos de 1000 repartos por cruce, "uni27 contra X" = `uni27`
+en un asiento y X en los demás):**
+
+| Jugadores | Con formatos, contra el especialista `m` | Escalera vieja, contra el especialista `m` | Escalera vieja, contra el del juego normal | Panel (promedio sin heurística): `uni27` / `m` |
+|---|---|---|---|---|
+| 2 | **−4,24** (0/16) | **−3,69** (0/16) | **−4,03** contra `s20full` (0/16) | −1,07 / +2,66 |
+| 3 | **−1,07** (0/16) | −1,17 (0/16) | −1,09 contra `s30full` (0/16) | +1,71 / +2,59 |
+| 4 | −0,34 (0/16) | −0,21 (0/16) | −0,21 contra `f40` (1/16) | +2,35 / +2,66 |
+| 5 | −0,01 (9/16) | −0,00 (8/16) | −0,13 contra `f50` (4/16) | +2,75 / +2,78 |
+| 6 | −0,08 (4/16) | −0,10 (3/16) | −0,19 contra `f60` (1/16) | +3,04 / +3,19 |
+| 7 | −0,30 (0/16) | −0,24 (2/16) | −0,27 contra `u72full` (0/16) | +3,30 / +3,51 |
+
+Contra el agente del juego normal con formatos, `uni27` gana por lo mismo que el especialista (+2,5 a
++4,8 con 3 a 7 jugadores); con 2, apenas −0,47 contra `s20full`.
+
+**Con 5 y 6 jugadores la red única empata con el especialista; con 4 y 7 pierde ~0,3 (en el límite que
+pusimos); con 3 pierde ~1 y con 2, ~4 por partida.** Contra la heurística casi no se ve (con 2, 84,2 %
+contra 86,3 % de `m20`; con 3 a 7, lo mismo que el especialista): lo que pierde es contra un rival que
+juega bien. En las curvas contra la heurística, `uni27` aprende más rápido al principio (lo que aprende
+en una mesa le sirve en las otras) pero con 2 jugadores se estanca abajo del especialista desde ~5M.
+
+Por qué con 2 y 3, probablemente: cada actualización hace tantos pasos de gradiente como decisiones
+tiene (512 partidas por actualización, pero una partida de 2 jugadores tiene ~145 decisiones y una de 7,
+~507). En cada vuelta de las seis mesas, 2 jugadores es ~6 % de los pasos de gradiente y 7 jugadores
+~22 %: la red se ajusta mucho más a las mesas grandes, y lo que aprende ahí le pisa lo de 2 jugadores,
+que es el juego más distinto (el segundo en cantar está casi obligado, todo es duelo). Sin medir.
+
+Qué probaría para arreglarlo (no lanzado): (a) repartir las actualizaciones para que cada mesa tenga la
+misma cantidad de pasos de gradiente (más actualizaciones de 2 y 3 jugadores); (b) una red más grande
+(1024); (c) una cabeza de salida por cantidad de jugadores. Mientras tanto, la conclusión: una sola red
+sirve para 4 a 7 jugadores; para 2 y 3, todavía no.
