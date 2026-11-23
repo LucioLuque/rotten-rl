@@ -68,7 +68,8 @@ CONFIG_KEYS = ("players", "games", "rollout_games", "hidden", "learning_rate", "
                "minibatch", "reward_scheme", "dtype", "seed", "episode", "match_bonus",
                "rank_weight", "round_var", "league", "league_size", "league_groups",
                "league_add_every", "league_self", "league_seats", "aux_hands", "lr_warmup",
-               "split_policy", "no_repeat_bid", "formats", "players_mix", "ent_by_players", "obs_bf16")
+               "split_policy", "no_repeat_bid", "formats", "players_mix", "ent_by_players", "obs_bf16",
+               "mix_balance")
 # may differ between the members of a process
 MEMBER_KEYS = ("seed", "learning_rate", "ent_coef", "match_bonus")
 CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved before the key existed
@@ -77,7 +78,7 @@ CONFIG_DEFAULTS = {"dtype": "float32", "ent_coef": 0.01,  # for runs saved befor
                    "league_add_every": 0, "league_self": False, "league_seats": 1, "aux_hands": 0.0,
                    "lr_warmup": 0, "split_policy": False, "no_repeat_bid": False,
                    "formats": False, "players_mix": "", "ent_by_players": "",
-                   "obs_bf16": False}
+                   "obs_bf16": False, "mix_balance": "games"}
 EVAL_OPPONENTS = ("random", "heuristic", "past")
 
 
@@ -264,6 +265,12 @@ def main():
                         "(needs --formats): the updates take turns over them, each with its own "
                         "matches; --players is ignored; evaluated against the heuristic and the "
                         "past policy with each number of players (eval_heuristic<n>p, eval_past<n>p)")
+    p.add_argument("--mix_balance", default="games", choices=["games", "steps"],
+                   help="with --players_mix: games = the numbers of players take turns (the same "
+                        "matches each, but a 7-player match has ~3.5 times the decisions, so the "
+                        "gradient steps of a 2-player match are ~6%% of a round); steps = the next "
+                        "update goes to the number of players with the fewest decisions so far, so "
+                        "each gets the same gradient steps (more matches of the small tables)")
     p.add_argument("--ent_by_players", default="",
                    help="with --players_mix: entropy bonus by number of players, e.g. 5:0.08,6:0.1,"
                         "7:0.1 (the others take --ent_coef)")
@@ -596,6 +603,7 @@ def main():
     if mix:                                  # one update function and set of matches per n
         updates = {n: ppo.make_update(cfg._replace(num_players=n), multi_seed=multi) for n in mix}
         envs_of = {n: make_envs(cfg._replace(num_players=n)) for n in mix}
+        steps_of = {n: 0 for n in mix}       # decisions per rollout so far (--mix_balance steps)
 
         def hp_of(n):
             ent = ent_by.get(n)
@@ -618,7 +626,11 @@ def main():
         elif opp_of:
             ts, stats = update(ts, hp, opponents)
         elif mix:
-            n_now = mix[(games // a.rollout_games) % len(mix)]
+            if a.mix_balance == "steps":       # the table with the fewest decisions trained on so far
+                n_now = min(mix, key=lambda k: (steps_of[k], k))
+                steps_of[n_now] += ppo.rollout_length(n_now, True)
+            else:
+                n_now = mix[(games // a.rollout_games) % len(mix)]
             ts, stats, envs_of[n_now] = updates[n_now](ts, hp_of(n_now), None, None, envs_of[n_now])
         elif envs is not None:
             ts, stats, envs = update(ts, hp, None, None, envs)
