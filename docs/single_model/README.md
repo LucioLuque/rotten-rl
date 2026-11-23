@@ -118,3 +118,9 @@ Qué probaría para arreglarlo (no lanzado): (a) repartir las actualizaciones pa
 misma cantidad de pasos de gradiente (más actualizaciones de 2 y 3 jugadores); (b) una red más grande
 (1024); (c) una cabeza de salida por cantidad de jugadores. Mientras tanto, la conclusión: una sola red
 sirve para 4 a 7 jugadores; para 2 y 3, todavía no.
+
+Probando (a) el 23/11: `--mix_balance steps` (la próxima actualización va a la mesa con menos decisiones
+entrenadas hasta ahora, así cada una tiene los mismos pasos de gradiente; las mesas chicas juegan más
+partidas: de 24M, ~31 % de 2 jugadores y ~9 % de 7). `uni27b`, 24M en total, contra `uni27s` (24M con
+turnos iguales), `uni27` y los especialistas. El 23/11 es feriado: el lab está abierto todo el día
+(salvo el reinicio de las 07:00 a 08:00, que dejo como corte por las dudas).
