@@ -6,7 +6,7 @@ Reads a run_queue file and, from the line named by --from on, prints the lines s
   - training runs that never started: the line as it is;
   - training runs cut before their --games (the last row of some seed's train.csv is below it):
     "<name>_resume --resume <runs>/<name>_* --games N --eval_every E", which continues them exactly;
-  - training runs every seed of which reached --games: left out;
+  - training runs every seed of which reached --games (or --stop_games, if given): left out;
   - --resume lines: kept as they are while some run they resume is below their --games;
   - --script lines (tournaments): left out if the queue log says they ended with code 0, kept
     otherwise.
@@ -79,7 +79,8 @@ def main():
             print(raw)
             continue
         target = int(flag(args, "--games"))
-        if min(last_episode(d) for d in dirs) < target:
+        stop = int(flag(args, "--stop_games", 0))      # a run meant to stop early is done there
+        if min(last_episode(d) for d in dirs) < (min(target, stop) if stop else target):
             print(f"{name}_resume --resume {a.runs}/{name}_* --games {target} "
                   f"--eval_every {flag(args, '--eval_every', '1000000')}")
 
