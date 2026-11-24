@@ -62,3 +62,11 @@ t_unih4 --script scripts/jax_engine/tournament.py --players 4 --formats --agents
 t_unih5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/uni27b_*,~/scratch/runs/uni27h_* --out ~/scratch/torneo_unih5.md
 t_unih6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/uni27b_*,~/scratch/runs/uni27h_* --out ~/scratch/torneo_unih6.md
 t_unih7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27b_*,~/scratch/runs/uni27h_* --out ~/scratch/torneo_unih7.md
+# Etapa E: uni27b con 144M (pasos parejos). Agregado el 23/11 a la noche.
+uni27bl_jaxppo2to7p_formats_balsteps_144M --players_mix 2,3,4,5,6,7 --mix_balance steps --formats --ent_coef 0.06 --ent_by_players 5:0.08,6:0.1,7:0.1 --obs_bf16 --rollout_games 512 --minibatch 1024 --epochs 2 --games 144000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_unibl2 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/m20_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl2.md
+t_unibl3 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/m30_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl3.md
+t_unibl4 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/m40_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl4.md
+t_unibl5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl5.md
+t_unibl6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl6.md
+t_unibl7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl7.md

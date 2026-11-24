@@ -159,3 +159,13 @@ distinto) o que lo que aprende en una pisa a la otra.
 
 Siguiente (23/11, mientras el lab está libre): `uni27h`, lo mismo que `uni27b` con una red de 1024
 (dos capas de 1024 en vez de 512), para ver si es capacidad.
+
+**`uni27h` (23/11, como `uni27b` con red de 1024, 767 partidas/s por semilla):** contra el especialista
+−3,44 (2 jugadores), −0,94 (3), −0,58 (4), −0,48 (5), −0,57 (6), −0,71 (7), todos 0/16; contra `uni27b`
+entre −0,20 y +0,03 (empate). **La red más grande no ayuda**: con las mismas partidas no es falta de
+capacidad.
+
+Lo que queda: con pasos parejos, `uni27b` vio ~7,5M partidas de 2 jugadores y `m20` 24M. Siguiente
+(23/11, de noche, el lab libre): `uni27bl`, `uni27b` con 144M (~45M partidas de 2 jugadores, ~13M de 7),
+para ver si con más partidas de cada mesa el reparto parejo alcanza al especialista. ~24 h: se corta a
+las 06:55 y sigue en las ventanas siguientes.
