@@ -70,3 +70,11 @@ t_unibl4 --script scripts/jax_engine/tournament.py --players 4 --formats --agent
 t_unibl5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl5.md
 t_unibl6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl6.md
 t_unibl7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibl7.md
+# Etapa E: uni27bl extendido a 288M. Agregado el 25/11.
+uni27bl_ext --resume ~/scratch/runs/uni27bl_jaxppo2to7p_formats_balsteps_144M_* --games 288000000 --eval_every 1000000
+t_unibx2 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/m20_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx2.md
+t_unibx3 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/m30_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx3.md
+t_unibx4 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/m40_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx4.md
+t_unibx5 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx5.md
+t_unibx6 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx6.md
+t_unibx7 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/uni27bl_* --out ~/scratch/torneo_unibx7.md

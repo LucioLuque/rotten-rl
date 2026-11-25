@@ -169,3 +169,20 @@ Lo que queda: con pasos parejos, `uni27b` vio ~7,5M partidas de 2 jugadores y `m
 (23/11, de noche, el lab libre): `uni27bl`, `uni27b` con 144M (~45M partidas de 2 jugadores, ~13M de 7),
 para ver si con más partidas de cada mesa el reparto parejo alcanza al especialista. ~24 h: se corta a
 las 06:55 y sigue en las ventanas siguientes.
+
+**`uni27bl` (25/11, pasos parejos, 144M: ~45M partidas de 2 jugadores, ~13M de 7):**
+
+| Jugadores | `uni27bl` contra el especialista | contra `uni27` (144M, turnos iguales) |
+|---|---|---|
+| 2 | −1,78 (0/16) | **+2,41** (16/16) |
+| 3 | −0,65 (0/16) | +0,30 (13/16) |
+| 4 | −0,26 (0/16) | +0,08 (12/16) |
+| 5 | −0,20 (1/16) | −0,08 (5/16) |
+| 6 | −0,27 (0/16) | −0,24 (0/16) |
+| 7 | −0,58 (0/16) | −0,27 (3/16) |
+
+Con más partidas por mesa, el reparto parejo achica mucho la diferencia con 2 jugadores (de −4,24 con
+`uni27` a −1,78) y con 3 (de −1,07 a −0,65); con 4 a 6 queda dentro de 0,3; con 7 (que ahora ve ~13M
+partidas, la mitad que el especialista) pierde 0,58. La tendencia: cuantas más partidas por mesa, más
+cerca del especialista. Siguiente (25/11, de noche): seguir `uni27bl` hasta 288M (`--resume --games
+288000000`, `docs/resume/`), ~24 h.
