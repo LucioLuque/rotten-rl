@@ -4,3 +4,12 @@ w20_jaxppo2p_formats_h256_24M --players 2 --formats --hidden 256,256 --ent_coef 
 t_w20 --script scripts/jax_engine/tournament.py --players 2 --formats --agents heuristic,~/scratch/runs/m20_*,~/scratch/runs/w20_* --out ~/scratch/torneo_w20.md
 w72_jaxppo7p_formats_h256_24M --players 7 --formats --obs_bf16 --hidden 256,256 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
 t_w72 --script scripts/jax_engine/tournament.py --players 7 --formats --agents heuristic,~/scratch/runs/m72_*,~/scratch/runs/w72_* --out ~/scratch/torneo_w72.md
+# Etapa F: los especialistas de 3 a 6 con red de 256. Agregado el 26/11.
+w30_jaxppo3p_formats_h256_24M --players 3 --formats --hidden 256,256 --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_w30 --script scripts/jax_engine/tournament.py --players 3 --formats --agents heuristic,~/scratch/runs/m30_*,~/scratch/runs/w30_* --out ~/scratch/torneo_w30.md
+w40_jaxppo4p_formats_h256_24M --players 4 --formats --hidden 256,256 --ent_coef 0.06 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_w40 --script scripts/jax_engine/tournament.py --players 4 --formats --agents heuristic,~/scratch/runs/m40_*,~/scratch/runs/w40_* --out ~/scratch/torneo_w40.md
+w50_jaxppo5p_formats_h256_24M --players 5 --formats --hidden 256,256 --ent_coef 0.08 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_w50 --script scripts/jax_engine/tournament.py --players 5 --formats --agents heuristic,~/scratch/runs/m50_*,~/scratch/runs/w50_* --out ~/scratch/torneo_w50.md
+w60_jaxppo6p_formats_h256_24M --players 6 --formats --hidden 256,256 --ent_coef 0.1 --rollout_games 512 --minibatch 1024 --epochs 2 --games 24000000 --seeds 0,1,2,3 --eval_every 1000000 --checkpoint_every 250000
+t_w60 --script scripts/jax_engine/tournament.py --players 6 --formats --agents heuristic,~/scratch/runs/m60_*,~/scratch/runs/w60_* --out ~/scratch/torneo_w60.md
