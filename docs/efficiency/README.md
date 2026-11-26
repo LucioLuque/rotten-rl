@@ -12,4 +12,9 @@ formatos. Vale si pierde menos de 0,3 por partida. Cola `queue42` en la -14. Si 
 
 ## Resultados
 
-Pendiente.
+**`w20` (26/11, 2 jugadores, red de 256): empata con `m20` y entrena 1,65 veces más rápido.** Torneo con
+formatos (1000 repartos por cruce): `w20` contra `m20` **+0,13 por partida, 49,8 %, 11/16 cruces**
+(empate, dentro del ruido); contra la heurística 86,5 % (`m20` 86,2 %). Curvas iguales (win rate,
+cantos exactos, entropía, varianza explicada); la KL y los pasos recortados, más bajos (con menos
+parámetros, cada actualización cambia menos la política). Velocidad: 4.850 partidas/s por semilla contra
+2.940 de la red de 512 con el mismo código (`m20c`; `m20` va a 2.542 porque se entrenó con relleno).
