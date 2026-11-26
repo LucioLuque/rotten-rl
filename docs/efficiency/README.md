@@ -18,3 +18,9 @@ formatos (1000 repartos por cruce): `w20` contra `m20` **+0,13 por partida, 49,8
 cantos exactos, entropía, varianza explicada); la KL y los pasos recortados, más bajos (con menos
 parámetros, cada actualización cambia menos la política). Velocidad: 4.850 partidas/s por semilla contra
 2.940 de la red de 512 con el mismo código (`m20c`; `m20` va a 2.542 porque se entrenó con relleno).
+
+Repetido con 5000 repartos por cruce (otra semilla de repartos, 26/11): `w20` contra `m20` **+0,13 por
+partida** (error estándar ~0,05, aproximado: los 16 cruces comparten repartos), 50,3 %, 11/16;
+contra la heurística 86,1 % y 85,9 %. La diferencia se mantiene y es más grande que el error, pero es
+chica (menos de la mitad del umbral de 0,3 que usamos para "gana"): la red de 256 es igual o apenas
+mejor con 2 jugadores, no peor.
