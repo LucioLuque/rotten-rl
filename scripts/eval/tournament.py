@@ -48,7 +48,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import rotten_rl.openspiel_game  # noqa: E402,F401  registra el juego "podrida"
 from rotten_rl.algorithms.dqn import greedy_batch, mlp  # noqa: E402
 from rotten_rl.evaluation import evaluate, heuristic_opponent, random_opponent  # noqa: E402
-from rotten_rl.openspiel_game import info_state_tensor  # noqa: E402
+from rotten_rl.openspiel_game import agent_tensor, info_state_tensor  # noqa: E402
 from rotten_rl.profiles.rules import PROFILES  # noqa: E402
 from rotten_rl.profiles.spots import LearnedProfile, load_answers  # noqa: E402
 from rotten_rl.tournament_report import mirror, policy_file, report  # noqa: E402
@@ -67,26 +67,27 @@ def _network_agent(spec, game, device, rng):
         config = json.load(f)
     if config.get("algo") not in ("dqn", "ppo"):
         raise ValueError(f"{run_dir}: solo politicas de una red (dqn, ppo)")
-    if config["players"] != game.num_players():
+    if config["players"] != game.num_players() and game.num_players() not in config.get("players_mix", []):
         raise ValueError(f"{run_dir} es de {config['players']} jugadores, no {game.num_players()}")
     num_actions = game.num_distinct_actions()
-    net = mlp(game.information_state_tensor_size(),
-              [int(x) for x in config["hidden_layers_sizes"]], num_actions)
-    net.load_state_dict(torch.load(path, map_location="cpu"))
+    weights = torch.load(path, map_location="cpu")
+    obs_size = int(next(iter(weights.values())).shape[1])     # 808, or 934/1079 with the variants
+    net = mlp(obs_size, [int(x) for x in config["hidden_layers_sizes"]], num_actions)
+    net.load_state_dict(weights)
     net.to(device).eval()
     # Cada red juega con la observacion con la que se entreno.
     infer_trump_void = config.get("infer_trump_void", False)
 
     if not sample:
         def batch(states, legals):
-            return greedy_batch(net, states, legals, num_actions, device, infer_trump_void)
+            return greedy_batch(net, states, legals, num_actions, device, infer_trump_void, obs_size)
     else:
         name += ":sample"
         gen = torch.Generator(device=device)
         gen.manual_seed(int(rng.randint(2 ** 31)))
 
         def batch(states, legals):
-            infos = np.stack([info_state_tensor(s, s.current_player(), infer_trump_void)
+            infos = np.stack([agent_tensor(s, s.current_player(), obs_size, infer_trump_void)
                               for s in states])
             mask = np.zeros((len(states), num_actions), dtype=bool)
             for i, legal in enumerate(legals):

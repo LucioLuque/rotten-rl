@@ -148,6 +148,7 @@ class PodridaGame:
         self.phase: str = "not_started"  # not_started | bidding | playing | done
         self.trump_card: Optional[Card] = None
         self.trump_suit: Optional[str] = None
+        self.banned_bids: Dict[int, int] = {}   # player index -> bid it may not repeat this round
         self.current_trick: List[Tuple[int, Card]] = []
         self.completed_tricks: List[List[Tuple[int, Card]]] = []
         self.trick_number = 0
@@ -356,6 +357,13 @@ class PodridaGame:
             forbidden_bid = self.cards_per_player - total_so_far
             if forbidden_bid in legal:
                 legal.remove(forbidden_bid)
+
+        # Variant "no bidding the same 3 rounds in a row" (docs/rule_variants/): the bid this player
+        # may not repeat, set by whoever runs the match; the last-bidder rule wins (if it is the
+        # only bid left, it stays).
+        banned = self.banned_bids.get(idx)
+        if banned in legal and len(legal) > 1:
+            legal.remove(banned)
 
         return legal
 

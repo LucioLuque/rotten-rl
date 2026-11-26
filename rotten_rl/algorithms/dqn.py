@@ -40,7 +40,7 @@ from open_spiel.python import rl_agent
 from open_spiel.python.pytorch import dqn as os_dqn
 
 from ..buffers import CompactReplayBuffer, pack_rows, unpack_rows
-from ..openspiel_game import info_state_tensor
+from ..openspiel_game import agent_tensor, info_state_tensor
 from .base import ActFn, Algorithm
 
 _ILLEGAL = -1e9
@@ -61,11 +61,17 @@ def _greedy(q_values: torch.Tensor, legal) -> int:
 
 
 def greedy_batch(net, states, legals, num_actions: int, device,
-                 infer_trump_void=None) -> np.ndarray:
+                 infer_trump_void=None, obs_size=None) -> np.ndarray:
     """La accion legal de mayor salida de `net` en cada estado, en una sola
-    pasada (para evaluar muchas partidas a la vez, ver evaluation.evaluate)."""
-    infos = np.stack([info_state_tensor(s, s.current_player(), infer_trump_void)
-                      for s in states])
+    pasada (para evaluar muchas partidas a la vez, ver evaluation.evaluate).
+    `obs_size`: las entradas de la red (808 por defecto; 934 o 1079 para las
+    entrenadas con las variantes, openspiel_game.agent_tensor)."""
+    if obs_size:
+        infos = np.stack([agent_tensor(s, s.current_player(), obs_size, infer_trump_void)
+                          for s in states])
+    else:
+        infos = np.stack([info_state_tensor(s, s.current_player(), infer_trump_void)
+                          for s in states])
     mask = np.zeros((len(states), num_actions), dtype=bool)
     for i, legal in enumerate(legals):
         mask[i, legal] = True

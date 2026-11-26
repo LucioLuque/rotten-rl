@@ -83,6 +83,10 @@ _GAME_TYPE = pyspiel.GameType(
         "reward_scheme": "raw",     # "raw" -> score/24 ; "relative" -> (score - mean_opp)/24
         "max_hand": MAX_HAND_SIZE,
         "infer_trump_void": False,  # marcar sin triunfo a quien no siguio y tampoco fallo
+        # Formato de partida (docs/rule_variants/): la escalera, con * en las rondas sin triunfo
+        # ("1,2,3,4,5,6,7,7*,6,5,4,3,2,1"); vacio = la escalera de build_round_ladder, con triunfo.
+        "format": "",
+        "no_repeat_bid": False,     # nadie canta lo mismo 3 rondas seguidas
     },
 )
 
@@ -114,6 +118,15 @@ _INFO_PIECES = [
     ("players_left", _MAX_PLAYERS),              # one-hot: cuantos faltan tras este agente
 ]
 _INFO_SIZE = sum(size for _, size in _INFO_PIECES)   # == 808
+# Extended observation of the networks trained with the variants (the JAX one,
+# rotten_rl/jax_engine/game.py observation(..., bid_history=True, format_info=True)): after the 808,
+# each relative seat's bids of the previous two rounds (one-hot none,0..7), then the format (for the
+# current round and the next ones, up to 16: one-hot hand size 0..7 + 1 if without trump) and the
+# no-repeat flag.
+FORMAT_MAX_ROUNDS = 16
+_HISTORY_SIZE = _MAX_PLAYERS * 2 * 9
+_FORMAT_SIZE = FORMAT_MAX_ROUNDS * 9 + 1
+EXT_INFO_SIZE = _INFO_SIZE + _HISTORY_SIZE + _FORMAT_SIZE
 assert _INFO_SIZE == 808, f"El layout suma {_INFO_SIZE}, deberia ser 808"
 
 
@@ -153,8 +166,19 @@ class PodridaGame_OS(pyspiel.Game):
         self._reward_scheme = str(params.get("reward_scheme", "raw"))
         self._max_hand = int(params.get("max_hand", MAX_HAND_SIZE))
         self._infer_trump_void = bool(params.get("infer_trump_void", False))
-
-        self._ladder = build_round_ladder(self._num_players, self._max_hand)
+        self._no_repeat_bid = bool(params.get("no_repeat_bid", False))
+        fmt = str(params.get("format", "")).strip()
+        self._format = fmt
+        if fmt:
+            rounds = [x.strip() for x in fmt.split(",") if x.strip()]
+            self._ladder = [int(x.rstrip("*")) for x in rounds]
+            self._no_trump = [x.endswith("*") for x in rounds]
+            if len(self._ladder) > FORMAT_MAX_ROUNDS or not all(
+                    1 <= h <= self._max_hand and self._num_players * h + 1 <= 52 for h in self._ladder):
+                raise ValueError(f"formato invalido: {fmt}")
+        else:
+            self._ladder = build_round_ladder(self._num_players, self._max_hand)
+            self._no_trump = [False] * len(self._ladder)
 
         # Cotas de utilidad (return de toda la partida) para reward "raw":
         #   por ronda, reward in [0, (10+2h)/24]; el minimo realista es 0.
@@ -226,8 +250,13 @@ class PodridaState_OS(pyspiel.State):
         self._last_closed_bid = [0] * self._n
         self._last_closed_tricks = [0] * self._n
 
-        # cota teorica de puntaje de toda la partida (para normalizar 'scores')
-        self._score_ceiling = float(sum(10 + 2 * h for h in self._ladder)) or 1.0
+        # cota teorica de puntaje de toda la partida (para normalizar 'scores'); con un formato,
+        # la de la escalera clasica (228), como el motor JAX
+        self._score_ceiling = (228.0 if game._format else
+                               float(sum(10 + 2 * h for h in self._ladder)) or 1.0)
+        self._no_trump = game._no_trump
+        self._no_repeat_bid = game._no_repeat_bid
+        self._prev_bids = [[-1, -1] for _ in range(self._n)]   # canto de la ronda anterior y de la otra
 
         # Historial de la ronda que usa el observer, al dia jugada a jugada (asi
         # no recorre todas las bazas en cada decision): quien jugo cada carta,
@@ -251,7 +280,8 @@ class PodridaState_OS(pyspiel.State):
         slots: List[int] = []
         for p in range(self._n):
             slots.extend([p] * hand_size)
-        slots.append(-1)                    # -1 marca la carta de triunfo
+        if not self._no_trump[self._round_ptr]:
+            slots.append(-1)                # -1 marca la carta de triunfo (no hay sin triunfo)
         self._deal_slots = slots
         self._deal_i = 0
         self._dealt_hands: List[List[Card]] = [[] for _ in range(self._n)]
@@ -276,8 +306,11 @@ class PodridaState_OS(pyspiel.State):
             hand.sort(key=lambda c: (SUITS.index(c.suit), RANKS.index(c.rank)))
             eng.players[p].hand = hand
         eng.trump_card = self._pending_trump
-        eng.trump_suit = self._pending_trump.suit
-        eng.discard_pile.append(self._pending_trump)
+        eng.trump_suit = None if self._pending_trump is None else self._pending_trump.suit
+        if self._pending_trump is not None:
+            eng.discard_pile.append(self._pending_trump)
+        eng.banned_bids = ({j: b0 for j, (b0, b1) in enumerate(self._prev_bids) if b0 >= 0 and b0 == b1}
+                           if self._no_repeat_bid else {})
         eng.first_player_index = (eng.dealer_index + 1) % self._n
         eng.current_player_index = eng.first_player_index
         eng.phase = "bidding"
@@ -346,6 +379,8 @@ class PodridaState_OS(pyspiel.State):
 
         if eng.phase == "done":
             self._last_closed_bid = [p.bid or 0 for p in eng.players]
+            self._prev_bids = [[p.bid if p.bid is not None else -1, pb[0]]
+                               for p, pb in zip(eng.players, self._prev_bids)]
             self._last_closed_tricks = [p.tricks_won for p in eng.players]
             self._score_round_reward()
             # el motor ya rota el dealer al cerrar la ronda (dentro de play_card)
@@ -470,8 +505,8 @@ class PodridaObserver_OS:
             ones.append(_OFF["hand_size"] + h - 1)
 
         # 2) round_index (one-hot en la escalera)
-        if 0 <= state._round_ptr < 13:
-            ones.append(_OFF["round_index"] + state._round_ptr)
+        if 0 <= state._round_ptr:            # con mas de 13 rondas, el ultimo lugar (lo dice el formato)
+            ones.append(_OFF["round_index"] + min(state._round_ptr, 12))
 
         # 4) phase, 5) trump (4 palos + sin triunfo), 6) lead_suit (palo de
         # salida de la baza en curso), 8) dealer_relative
@@ -572,6 +607,38 @@ class PodridaObserver_OS:
 # ----------------------------------------------------------------------
 
 _FAST_OBSERVER: Optional[PodridaObserver_OS] = None
+
+
+def ext_info_state_tensor(state: PodridaState_OS, player: int, infer_trump_void=None) -> np.ndarray:
+    """The extended observation (EXT_INFO_SIZE): the 808, the bid history and the format (see
+    EXT_INFO_SIZE). Zeros outside the engine phase, like the 808."""
+    t = np.zeros(EXT_INFO_SIZE, np.float32)
+    if state._macro != "engine":
+        return t
+    t[:_INFO_SIZE] = info_state_tensor(state, player, infer_trump_void)
+    n = state._n
+    rel = _REL[n][player]
+    for j in range(n):
+        for k in range(2):
+            t[_INFO_SIZE + (rel[j] * 2 + k) * 9 + state._prev_bids[j][k] + 1] = 1.0
+    base = _INFO_SIZE + _HISTORY_SIZE
+    ladder, nt = state._ladder, state._no_trump
+    for k in range(FORMAT_MAX_ROUNDS):
+        r = state._round_ptr + k
+        h = ladder[r] if r < len(ladder) else 0
+        t[base + k * 9 + h] = 1.0
+        if h > 0 and nt[r]:
+            t[base + k * 9 + 8] = 1.0
+    t[base + FORMAT_MAX_ROUNDS * 9] = float(state._no_repeat_bid)
+    return t
+
+
+def agent_tensor(state: PodridaState_OS, player: int, size: int, infer_trump_void=None) -> np.ndarray:
+    """What a network with `size` inputs sees: the 808, or the first `size` values of the extended
+    observation (934: + bid history, for --no_repeat_bid; 1079: + format, for --formats)."""
+    if size == _INFO_SIZE:
+        return info_state_tensor(state, player, infer_trump_void)
+    return ext_info_state_tensor(state, player, infer_trump_void)[:size]
 
 
 def info_state_tensor(state: PodridaState_OS, player: int, infer_trump_void=None) -> np.ndarray:
