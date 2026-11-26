@@ -22,5 +22,6 @@
 | Variantes de reglas y formatos de partida (etapa D) | `rule_variants/` |
 | Panel fijo de rivales (etapa A) | `panel/` |
 | Un solo modelo de 2 a 7 jugadores (etapa E) | `single_model/` |
+| Eficiencia: red más chica (etapa F) | `efficiency/` |
 | 4, 5 y 6 jugadores (etapa C) | `players_456/` |
 | Bugs de OpenSpiel que encontramos y qué contribuir | `tecnico/openspiel-upstream.md` |

@@ -81,6 +81,10 @@ queda dentro de 0,3 del especialista con 4 a 6 jugadores, a ~0,4 con 3 y 7, y a 
 más partidas). Decidido: una red por cantidad de jugadores (los especialistas con formatos `m20` …
 `m72`), elegida al elegir con cuántos se juega (`docs/single_model/`).
 
+**F. Eficiencia**: empieza el 26/11 con `w20` y `w72` (red de 256 con formatos) contra `m20` y `m72`
+(`docs/efficiency/`). En paralelo, sin el lab: los formatos en pyspiel y `play.py` eligiendo la red según
+la cantidad de jugadores.
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
