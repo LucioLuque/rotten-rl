@@ -195,3 +195,11 @@ nada** (−1,78 a 144M, −1,80 a 288M): ahí no es falta de partidas.
 
 Resumen de la E hasta acá: una sola red con pasos parejos queda dentro de 0,3 del especialista con 4, 5
 y 6 jugadores, a ~0,4 con 3 y 7, y a 1,8 con 2.
+
+## Decisión (26/11)
+
+**La E se cierra sin modelo único.** Como una sola red no llega al especialista en todas las mesas (con
+2 jugadores queda 1,8 abajo y no mejora con más partidas), se usa **una red por cantidad de jugadores**:
+al elegir con cuántos se juega, se elige la red. Las de referencia son los especialistas con formatos
+`m20`, `m30`, `m40`, `m50`, `m60` y `m72` (`docs/rule_variants/`, arriba). Los modelos únicos
+(`uni27`, `uni27bl`, etc.) quedan como experimento.

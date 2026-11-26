@@ -76,6 +76,11 @@ queda para más adelante (decidido el 20/11: todavía no hace falta).
 formatos, 24M por cantidad de jugadores) va en la cola de la -14 después de `m72`, y después `m40`,
 `m50`, `m60` (especialistas de 4 a 6 con formatos) para compararlo.
 
+**E terminada el 26/11 sin modelo único**: la red única con pasos de gradiente parejos (`uni27bl`, 288M)
+queda dentro de 0,3 del especialista con 4 a 6 jugadores, a ~0,4 con 3 y 7, y a 1,8 con 2 (no mejora con
+más partidas). Decidido: una red por cantidad de jugadores (los especialistas con formatos `m20` …
+`m72`), elegida al elegir con cuántos se juega (`docs/single_model/`).
+
 ## Plan desde el 9/11/2026: de ganar rondas a ganar partidas
 
 Con la receta nueva de PPO en JAX, 2, 3 y 7 jugadores se acercan a la meseta con el reward por
