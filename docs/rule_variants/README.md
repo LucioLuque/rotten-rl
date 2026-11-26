@@ -166,7 +166,19 @@ Entrenamiento (`train_ppo --formats`): las partidas tienen largos distintos, as�
 hasta el largo de la más larga (16 rondas) y los pasos después del final quedan fuera de la pérdida.
 Las evaluaciones durante el entrenamiento también sortean el formato. Los torneos en JAX:
 `tournament.py --formats` (los agentes viejos juegan cualquier formato con la observación que conocen).
-Todavía no está en pyspiel (`play.py`, torneos en CPU).
+**En pyspiel (26/11):** el juego `podrida` acepta `format` (la escalera, con `*` en las rondas sin
+triunfo, p. ej. `"1,2,3,4,5,6,7,7*,6,5,4,3,2,1,7,7*"`) y `no_repeat_bid`; en una ronda sin triunfo no se
+reparte carta de triunfo. `ext_info_state_tensor` arma la observación extendida (1.079) y los agentes de
+red (torneos en CPU, `play.py`) usan la que corresponde a su cantidad de entradas
+(`openspiel_game.agent_tensor`). `tests/test_formats_pyspiel.py`: con tres formatos, con y sin la regla,
+2, 3 y 7 jugadores, el juego de pyspiel da lo mismo que el motor JAX jugada por jugada (jugador, jugadas
+legales, observación extendida de todos, recompensas); pasa en la -14.
+
+**`play.py` (26/11):** `--players N` carga por defecto el agente de esa cantidad de jugadores
+(`data/agents/<N>p`, la semilla 0 de `m20` … `m72`, copiados con `scripts/agents/export_agents.py`);
+`--format` elige la escalera (`clasica`, `comun` (por defecto, 1..7,7..1), `doble` (1..7,7\*,6..1,7,7\*),
+`bajada` (1..7,7\*,6\*..1\*) o una propia) y `--no_repeat_bid` la regla. En las rondas sin triunfo el
+mensaje lo dice.
 
 ### Resultados con formatos
 

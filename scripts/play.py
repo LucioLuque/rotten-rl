@@ -12,7 +12,9 @@ Install:
     pip install -e ".[play]"   # from the repo root
 
 Run:
-    python scripts/play.py                                      # practice against the heuristic
+    python scripts/play.py --players 4                          # against the agent of 4 players
+    python scripts/play.py --players 3 --format doble --no_repeat_bid    # a format and the rule
+    python scripts/play.py --rival heuristic                    # practice against the heuristic
     python scripts/play.py --profile lucio --spots 150          # chosen plays, one at a time
     python scripts/play.py --profile lucio                      # whole matches, saving decisions
     python scripts/play.py --profile lucio --rival lucio        # against the learned profile
@@ -58,6 +60,15 @@ PLAYER_NAMES = ["Vos", "Ana", "Beto", "Caro", "Dani", "Eze", "Fito"]
 BOT_DELAY = 0.65       # seconds between bot plays
 TRICK_PAUSE = 1.3      # seconds the full trick stays visible
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "profiles")
+AGENTS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "agents")   # export_agents.py
+
+# Match formats (docs/rule_variants/): name -> ladder, * = round without trump.
+FORMATS = {
+    "clasica": "1,2,3,4,5,6,7,6,5,4,3,2,1",
+    "comun": "1,2,3,4,5,6,7,7,6,5,4,3,2,1",
+    "doble": "1,2,3,4,5,6,7,7*,6,5,4,3,2,1,7,7*",
+    "bajada": "1,2,3,4,5,6,7,7*,6*,5*,4*,3*,2*,1*",
+}
 
 
 # ----------------------------------------------------------------------
@@ -86,9 +97,14 @@ class PodridaApp:
             height=int(dh * 0.88),
             resizable=True,
         )
-        self.pyspiel_game = pyspiel.load_game("podrida", {"players": args.players})
+        fmt = FORMATS.get(args.format, args.format)
+        self.pyspiel_game = pyspiel.load_game("podrida", {"players": args.players, "format": fmt,
+                                                          "no_repeat_bid": args.no_repeat_bid})
         rng = np.random.RandomState()
-        self.rival_name, self.rival = make_agent(args.rival, self.pyspiel_game, "cpu", rng)
+        rival = args.rival or os.path.join(AGENTS_DIR, f"{args.players}p")   # the agent of this n
+        self.rival_name, self.rival = make_agent(rival, self.pyspiel_game, "cpu", rng)
+        if args.rival is None:
+            self.rival_name = f"agente de {args.players}"
         self.helper = heuristic_opponent(rng)
         self.deal_seed = args.deal_seed
         self.saving = args.profile is not None
@@ -127,7 +143,8 @@ class PodridaApp:
         self.round_recorded = False
         self.freeze_until = 0.0
         self.next_bot_time = time.time() + BOT_DELAY
-        self.message = f"Ronda 1: {self.game.cards_per_player} cartas. A cantar."
+        no_trump = " sin triunfo" if self.game.trump_suit is None else ""
+        self.message = f"Ronda 1: {self.game.cards_per_player} cartas{no_trump}. A cantar."
 
     def show_spot(self) -> None:
         """Shows the current spot. No rival: answering goes straight to the next one."""
@@ -314,7 +331,9 @@ class PodridaApp:
         self.round_recorded = False
         self.freeze_until = 0.0
         self.next_bot_time = time.time() + BOT_DELAY
-        self.message = f"Ronda {len(self.history) + 1}: {self.game.cards_per_player} cartas. A cantar."
+        no_trump = " sin triunfo" if self.game.trump_suit is None else ""
+        self.message = (f"Ronda {len(self.history) + 1}: {self.game.cards_per_player} cartas{no_trump}. "
+                        "A cantar.")
 
     def step_bots(self) -> None:
         match = self.match
@@ -379,8 +398,14 @@ class PodridaApp:
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Play La Podrida against a rival.")
     p.add_argument("--players", type=int, default=2)
-    p.add_argument("--rival", default="heuristic",
-                   help="heuristic, random, a profile or a run (<run> or <run>@<ep>)")
+    p.add_argument("--rival", default=None,
+                   help="heuristic, random, a profile or a run (<run> or <run>@<ep>); by default the "
+                        "agent of that number of players (data/agents/<n>p)")
+    p.add_argument("--format", default="comun",
+                   help="ladder: " + ", ".join(f"{k} ({v})" for k, v in FORMATS.items())
+                        + ", or your own, e.g. 1,2,3,7*,3,2,1 (* = without trump)")
+    p.add_argument("--no_repeat_bid", action="store_true",
+                   help="nobody may bid the same amount 3 rounds in a row")
     p.add_argument("--profile", default=None, help="save your decisions for this profile")
     p.add_argument("--deal_seed", type=int, default=0, help="series of deals to use")
     p.add_argument("--spots", type=int, default=0,
