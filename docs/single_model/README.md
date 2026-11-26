@@ -186,3 +186,12 @@ Con más partidas por mesa, el reparto parejo achica mucho la diferencia con 2 j
 partidas, la mitad que el especialista) pierde 0,58. La tendencia: cuantas más partidas por mesa, más
 cerca del especialista. Siguiente (25/11, de noche): seguir `uni27bl` hasta 288M (`--resume --games
 288000000`, `docs/resume/`), ~24 h.
+
+**`uni27bl` a 288M (26/11; retomado con `--resume --games 288000000`; la -14 estuvo en mantenimiento el
+25/11 de 09:00 a ~13:20 y se perdieron ~25 min):** contra el especialista, con formatos: 2 jugadores
+**−1,80** (0/16), 3 **−0,44** (0/16), 4 −0,22 (3/16), 5 −0,08 (6/16), 6 −0,23 (0/16), 7 **−0,41** (0/16).
+Duplicar las partidas mejora 3 y 7 (de −0,65 y −0,58) y un poco 4 a 6; **con 2 jugadores no cambia
+nada** (−1,78 a 144M, −1,80 a 288M): ahí no es falta de partidas.
+
+Resumen de la E hasta acá: una sola red con pasos parejos queda dentro de 0,3 del especialista con 4, 5
+y 6 jugadores, a ~0,4 con 3 y 7, y a 1,8 con 2.
